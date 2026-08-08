@@ -1,7 +1,6 @@
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
 
 // GET: Fetch all created Test Batches with participants & accounts
 export async function GET() {

@@ -1,8 +1,7 @@
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
 
 // GET: Fetch all Client companies (role = 'client')
 export async function GET() {

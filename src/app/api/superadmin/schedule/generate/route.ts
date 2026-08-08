@@ -1,10 +1,9 @@
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { authOptions } from '@/lib/authOptions';
 
-const prisma = new PrismaClient();
 
 // Generate unique readable random password per participant (alphanumeric, 6 chars)
 function generateRandomPassword(length = 6) {
