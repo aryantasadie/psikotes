@@ -51,7 +51,7 @@ async function main() {
           testId: 1,
           testType: 'TIKI 3',
           content: q.content,
-          options: JSON.stringify(q.options.map(opt => opt.replace(/^[A-D]\)\s*/, ''))), // clean up A) 
+          options: JSON.stringify(q.options.map((opt: string) => opt.replace(/^[A-D]\)\s*/, ''))), // clean up A) 
         }
       });
     }
