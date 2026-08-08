@@ -1,0 +1,53 @@
+import { NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/authOptions';
+
+const prisma = new PrismaClient();
+
+export async function GET(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    let whereClause: any = {};
+
+    if (session?.user) {
+      const userRole = (session.user as any).role;
+      const assignedTestIdsStr = (session.user as any).assignedTestIds;
+
+      // If tester/admin has specific assigned Batch IDs, restrict results to those batches
+      if ((userRole === 'admin' || userRole === 'admin_tester' || userRole === 'psikolog') && assignedTestIdsStr) {
+        try {
+          const testIds: number[] = JSON.parse(assignedTestIdsStr);
+          if (Array.isArray(testIds) && testIds.length > 0) {
+            whereClause.testId = { in: testIds };
+          }
+        } catch (e) {
+          console.error('Failed to parse assignedTestIds:', e);
+        }
+      }
+    }
+
+    const participants = await prisma.testParticipant.findMany({
+      where: whereClause,
+      include: {
+        user: true,
+        test: {
+          include: { jobPosition: true }
+        },
+        rawResults: true,
+        answers: {
+          include: {
+            question: true
+          }
+        }
+      },
+      orderBy: {
+        startTime: 'desc'
+      }
+    });
+
+    return NextResponse.json(participants);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

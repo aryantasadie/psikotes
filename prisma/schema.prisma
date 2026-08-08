@@ -1,0 +1,172 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+
+model User {
+  id              Int      @id @default(autoincrement())
+  name            String
+  username        String   @unique
+  email           String?
+  phone           String?
+  license         String?  // Lisensi SIPP / Spesialisasi / Catatan
+  password        String
+  role            String   // "superadmin", "psikolog", "admin", "client", "user"
+  status          String   @default("active") // "active", "inactive"
+  assignedTestIds String?  // JSON string array of assigned Test/Batch IDs e.g. "[1, 2]"
+  createdAt       DateTime @default(now())
+
+  participants TestParticipant[]
+  psychographReviews TestResultPsychograph[]
+  clientTests Test[] @relation("ClientTests")
+}
+
+model JobPosition {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  psychographPresetId Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  tests       Test[]
+  grayAreas   PsychographGrayArea[]
+  psychographResults TestResultPsychograph[]
+  testParticipants   TestParticipant[]
+  psychographPreset  PsychographPreset? @relation(fields: [psychographPresetId], references: [id])
+}
+
+model PsychographGrayArea {
+  id             Int      @id @default(autoincrement())
+  jobPositionId  Int
+  parameter      String
+  targetScore    Int
+
+  jobPosition    JobPosition @relation(fields: [jobPositionId], references: [id])
+}
+
+model Test {
+  id               Int      @id @default(autoincrement())
+  title            String
+  jobPositionId    Int?
+  specification    String?
+  aspect           String?
+  sequence         String?  // JSON array of test types (e.g. ["CFIT 1", "WPT"])
+  startDate        DateTime?
+  endDate          DateTime?
+  clientId         Int?
+  psychographPresetId Int?
+
+  jobPosition      JobPosition? @relation(fields: [jobPositionId], references: [id])
+  psychographPreset PsychographPreset? @relation(fields: [psychographPresetId], references: [id])
+  client           User?        @relation("ClientTests", fields: [clientId], references: [id])
+  participants     TestParticipant[]
+  questions        Question[]
+}
+
+model TestParticipant {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  testId        Int
+  jobPositionId Int?
+  status        String   @default("pending") // "pending", "in_progress", "completed"
+  plainPassword String?  // Password awal saat akun digenerate
+  startTime     DateTime?
+  endTime       DateTime?
+
+  user       User     @relation(fields: [userId], references: [id])
+  test       Test     @relation(fields: [testId], references: [id])
+  jobPosition JobPosition? @relation(fields: [jobPositionId], references: [id])
+  answers    Answer[]
+  logs       SecurityLog[]
+  rawResults TestResultRaw[]
+  normResults TestResultNormalized[]
+  psychoResults TestResultPsychograph?
+}
+
+model Question {
+  id       Int      @id @default(autoincrement())
+  testId   Int
+  testType String   // "WPT", "TIKI", "IST", "DISC", "PAPI_KOSTICK", "MSDT"
+  content  String
+  options  String   // Disimpan sebagai stringified JSON
+  correct  String?  // Kunci jawaban
+
+  test     Test     @relation(fields: [testId], references: [id])
+  answers  Answer[]
+}
+
+model Answer {
+  id             Int      @id @default(autoincrement())
+  participantId  Int
+  questionId     Int
+  selectedOption String
+  answeredAt     DateTime @default(now())
+
+  participant    TestParticipant @relation(fields: [participantId], references: [id])
+  question       Question        @relation(fields: [questionId], references: [id])
+}
+
+model SecurityLog {
+  id             Int      @id @default(autoincrement())
+  participantId  Int
+  logType        String   // "camera", "screen", "blur_fullscreen", "idle"
+  mediaUrl       String
+  createdAt      DateTime @default(now())
+
+  participant    TestParticipant @relation(fields: [participantId], references: [id])
+}
+
+model TestResultRaw {
+  id             Int      @id @default(autoincrement())
+  participantId  Int
+  testType       String
+  rawData        String   // Disimpan sebagai stringified JSON
+
+  participant    TestParticipant @relation(fields: [participantId], references: [id])
+}
+
+model TestResultNormalized {
+  id             Int      @id @default(autoincrement())
+  participantId  Int
+  parameter      String
+  score          Float
+
+  participant    TestParticipant @relation(fields: [participantId], references: [id])
+}
+
+model TestResultPsychograph {
+  id             Int      @id @default(autoincrement())
+  participantId  Int      @unique
+  jobPositionId  Int
+  recommendation String
+  tindakLanjut   String?
+  
+  // Psikolog Review Fields
+  status         String   @default("DRAFT") // DRAFT, REVIEWED, RELEASED
+  dinamika       String?  // JSON string: { intelegensi, kepribadian, sikapKerja, kepemimpinan, kesimpulan }
+  kelebihan      String?  // Text area
+  kelemahan      String?  // Text area
+  modifiedScores String?  // JSON string: { "Logika Berpikir": 4, ... }
+  reviewerId     Int?     // User ID of the Psikolog
+
+  participant    TestParticipant @relation(fields: [participantId], references: [id])
+  jobPosition    JobPosition     @relation(fields: [jobPositionId], references: [id])
+  reviewer       User?           @relation(fields: [reviewerId], references: [id])
+}
+
+model PsychographPreset {
+  id          Int      @id @default(autoincrement())
+  name        String
+  mapping     String   // Disimpan sebagai stringified JSON
+  createdAt   DateTime @default(now())
+
+  jobPositions JobPosition[]
+  tests        Test[]
+}
