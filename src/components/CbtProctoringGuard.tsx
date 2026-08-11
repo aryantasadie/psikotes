@@ -2,8 +2,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
-import html2canvas from 'html2canvas';
-
 interface CbtProctoringGuardProps {
   children: React.ReactNode;
 }
@@ -254,7 +252,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   const getScreenBase64 = async (): Promise<string | null> => {
     try {
-      // 1. Priority 1: Real MediaStream Video Frame (if desktop screen share is active)
+      // 1. Priority 1: Real MediaStream Video Frame (desktop screen share active)
       if (screenVideoRef.current && screenVideoRef.current.readyState >= 2) {
         const video = screenVideoRef.current;
         const canvas = document.createElement('canvas');
@@ -267,179 +265,193 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         }
       }
 
-      // 2. Priority 2: Real Visual DOM Pixel Screenshot via html2canvas (Captures 100% exact pixels of candidate's screen!)
-      const container = containerRef.current || document.body;
-      if (typeof window !== 'undefined' && container) {
-        try {
-          const domCanvas = await html2canvas(container, {
-            scale: 0.65,
-            useCORS: true,
-            logging: false,
-            allowTaint: true,
-            backgroundColor: '#EDEFF4',
-            width: Math.min(container.clientWidth || window.innerWidth || 800, 1280),
-            height: Math.min(container.clientHeight || window.innerHeight || 800, 900)
-          });
-          return domCanvas.toDataURL('image/jpeg', 0.7);
-        } catch (domErr) {
-          console.warn('html2canvas screenshot fallback:', domErr);
-        }
-      }
-
-      // 3. Priority 3: Fallback DOM Canvas Renderer
-      const width = 800;
-      const height = 520;
-
+      // 2. Mobile Fallback: Activity info canvas (browser API does not support getDisplayMedia on mobile)
+      const width = 760;
+      const height = 480;
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
 
-      // App Light Background (#EDEFF4)
-      ctx.fillStyle = '#EDEFF4';
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const dateStr = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const pageTitle = document.title?.replace(' | HR Publik', '').replace(' - HR Publik', '').trim() || 'CBT Assessment';
+      const testeeName = sessionStorage.getItem('testee_name') || localStorage.getItem('testee_name') || 'Peserta';
+      const urlPath = window.location.pathname;
+
+      // Determine module from URL
+      let moduleLabel = 'Halaman Ujian';
+      if (urlPath.includes('/tes/')) moduleLabel = 'Mengerjakan Soal CBT';
+      else if (urlPath.includes('/session')) moduleLabel = 'Sesi Ujian Aktif';
+      else if (urlPath.includes('/testee')) moduleLabel = 'Area Peserta';
+
+      // Extract question progress from DOM
+      let questionInfo = '';
+      const progressEl = document.querySelector('[data-question], .question-progress, .soal-progress');
+      if (progressEl) questionInfo = progressEl.textContent?.trim() || '';
+      if (!questionInfo) {
+        const h2s = document.querySelectorAll('h2, h3');
+        h2s.forEach(el => {
+          const t = el.textContent?.trim() || '';
+          if (t.includes('Soal') || t.includes('/') || t.match(/\d+\s*\/\s*\d+/)) {
+            questionInfo = t;
+          }
+        });
+      }
+
+      // === Background gradient ===
+      const grad = ctx.createLinearGradient(0, 0, 0, height);
+      grad.addColorStop(0, '#0F172A');
+      grad.addColorStop(1, '#1E293B');
+      ctx.fillStyle = grad;
       ctx.fillRect(0, 0, width, height);
 
-      // Top Bar (#0F172A)
-      ctx.fillStyle = '#0F172A';
-      ctx.fillRect(0, 0, width, 40);
+      // === Top bar ===
+      ctx.fillStyle = '#1E40AF';
+      ctx.fillRect(0, 0, width, 52);
 
-      ctx.fillStyle = '#38BDF8';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.fillText('📱 CBT MOBILE SCREEN MONITOR', 16, 25);
-
-      ctx.fillStyle = '#10B981';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillText('🔴 LIVE RECORDING', width - 130, 25);
-
-      // Main Card (#FFFFFF)
-      const cardX = 20;
-      const cardY = 52;
-      const cardW = width - 40;
-      const cardH = height - 68;
-
+      // HR Publik logo text
       ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(cardX, cardY, cardW, cardH, 16);
-      else ctx.rect(cardX, cardY, cardW, cardH);
+      ctx.font = 'bold 15px sans-serif';
+      ctx.fillText('HR Publik', 20, 22);
+      ctx.fillStyle = '#93C5FD';
+      ctx.font = '11px sans-serif';
+      ctx.fillText('Assessment Engine — CBT Mobile Monitor', 20, 40);
+
+      // Live badge (top right)
+      ctx.fillStyle = '#EF4444';
+      if (ctx.roundRect) ctx.roundRect(width - 106, 14, 86, 26, 6);
+      else ctx.rect(width - 106, 14, 86, 26);
       ctx.fill();
-      ctx.strokeStyle = '#CBD5E1';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('● LIVE REC', width - 98, 31);
+
+      // === Main card background ===
+      ctx.fillStyle = '#1E293B';
+      if (ctx.roundRect) ctx.roundRect(20, 68, width - 40, height - 88, 12);
+      else ctx.rect(20, 68, width - 40, height - 88);
+      ctx.fill();
+      ctx.strokeStyle = '#334155';
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      // Extract DOM Elements with innerText/value fallback
-      let pageTitle = document.title || 'HR Publik - Assessment Engine';
-      let mainTitle = 'Halaman Ujian Psikotes';
-      let questionCounter = '';
-      let paragraphTexts: string[] = [];
-      let optionButtons: string[] = [];
-      const testeeName = sessionStorage.getItem('testee_name') || 'Peserta Ujian';
+      // === Active module badge ===
+      ctx.fillStyle = '#0EA5E9';
+      if (ctx.roundRect) ctx.roundRect(36, 84, 130, 24, 5);
+      else ctx.rect(36, 84, 130, 24);
+      ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText('AKTIF MENGERJAKAN', 44, 100);
 
-      if (container) {
-        // Headings
-        const headings = container.querySelectorAll('h1, h2, h3, h4');
-        headings.forEach(h => {
-          const t = (h.textContent || (h as any).innerText || '').trim();
-          if (t && t.length > 2) {
-            if (t.toLowerCase().includes('soal ') || t.toLowerCase().includes(' / ')) {
-              questionCounter = t;
-            } else if (!mainTitle || mainTitle === 'Halaman Ujian Psikotes') {
-              mainTitle = t;
-            }
-          }
-        });
-
-        // Paragraphs & List Items
-        const pNodes = container.querySelectorAll('p, li, .question-text, .instruction-text');
-        pNodes.forEach(p => {
-          const t = (p.textContent || (p as any).innerText || '').trim();
-          if (t && t.length > 3 && t !== mainTitle && paragraphTexts.length < 4) {
-            paragraphTexts.push(t);
-          }
-        });
-
-        // Options & Action Buttons (Filter out empty strings!)
-        const btnNodes = container.querySelectorAll('button, label, input[type="radio"]');
-        btnNodes.forEach(b => {
-          const t = (b.textContent || (b as any).innerText || (b as any).value || '').trim();
-          if (t && t.length > 0 && t !== mainTitle && !paragraphTexts.includes(t) && optionButtons.length < 6) {
-            optionButtons.push(t);
-          }
-        });
-      }
-
-      // Draw Module Badge
+      // === Page/Module title ===
       ctx.fillStyle = '#F1F5F9';
-      if (ctx.roundRect) ctx.roundRect(cardX + 20, cardY + 16, cardW - 40, 28, 6);
-      else ctx.rect(cardX + 20, cardY + 16, cardW - 40, 28);
-      ctx.fill();
-
-      ctx.fillStyle = '#475569';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillText(`Modul: ${pageTitle}`, cardX + 30, cardY + 34);
-
-      if (questionCounter) {
-        ctx.fillStyle = '#2563EB';
-        ctx.font = 'bold 11px sans-serif';
-        ctx.fillText(questionCounter, cardX + cardW - 160, cardY + 34);
-      }
-
-      // Draw Main Title
-      ctx.fillStyle = '#0F172A';
       ctx.font = 'bold 18px sans-serif';
-      let startY = cardY + 70;
-      startY = drawWrappedText(ctx, mainTitle, cardX + 20, startY, cardW - 40, 24);
-
-      // Draw Paragraphs
-      ctx.fillStyle = '#334155';
-      ctx.font = '13px sans-serif';
-      paragraphTexts.forEach(pText => {
-        if (startY < cardY + cardH - 120) {
-          startY = drawWrappedText(ctx, pText, cardX + 20, startY + 4, cardW - 40, 18);
-        }
-      });
-
-      // Draw Options / Action Buttons as neat rounded cards
-      if (optionButtons.length > 0 && startY < cardY + cardH - 100) {
-        startY += 8;
-        optionButtons.forEach(opt => {
-          if (startY < cardY + cardH - 60) {
-            const isActionButton = opt.toLowerCase().includes('mulai') || opt.toLowerCase().includes('lanjut') || opt.toLowerCase().includes('simpan');
-            ctx.fillStyle = isActionButton ? '#10B981' : '#F8FAFC';
-            if (ctx.roundRect) ctx.roundRect(cardX + 20, startY, cardW - 40, 34, 8);
-            else ctx.rect(cardX + 20, startY, cardW - 40, 34);
-            ctx.fill();
-
-            ctx.strokeStyle = isActionButton ? '#059669' : '#E2E8F0';
-            ctx.stroke();
-
-            ctx.fillStyle = isActionButton ? '#FFFFFF' : '#1E293B';
-            ctx.font = isActionButton ? 'bold 13px sans-serif' : '12px sans-serif';
-            ctx.fillText(opt.substring(0, 80), cardX + 32, startY + 22);
-
-            startY += 40;
-          }
-        });
-      }
-
-      // Footer Candidate Badge
-      const footerY = cardY + cardH - 38;
-      ctx.fillStyle = '#ECFDF5';
-      if (ctx.roundRect) ctx.roundRect(cardX + 20, footerY, 240, 26, 6);
-      else ctx.rect(cardX + 20, footerY, 240, 26);
-      ctx.fill();
-      ctx.strokeStyle = '#A7F3D0';
-      ctx.stroke();
-
-      ctx.fillStyle = '#047857';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillText(`👤 ${testeeName} (#${participantId || 'Live'})`, cardX + 28, footerY + 17);
+      ctx.fillText(moduleLabel, 36, 136);
 
       ctx.fillStyle = '#94A3B8';
-      ctx.font = '10px monospace';
-      ctx.fillText(`CBT Capture: ${new Date().toLocaleString('id-ID')}`, cardX + cardW - 210, footerY + 17);
+      ctx.font = '12px sans-serif';
+      ctx.fillText(pageTitle, 36, 158);
 
-      return canvas.toDataURL('image/jpeg', 0.8);
+      // === Divider ===
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(36, 172);
+      ctx.lineTo(width - 36, 172);
+      ctx.stroke();
+
+      // === Question progress row ===
+      const infoY = 196;
+      // Box 1: Progress soal
+      ctx.fillStyle = '#0F172A';
+      if (ctx.roundRect) ctx.roundRect(36, infoY, 200, 72, 8);
+      else ctx.rect(36, infoY, 200, 72);
+      ctx.fill();
+      ctx.strokeStyle = '#1E40AF';
+      ctx.stroke();
+      ctx.fillStyle = '#60A5FA';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText('PROGRESS SOAL', 52, infoY + 18);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillText(questionInfo || 'Sedang Aktif', 52, infoY + 40);
+      ctx.fillStyle = '#475569';
+      ctx.font = '10px sans-serif';
+      ctx.fillText('soal diakses', 52, infoY + 58);
+
+      // Box 2: Waktu rekam
+      ctx.fillStyle = '#0F172A';
+      if (ctx.roundRect) ctx.roundRect(252, infoY, 200, 72, 8);
+      else ctx.rect(252, infoY, 200, 72);
+      ctx.fill();
+      ctx.strokeStyle = '#065F46';
+      ctx.stroke();
+      ctx.fillStyle = '#34D399';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText('WAKTU CAPTURE', 268, infoY + 18);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillText(timeStr, 268, infoY + 40);
+      ctx.fillStyle = '#475569';
+      ctx.font = '10px sans-serif';
+      ctx.fillText('realtime', 268, infoY + 58);
+
+      // Box 3: Device HP
+      ctx.fillStyle = '#0F172A';
+      if (ctx.roundRect) ctx.roundRect(468, infoY, 252, 72, 8);
+      else ctx.rect(468, infoY, 252, 72);
+      ctx.fill();
+      ctx.strokeStyle = '#7C3AED';
+      ctx.stroke();
+      ctx.fillStyle = '#C4B5FD';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText('PERANGKAT', 484, infoY + 18);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillText('Smartphone (Mobile)', 484, infoY + 40);
+      ctx.fillStyle = '#475569';
+      ctx.font = '10px sans-serif';
+      ctx.fillText('kamera aktif & dipantau', 484, infoY + 58);
+
+      // === Status bar ===
+      ctx.fillStyle = '#0F172A';
+      if (ctx.roundRect) ctx.roundRect(36, infoY + 88, width - 72, 40, 8);
+      else ctx.rect(36, infoY + 88, width - 72, 40);
+      ctx.fill();
+
+      // Status dot
+      ctx.fillStyle = '#10B981';
+      ctx.beginPath();
+      ctx.arc(56, infoY + 108, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#E2E8F0';
+      ctx.font = '12px sans-serif';
+      ctx.fillText(`Peserta aktif mengerjakan ujian — dipantau via kamera`, 72, infoY + 113);
+
+      // === Footer ===
+      const footY = height - 50;
+
+      // Candidate name pill
+      ctx.fillStyle = '#064E3B';
+      if (ctx.roundRect) ctx.roundRect(36, footY, 280, 28, 6);
+      else ctx.rect(36, footY, 280, 28);
+      ctx.fill();
+      ctx.fillStyle = '#6EE7B7';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(`👤  ${testeeName}  (#${participantId || '—'})`, 50, footY + 18);
+
+      // Date + time stamp
+      ctx.fillStyle = '#64748B';
+      ctx.font = '10px monospace';
+      ctx.fillText(dateStr, width - 36 - ctx.measureText(dateStr).width, footY + 12);
+      ctx.fillText(`Verifikasi: ${timeStr}`, width - 36 - ctx.measureText(`Verifikasi: ${timeStr}`).width, footY + 26);
+
+      return canvas.toDataURL('image/jpeg', 0.85);
     } catch (err) {
       console.error('Screen capture error:', err);
       return null;
