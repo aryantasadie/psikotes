@@ -230,6 +230,26 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     }
   };
 
+  const drawWrappedText = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number): number => {
+    const words = text.split(' ');
+    let line = '';
+    let currentY = y;
+
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + ' ';
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && n > 0) {
+        ctx.fillText(line, x, currentY);
+        line = words[n] + ' ';
+        currentY += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    ctx.fillText(line, x, currentY);
+    return currentY + lineHeight;
+  };
+
   const getScreenBase64 = async (): Promise<string | null> => {
     try {
       if (screenVideoRef.current && screenVideoRef.current.readyState >= 2) {
@@ -246,7 +266,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
       const container = containerRef.current;
       const width = 800;
-      const height = 480;
+      const height = 520;
 
       const canvas = document.createElement('canvas');
       canvas.width = width;
@@ -254,118 +274,150 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
 
-      // 1. Light theme background (#EDEFF4 matching HR Publik app)
+      // App Light Background (#EDEFF4)
       ctx.fillStyle = '#EDEFF4';
       ctx.fillRect(0, 0, width, height);
 
-      // 2. Top Header Bar (#0F172A)
+      // Top Bar (#0F172A)
       ctx.fillStyle = '#0F172A';
-      ctx.fillRect(0, 0, width, 44);
+      ctx.fillRect(0, 0, width, 40);
 
       ctx.fillStyle = '#38BDF8';
-      ctx.font = 'bold 13px sans-serif';
-      ctx.fillText('📱 CBT MOBILE SCREEN MONITOR', 20, 27);
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('📱 CBT MOBILE SCREEN MONITOR', 16, 25);
 
       ctx.fillStyle = '#10B981';
       ctx.font = 'bold 11px sans-serif';
-      ctx.fillText('🔴 LIVE RECORDING', width - 140, 27);
+      ctx.fillText('🔴 LIVE RECORDING', width - 130, 25);
 
-      // 3. Main Crisp White Card (#FFFFFF)
-      const cardX = 24;
-      const cardY = 60;
-      const cardW = width - 48;
-      const cardH = height - 80;
+      // Main Card (#FFFFFF)
+      const cardX = 20;
+      const cardY = 52;
+      const cardW = width - 40;
+      const cardH = height - 68;
 
       ctx.fillStyle = '#FFFFFF';
       ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(cardX, cardY, cardW, cardH, 16);
-      } else {
-        ctx.rect(cardX, cardY, cardW, cardH);
-      }
+      if (ctx.roundRect) ctx.roundRect(cardX, cardY, cardW, cardH, 16);
+      else ctx.rect(cardX, cardY, cardW, cardH);
       ctx.fill();
-
-      // Card border
-      ctx.strokeStyle = '#E2E8F0';
+      ctx.strokeStyle = '#CBD5E1';
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      // 4. Extract Real DOM Texts from current page
-      let mainTitle = 'Persiapan Ujian Asesmen';
+      // Extract DOM Elements
       let pageTitle = document.title || 'HR Publik - Assessment Engine';
-      let textItems: string[] = [];
+      let mainTitle = 'Halaman Ujian Psikotes';
+      let questionCounter = '';
+      let paragraphTexts: string[] = [];
+      let optionButtons: string[] = [];
       const testeeName = sessionStorage.getItem('testee_name') || 'Peserta Ujian';
 
       if (container) {
-        const headings = container.querySelectorAll('h1, h2, h3');
-        if (headings.length > 0 && headings[0].textContent) {
-          mainTitle = headings[0].textContent.trim().substring(0, 60);
-        }
+        // Headings
+        const headings = container.querySelectorAll('h1, h2, h3, h4');
+        headings.forEach(h => {
+          const t = h.textContent?.trim();
+          if (t && t.length > 2) {
+            if (t.toLowerCase().includes('soal ') || t.toLowerCase().includes(' / ')) {
+              questionCounter = t;
+            } else if (!mainTitle || mainTitle === 'Halaman Ujian Psikotes') {
+              mainTitle = t;
+            }
+          }
+        });
 
-        const paragraphs = container.querySelectorAll('p, label, button, li, .option-text');
-        paragraphs.forEach(p => {
-          const txt = p.textContent?.trim();
-          if (txt && txt.length > 3 && txt !== mainTitle && textItems.length < 5) {
-            textItems.push(txt.substring(0, 75));
+        // Paragraphs & List Items
+        const pNodes = container.querySelectorAll('p, li, .question-text, .instruction-text');
+        pNodes.forEach(p => {
+          const t = p.textContent?.trim();
+          if (t && t.length > 3 && t !== mainTitle && paragraphTexts.length < 4) {
+            paragraphTexts.push(t);
+          }
+        });
+
+        // Options & Action Buttons
+        const btnNodes = container.querySelectorAll('button, label, input[type="radio"]');
+        btnNodes.forEach(b => {
+          const t = b.textContent?.trim();
+          if (t && t.length > 1 && t !== mainTitle && !paragraphTexts.includes(t) && optionButtons.length < 6) {
+            optionButtons.push(t);
           }
         });
       }
 
-      // 5. Draw Module Title Badge
+      // Draw Module Badge
       ctx.fillStyle = '#F1F5F9';
-      if (ctx.roundRect) ctx.roundRect(cardX + 24, cardY + 20, cardW - 48, 30, 8);
-      else ctx.rect(cardX + 24, cardY + 20, cardW - 48, 30);
+      if (ctx.roundRect) ctx.roundRect(cardX + 20, cardY + 16, cardW - 40, 28, 6);
+      else ctx.rect(cardX + 20, cardY + 16, cardW - 40, 28);
       ctx.fill();
 
       ctx.fillStyle = '#475569';
       ctx.font = 'bold 11px sans-serif';
-      ctx.fillText(`Modul: ${pageTitle}`, cardX + 36, cardY + 39);
+      ctx.fillText(`Modul: ${pageTitle}`, cardX + 30, cardY + 34);
 
-      // 6. Draw Main Heading Title
+      if (questionCounter) {
+        ctx.fillStyle = '#2563EB';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText(questionCounter, cardX + cardW - 160, cardY + 34);
+      }
+
+      // Draw Main Title
       ctx.fillStyle = '#0F172A';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillText(mainTitle, cardX + 24, cardY + 82);
+      ctx.font = 'bold 18px sans-serif';
+      let startY = cardY + 70;
+      startY = drawWrappedText(ctx, mainTitle, cardX + 20, startY, cardW - 40, 24);
 
-      // 7. Draw Content Lines / Paragraphs / Questions
-      let currY = cardY + 118;
-      textItems.forEach((itemText) => {
-        if (itemText.toLowerCase().includes('mulai') || itemText.toLowerCase().includes('lanjut') || itemText.toLowerCase().includes('simpan')) {
-          // Green Action Button Style
-          ctx.fillStyle = '#10B981';
-          if (ctx.roundRect) ctx.roundRect(cardX + 24, currY - 6, cardW - 48, 42, 10);
-          else ctx.rect(cardX + 24, currY - 6, cardW - 48, 42);
-          ctx.fill();
-
-          ctx.fillStyle = '#FFFFFF';
-          ctx.font = 'bold 14px sans-serif';
-          ctx.fillText(`[ ${itemText} ]`, cardX + 40, currY + 20);
-          currY += 56;
-        } else {
-          // Regular Text Line
-          ctx.fillStyle = '#334155';
-          ctx.font = '13px sans-serif';
-          ctx.fillText(`• ${itemText}`, cardX + 24, currY);
-          currY += 28;
+      // Draw Paragraphs
+      ctx.fillStyle = '#334155';
+      ctx.font = '13px sans-serif';
+      paragraphTexts.forEach(pText => {
+        if (startY < cardY + cardH - 120) {
+          startY = drawWrappedText(ctx, pText, cardX + 20, startY + 4, cardW - 40, 18);
         }
       });
 
-      // 8. Footer Candidate Badge & Timestamp
+      // Draw Options / Action Buttons as neat rounded cards
+      if (optionButtons.length > 0 && startY < cardY + cardH - 100) {
+        startY += 8;
+        optionButtons.forEach(opt => {
+          if (startY < cardY + cardH - 60) {
+            const isActionButton = opt.toLowerCase().includes('mulai') || opt.toLowerCase().includes('lanjut') || opt.toLowerCase().includes('simpan');
+            ctx.fillStyle = isActionButton ? '#10B981' : '#F8FAFC';
+            if (ctx.roundRect) ctx.roundRect(cardX + 20, startY, cardW - 40, 34, 8);
+            else ctx.rect(cardX + 20, startY, cardW - 40, 34);
+            ctx.fill();
+
+            ctx.strokeStyle = isActionButton ? '#059669' : '#E2E8F0';
+            ctx.stroke();
+
+            ctx.fillStyle = isActionButton ? '#FFFFFF' : '#1E293B';
+            ctx.font = isActionButton ? 'bold 13px sans-serif' : '12px sans-serif';
+            ctx.fillText(opt.substring(0, 80), cardX + 32, startY + 22);
+
+            startY += 40;
+          }
+        });
+      }
+
+      // Footer Candidate Badge
+      const footerY = cardY + cardH - 38;
       ctx.fillStyle = '#ECFDF5';
-      if (ctx.roundRect) ctx.roundRect(cardX + 24, cardY + cardH - 46, 260, 30, 8);
-      else ctx.rect(cardX + 24, cardY + cardH - 46, 260, 30);
+      if (ctx.roundRect) ctx.roundRect(cardX + 20, footerY, 240, 26, 6);
+      else ctx.rect(cardX + 20, footerY, 240, 26);
       ctx.fill();
       ctx.strokeStyle = '#A7F3D0';
       ctx.stroke();
 
       ctx.fillStyle = '#047857';
-      ctx.font = 'bold 12px sans-serif';
-      ctx.fillText(`👤 ${testeeName} (#${participantId || 'Live'})`, cardX + 34, cardY + cardH - 26);
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(`👤 ${testeeName} (#${participantId || 'Live'})`, cardX + 28, footerY + 17);
 
       ctx.fillStyle = '#94A3B8';
       ctx.font = '10px monospace';
-      ctx.fillText(`CBT Capture: ${new Date().toLocaleString('id-ID')}`, cardX + cardW - 220, cardY + cardH - 26);
+      ctx.fillText(`CBT Capture: ${new Date().toLocaleString('id-ID')}`, cardX + cardW - 210, footerY + 17);
 
-      return canvas.toDataURL('image/jpeg', 0.75);
+      return canvas.toDataURL('image/jpeg', 0.8);
     } catch (err) {
       console.error('Screen capture error:', err);
       return null;
