@@ -114,7 +114,17 @@ export default function TesteeSession() {
     setOnboardingStage(2);
   };
 
-  const handleStartTest = () => {
+  const handleStartTest = async () => {
+    try {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) {
+        await elem.requestFullscreen();
+      } else if ((elem as any).webkitRequestFullscreen) {
+        await (elem as any).webkitRequestFullscreen();
+      }
+    } catch (err) {
+      console.error('Fullscreen error on start test click:', err);
+    }
     setOnboardingStage(3);
   };
 

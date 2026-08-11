@@ -407,8 +407,11 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     };
 
     const handleWindowBlur = () => {
-      handleViolation('Jendela browser Anda kehilangan fokus (pindah window/tab)!');
-      sendSecurityLog('tab_switch');
+      // Only trigger if document is actually hidden (switching tab/window)
+      if (document.hidden) {
+        handleViolation('Jendela browser Anda kehilangan fokus (pindah window/tab)!');
+        sendSecurityLog('tab_switch');
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
