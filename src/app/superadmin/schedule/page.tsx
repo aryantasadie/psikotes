@@ -44,6 +44,7 @@ export default function SchedulePage() {
   const [loadingOptions, setLoadingOptions] = useState(true);
 
   // Form State
+  const [positionName, setPositionName] = useState('');
   const [selectedJobPositionId, setSelectedJobPositionId] = useState('');
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -126,6 +127,7 @@ export default function SchedulePage() {
 
     try {
       const payload: any = {
+        positionName: positionName.trim(),
         testId: parseInt(selectedJobPositionId),
         sessionDate,
         clientId: selectedClientId ? parseInt(selectedClientId) : null,
@@ -242,6 +244,21 @@ export default function SchedulePage() {
           </div>
 
           <form onSubmit={handleGenerate} className="space-y-4">
+
+            {/* Nama Jabatan */}
+            <div>
+              <label className="block text-[12px] font-bold text-slate-700 mb-1.5">
+                Nama Jabatan <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Contoh: Staff Admin / Management Trainee"
+                value={positionName}
+                onChange={e => setPositionName(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-[13px] text-slate-900 focus:outline-none focus:border-teal-400 bg-white placeholder-slate-400"
+                required
+              />
+            </div>
 
             {/* Standar Jabatan */}
             <div>

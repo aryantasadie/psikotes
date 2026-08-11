@@ -24,6 +24,7 @@ export async function POST(req: Request) {
   try {
     const {
       testId: jobPositionId,
+      positionName,
       batchTitle,
       sessionDate,
       clientId,
@@ -35,6 +36,18 @@ export async function POST(req: Request) {
 
     if (!jobPositionId || !prefix || !count || count <= 0 || count > 200) {
       return NextResponse.json({ error: 'Input tidak valid. Jumlah akun harus 1-200.' }, { status: 400 });
+    }
+
+    // Get Client Name if clientId is provided
+    let clientNameStr = 'Umum / Internal';
+    if (clientId) {
+      const clientObj = await prisma.user.findUnique({
+        where: { id: parseInt(clientId) },
+        select: { name: true }
+      });
+      if (clientObj?.name) {
+        clientNameStr = clientObj.name;
+      }
     }
 
     // Get Job Position & its PsychographPreset
@@ -102,9 +115,13 @@ export async function POST(req: Request) {
     const testSequence = JSON.stringify(finalSequenceArr);
 
     const startDate = sessionDate ? new Date(sessionDate) : new Date();
+    const posTitle = positionName && positionName.trim() !== '' 
+      ? positionName.trim() 
+      : (jobPosition.name || 'Sesi Ujian');
+
     const finalBatchTitle = batchTitle && batchTitle.trim() !== ''
       ? batchTitle.trim()
-      : `Batch ${jobPosition.name} (${startDate.toLocaleDateString('id-ID')})`;
+      : `${posTitle} - ${clientNameStr}`;
 
     // Create a new Batch Test Session
     const newTest = await prisma.test.create({
