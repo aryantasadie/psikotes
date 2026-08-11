@@ -12,10 +12,11 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
   const [webcamError, setWebcamError] = useState<string | null>(null);
   const [screenActive, setScreenActive] = useState(false);
   const [screenError, setScreenError] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(true);
   const [violationCount, setViolationCount] = useState(0);
   const [showViolationModal, setShowViolationModal] = useState(false);
   const [violationMessage, setViolationMessage] = useState('');
+  const [showFullscreenModal, setShowFullscreenModal] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const screenVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -42,10 +43,28 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     }
   }, []);
 
-  // Initialize Webcam with HTTPS/HTTP detection and fallback
+  // Fullscreen helper
+  const requestFullscreen = async () => {
+    try {
+      const elem = containerRef.current || document.documentElement;
+      if (elem.requestFullscreen) {
+        await elem.requestFullscreen();
+      } else if ((elem as any).webkitRequestFullscreen) {
+        await (elem as any).webkitRequestFullscreen();
+      } else if ((elem as any).msRequestFullscreen) {
+        await (elem as any).msRequestFullscreen();
+      }
+      setIsFullscreen(true);
+      setShowFullscreenModal(false);
+    } catch (err) {
+      console.error('Fullscreen request failed:', err);
+    }
+  };
+
+  // Initialize Webcam
   const setupWebcam = async () => {
     if (typeof window !== 'undefined' && !window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      setWebcamError('Browser memblokir kamera karena situs diakses via HTTP IP (bukan HTTPS atau localhost). Silakan akses via HTTPS Vercel atau localhost.');
+      setWebcamError('Browser memblokir kamera karena situs diakses via HTTP IP (bukan HTTPS). Akses via HTTPS Vercel atau http://localhost:3000.');
       setWebcamActive(false);
       return;
     }
@@ -77,17 +96,17 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     } catch (err: any) {
       console.error('Webcam access error:', err);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        setWebcamError('Izin kamera ditolak/diblokir oleh browser. Klik icon gembok/kamera di baris URL browser Anda lalu ubah izin Kamera menjadi Allow (Izinkan).');
+        setWebcamError('Izin kamera ditolak/diblokir oleh browser. Klik ikon gembok/kamera di alamat URL browser lalu ubah izin Kamera menjadi Allow (Izinkan).');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setWebcamError('Kamera web tidak ditemukan pada laptop/perangkat ini. Pastikan webcam terhubung.');
       } else {
-        setWebcamError(`Kamera gagal diakses (${err.message || err.name}). Pastikan tidak ada aplikasi lain (Zoom/Teams) yang sedang menggunakan kamera.`);
+        setWebcamError(`Kamera gagal diakses (${err.message || err.name}). Pastikan tidak ada aplikasi lain yang menggunakan kamera.`);
       }
       setWebcamActive(false);
     }
   };
 
-  // Initialize Real Full Desktop Screen Recording (getDisplayMedia)
+  // Initialize Desktop Screen Recording (getDisplayMedia)
   const setupScreenShare = async () => {
     if (typeof window !== 'undefined' && (window as any).__cbtScreenStream) {
       const existingStream: MediaStream = (window as any).__cbtScreenStream;
@@ -335,6 +354,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     }
   };
 
+  // Periodic capture to DB
   useEffect(() => {
     if (!participantId || !webcamActive) return;
 
@@ -346,6 +366,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     return () => clearInterval(interval);
   }, [participantId, webcamActive]);
 
+  // Live Stream Broadcast every 1.5s
   useEffect(() => {
     if (!participantId || !webcamActive) return;
 
@@ -374,18 +395,19 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     return () => clearInterval(streamInterval);
   }, [participantId, webcamActive, violationCount]);
 
+  // Event Listener: Tab Switch & Window Blur Detection
   useEffect(() => {
     if (!participantId) return;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        handleViolation('Anda terdeteksi meninggalkan tab/halaman ujian!');
+        handleViolation('Anda terdeteksi meninggalkan tab/halaman ujian (Alt+Tab / Pindah Tab)!');
         sendSecurityLog('tab_switch');
       }
     };
 
     const handleWindowBlur = () => {
-      handleViolation('Jendela browser Anda kehilangan fokus (pindah window/tab).');
+      handleViolation('Jendela browser Anda kehilangan fokus (pindah window/tab)!');
       sendSecurityLog('tab_switch');
     };
 
@@ -398,12 +420,13 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     };
   }, [participantId]);
 
+  // Event Listener: Anti-Cheat Shortcuts, Right Click, Copy-Paste, DevTools
   useEffect(() => {
     if (!participantId) return;
 
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
-      handleViolation('Klik kanan (Context Menu) tidak diizinkan selama ujian.');
+      handleViolation('Klik kanan (Context Menu) dilarang selama ujian.');
       sendSecurityLog('forbidden_key');
     };
 
@@ -429,20 +452,11 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       }
     };
 
-    const handleResize = () => {
-      const widthThreshold = window.outerWidth - window.innerWidth > 160;
-      const heightThreshold = window.outerHeight - window.innerHeight > 160;
-      if (widthThreshold || heightThreshold) {
-        sendSecurityLog('devtools');
-      }
-    };
-
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('copy', handleCopyPaste);
     document.addEventListener('cut', handleCopyPaste);
     document.addEventListener('paste', handleCopyPaste);
     document.addEventListener('keydown', handleKeyDown, true);
-    window.addEventListener('resize', handleResize);
 
     return () => {
       document.removeEventListener('contextmenu', handleContextMenu);
@@ -450,23 +464,23 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       document.removeEventListener('cut', handleCopyPaste);
       document.removeEventListener('paste', handleCopyPaste);
       document.removeEventListener('keydown', handleKeyDown, true);
-      window.removeEventListener('resize', handleResize);
     };
   }, [participantId]);
 
+  // Fullscreen Change Listener
   useEffect(() => {
     const handleFullscreenChange = () => {
       const isFS = !!document.fullscreenElement;
       setIsFullscreen(isFS);
-      if (!isFS && participantId) {
-        handleViolation('Anda keluar dari Mode Layar Penuh (Fullscreen).');
+      if (!isFS && participantId && webcamActive && screenActive) {
+        setShowFullscreenModal(true);
         sendSecurityLog('blur_fullscreen');
       }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, [participantId]);
+  }, [participantId, webcamActive, screenActive]);
 
   const handleViolation = (reason: string) => {
     setViolationCount(prev => prev + 1);
@@ -474,13 +488,13 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     setShowViolationModal(true);
   };
 
-  const requestFullscreen = () => {
-    if (containerRef.current) {
-      containerRef.current.requestFullscreen().catch((err) => {
-        console.error('Error requesting fullscreen:', err);
-      });
-    }
+  const handleAcknowledgeAndFullscreen = () => {
+    setShowViolationModal(false);
+    setShowFullscreenModal(false);
+    requestFullscreen();
   };
+
+  const isPermissionGranted = webcamActive && screenActive;
 
   return (
     <div
@@ -488,6 +502,9 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       style={{
         position: 'relative',
         minHeight: '100vh',
+        height: '100%',
+        width: '100%',
+        overflowY: 'auto',
         userSelect: 'none',
         WebkitUserSelect: 'none',
         MozUserSelect: 'none',
@@ -495,6 +512,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         background: '#f8fafc'
       }}
     >
+      {/* Hidden Video & Canvas for Captures */}
       <video
         ref={videoRef}
         autoPlay
@@ -511,11 +529,12 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
+      {/* Top Proctoring Status Indicator Bar */}
       <div
         style={{
           position: 'sticky',
           top: 0,
-          zIndex: 999,
+          zIndex: 9999,
           background: '#0F172A',
           color: '#F8FAFC',
           padding: '8px 20px',
@@ -531,13 +550,13 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: webcamActive ? '#10B981' : '#EF4444' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: webcamActive ? '#10B981' : '#EF4444', animation: webcamActive ? 'pulse 1.5s infinite' : 'none' }}></span>
-            {webcamActive ? '📷 Kamera Aktif' : '📷 Kamera Nonaktif'}
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: webcamActive ? '#10B981' : '#EF4444' }}></span>
+            {webcamActive ? '📷 Kamera (ACC)' : '📷 Kamera (Nonaktif)'}
           </span>
           <span style={{ color: '#64748B' }}>|</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: screenActive ? '#10B981' : '#F59E0B' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: screenActive ? '#10B981' : '#F59E0B' }}></span>
-            {screenActive ? '🖥️ Layar Full Desktop Aktif' : '🖥️ Layar Standar DOM'}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: screenActive ? '#10B981' : '#EF4444' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: screenActive ? '#10B981' : '#EF4444' }}></span>
+            {screenActive ? '🖥️ Rekam Layar (ACC)' : '🖥️ Rekam Layar (Nonaktif)'}
           </span>
           <span style={{ color: '#64748B' }}>|</span>
           <span style={{ color: '#CBD5E1' }}>🔒 Keamanan CBT Aktif</span>
@@ -550,7 +569,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
             </span>
           )}
 
-          {!isFullscreen && (
+          {!isFullscreen && isPermissionGranted && (
             <button
               onClick={requestFullscreen}
               style={{
@@ -570,72 +589,199 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         </div>
       </div>
 
-      {webcamError && (
-        <div style={{ background: '#FEF2F2', color: '#991B1B', borderBottom: '2px solid #FCA5A5', padding: '16px 20px', textAlign: 'center', fontSize: '14px', fontWeight: 600, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-          <div>⚠️ {webcamError}</div>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+      {/* Main Content */}
+      <main style={{ minHeight: 'calc(100vh - 40px)', overflowY: 'auto' }}>
+        {children}
+      </main>
+
+      {/* MANDATORY PERMISSION OVERLAY (UJIAN TIDAK BISA DIMULAI JIKA BELUM ACC KAMERA & LAYAR) */}
+      {!isPermissionGranted && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 999999,
+          background: 'rgba(15, 23, 42, 0.95)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            maxWidth: '520px',
+            width: '100%',
+            background: '#FFFFFF',
+            borderRadius: '24px',
+            padding: '36px',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.3)',
+            border: '2px solid #F59E0B'
+          }}>
+            <div style={{
+              width: '76px',
+              height: '76px',
+              background: '#FEF3C7',
+              color: '#D97706',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '38px',
+              margin: '0 auto 20px',
+              border: '2px solid #FDE68A'
+            }}>
+              🔒
+            </div>
+
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: '0 0 10px' }}>
+              Izin Kamera & Rekam Layar Wajib Di-ACC
+            </h2>
+
+            <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, margin: '0 0 24px' }}>
+              Untuk menjaga integritas dan kejujuran ujian CBT Psikotes, Anda <strong>wajib mengizinkan (ACC) akses Kamera (Webcam) dan Rekam Layar Desktop (Screen Share)</strong>. Ujian tidak dapat dimulai jika kedua izin ini belum di-ACC.
+            </p>
+
+            <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '16px', marginBottom: '24px', textAlign: 'left' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>📷 Access Kamera (Webcam):</span>
+                <span style={{ fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', background: webcamActive ? '#DEF7EC' : '#FEE2E2', color: webcamActive ? '#03543F' : '#991B1B' }}>
+                  {webcamActive ? '✓ Sudah ACC' : '✕ Belum ACC'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E2E8F0', paddingTop: '12px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>🖥️ Rekam Layar Desktop:</span>
+                <span style={{ fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', background: screenActive ? '#DEF7EC' : '#FEE2E2', color: screenActive ? '#03543F' : '#991B1B' }}>
+                  {screenActive ? '✓ Sudah ACC' : '✕ Belum ACC'}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {!webcamActive && (
+                <button
+                  onClick={setupWebcam}
+                  style={{ width: '100%', padding: '14px', background: '#0D9488', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  📷 Izinkan Akses Kamera (Klik di Sini)
+                </button>
+              )}
+
+              {!screenActive && (
+                <button
+                  onClick={setupScreenShare}
+                  style={{ width: '100%', padding: '14px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  🖥️ Izinkan Rekam Layar Desktop (Klik di Sini)
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FULLSCREEN EXIT WARNING MODAL */}
+      {showFullscreenModal && isPermissionGranted && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 99999,
+          background: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            maxWidth: '480px',
+            width: '100%',
+            background: '#FFFFFF',
+            borderRadius: '20px',
+            padding: '32px',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '2px solid #F59E0B'
+          }}>
+            <div style={{
+              width: '72px',
+              height: '72px',
+              background: '#FEF3C7',
+              color: '#D97706',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '36px',
+              margin: '0 auto 20px'
+            }}>
+              🖥️
+            </div>
+
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#1E293B', margin: '0 0 10px' }}>
+              Mode Layar Penuh (Fullscreen) Terputus!
+            </h2>
+
+            <p style={{ fontSize: '14px', color: '#475569', lineHeight: 1.6, margin: '0 0 24px' }}>
+              Anda terdeteksi keluar dari Mode Layar Penuh. Seluruh rangkaian ujian CBT wajib dikerjakan dalam mode Layar Penuh. Klik tombol di bawah untuk kembali ke Mode Fullscreen.
+            </p>
+
             <button
-              onClick={setupWebcam}
+              onClick={handleAcknowledgeAndFullscreen}
               style={{
-                background: '#DC2626',
+                width: '100%',
+                padding: '14px',
+                background: '#2563EB',
                 color: 'white',
                 border: 'none',
-                padding: '8px 18px',
-                borderRadius: '8px',
-                fontSize: '13px',
+                borderRadius: '12px',
+                fontSize: '15px',
                 fontWeight: 700,
                 cursor: 'pointer',
-                boxShadow: '0 2px 4px rgba(220, 38, 38, 0.2)'
+                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
               }}
             >
-              📷 Coba Aktifkan Kamera Lagi
+              🖥️ Saya Mengerti & Masuk Fullscreen Lagi (Oke)
             </button>
           </div>
         </div>
       )}
 
-      <main>{children}</main>
-
-      {showViolationModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 99999,
-            background: 'rgba(15, 23, 42, 0.85)',
-            backdropFilter: 'blur(8px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px'
-          }}
-        >
-          <div
-            style={{
-              maxWidth: '480px',
-              width: '100%',
-              background: '#FFFFFF',
-              borderRadius: '20px',
-              padding: '32px',
-              textAlign: 'center',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-              border: '2px solid #EF4444'
-            }}
-          >
-            <div
-              style={{
-                width: '72px',
-                height: '72px',
-                background: '#FEE2E2',
-                color: '#DC2626',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '36px',
-                margin: '0 auto 20px'
-              }}
-            >
+      {/* SECURITY VIOLATION ALERT MODAL (ALT+TAB / TAB SWITCH / FORBIDDEN KEYS) */}
+      {showViolationModal && isPermissionGranted && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 99999,
+          background: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            maxWidth: '480px',
+            width: '100%',
+            background: '#FFFFFF',
+            borderRadius: '20px',
+            padding: '32px',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '2px solid #EF4444'
+          }}>
+            <div style={{
+              width: '72px',
+              height: '72px',
+              background: '#FEE2E2',
+              color: '#DC2626',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '36px',
+              margin: '0 auto 20px'
+            }}>
               ⚠️
             </div>
 
@@ -647,42 +793,33 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
               {violationMessage}
             </p>
 
-            <div
-              style={{
-                background: '#FEF2F2',
-                border: '1px solid #FECACA',
-                borderRadius: '12px',
-                padding: '12px 16px',
-                marginBottom: '24px',
-                textAlign: 'left'
-              }}
-            >
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', textAlign: 'left' }}>
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#991B1B', marginBottom: '4px' }}>
                 Catatan Sistem Security:
               </div>
               <ul style={{ margin: 0, paddingLeft: '18px', fontSize: '12px', color: '#B91C1C', lineHeight: 1.5 }}>
                 <li>Kejadian ini telah dicatat ke database (Pelanggaran ke-{violationCount}).</li>
-                <li>Foto kamera & tangkapan layar saat ini telah diambil sebagai bukti.</li>
+                <li>Foto kamera & rekam layar saat ini telah dikirim ke CCTV Control Room.</li>
                 <li>Tetap berada di halaman ujian hingga seluruh soal selesai.</li>
               </ul>
             </div>
 
             <button
-              onClick={() => setShowViolationModal(false)}
+              onClick={handleAcknowledgeAndFullscreen}
               style={{
                 width: '100%',
                 padding: '14px',
                 background: '#DC2626',
                 color: 'white',
                 border: 'none',
-                borderRadius: '10px',
+                borderRadius: '12px',
                 fontSize: '15px',
                 fontWeight: 700,
                 cursor: 'pointer',
                 boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)'
               }}
             >
-              Saya Mengerti & Lanjutkan Ujian
+              Saya Mengerti & Lanjutkan Fullscreen (Oke)
             </button>
           </div>
         </div>
