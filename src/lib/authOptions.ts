@@ -16,8 +16,13 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const user = await prisma.user.findUnique({
-          where: { username: credentials.username }
+        const user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { username: { equals: credentials.username, mode: 'insensitive' } },
+              { name: { equals: credentials.username, mode: 'insensitive' } }
+            ]
+          }
         });
 
         if (!user) {

@@ -619,8 +619,11 @@ export default function TeamManagementPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmitForm}>
-              
+            <form onSubmit={handleSubmitForm} autoComplete="off">
+              {/* Dummy hidden inputs to prevent browser autofill on real form inputs */}
+              <input type="text" name="prevent_autofill_username" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
+              <input type="password" name="prevent_autofill_password" style={{ display: 'none' }} tabIndex={-1} autoComplete="new-password" />
+
               {/* Nama Lengkap */}
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
@@ -633,6 +636,8 @@ export default function TeamManagementPage() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   style={inputStyle}
                   required
+                  autoComplete="off"
+                  name="team_member_fullname"
                 />
               </div>
 
@@ -737,6 +742,8 @@ export default function TeamManagementPage() {
                   value={formData.license}
                   onChange={(e) => setFormData({ ...formData, license: e.target.value })}
                   style={inputStyle}
+                  autoComplete="off"
+                  name="team_member_license"
                 />
               </div>
 
@@ -751,6 +758,8 @@ export default function TeamManagementPage() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   style={inputStyle}
+                  autoComplete="new-password"
+                  name="team_member_password"
                 />
               </div>
 

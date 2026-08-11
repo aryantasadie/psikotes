@@ -46,15 +46,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Nama Lengkap, Password, dan Role wajib diisi' }, { status: 400 });
     }
 
-    // Auto-generate username from name if not provided
+    // Set username as name directly to allow full name login
     if (!username || username.trim() === '') {
-      username = name.toLowerCase().trim().replace(/[^a-z0-9_]/g, '_');
+      username = name.trim();
     }
 
     // Ensure username uniqueness
-    let existing = await prisma.user.findUnique({ where: { username } });
+    let existing = await prisma.user.findFirst({
+      where: { username: { equals: username, mode: 'insensitive' } }
+    });
     if (existing) {
-      username = `${username}_${Date.now().toString().slice(-4)}`;
+      username = `${username} ${Date.now().toString().slice(-4)}`;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -97,7 +99,7 @@ export async function PUT(req: Request) {
     }
 
     if (!username || username.trim() === '') {
-      username = name.toLowerCase().trim().replace(/[^a-z0-9_]/g, '_');
+      username = name.trim();
     }
 
     const formattedAssignedTests = Array.isArray(assignedTestIds)
