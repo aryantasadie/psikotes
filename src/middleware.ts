@@ -13,7 +13,7 @@ export default withAuth(
     const role = token.role as string;
 
     // Route protections based on role
-    if (path.startsWith("/superadmin") && role !== "superadmin") {
+    if (path.startsWith("/superadmin") && !["superadmin", "admin", "admin_tester", "psikolog"].includes(role)) {
       return NextResponse.redirect(new URL('/', req.url));
     }
 
@@ -21,12 +21,12 @@ export default withAuth(
       return NextResponse.redirect(new URL('/', req.url));
     }
 
-    if (path.startsWith("/testee") && role !== "testee") {
+    if (path.startsWith("/testee") && role !== "testee" && role !== "user") {
       return NextResponse.redirect(new URL('/', req.url));
     }
 
-    // Existing test routes like /tes/wpt or /tes/cfit1 should only be accessible by testee
-    if (path.startsWith("/tes/") && role !== "testee") {
+    // Existing test routes like /tes/wpt or /tes/cfit1 should only be accessible by testee or user
+    if (path.startsWith("/tes/") && role !== "testee" && role !== "user") {
       return NextResponse.redirect(new URL('/', req.url));
     }
 
