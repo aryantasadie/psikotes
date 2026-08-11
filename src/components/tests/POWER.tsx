@@ -46,8 +46,7 @@ export default function POWER() {
     const unanswered = questions.filter(q => !answers[q.id]);
     
     if (unanswered.length > 0) {
-      alert(`Harap selesaikan semua soal! Terdapat ${unanswered.length} soal yang belum terisi.`);
-      return;
+            return;
     }
 
     setSubmitting(true);
@@ -65,11 +64,11 @@ export default function POWER() {
         localStorage.setItem('test_completed_powerleader', 'true');
         window.location.href = '/testee/session';
       } else {
-        alert("Gagal mengirim jawaban.");
+        console.error("Gagal mengirim jawaban.");
       }
     } catch (e) {
       console.error(e);
-      alert("Terjadi kesalahan.");
+      console.error("Terjadi kesalahan.");
     } finally {
       setSubmitting(false);
     }

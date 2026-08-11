@@ -224,7 +224,6 @@ export default function WPT() {
           {currentIndex === questions.length - 1 ? (
             <button 
               onClick={async () => {
-                alert('Ujian Selesai! Menyimpan jawaban...');
                 try {
                   const ageStr = sessionStorage.getItem('testee_age');
                   await fetch('/api/answers/submit', {

@@ -71,11 +71,11 @@ export default function PAPI() {
         localStorage.setItem('test_completed_papikostick', 'true');
         window.location.href = '/testee/session';
       } else {
-        alert("Gagal mengirim jawaban.");
+        console.error("Gagal mengirim jawaban.");
       }
     } catch (e) {
       console.error(e);
-      alert("Terjadi kesalahan.");
+      console.error("Terjadi kesalahan.");
     } finally {
       setSubmitting(false);
     }

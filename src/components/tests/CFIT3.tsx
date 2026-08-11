@@ -174,7 +174,6 @@ export default function CFIT3() {
           {currentIndex === questions.length - 1 ? (
             <button 
               onClick={async () => {
-                alert('Ujian Selesai! Menyimpan jawaban...');
                 try {
                   await fetch('/api/answers/submit', {
                     method: 'POST',

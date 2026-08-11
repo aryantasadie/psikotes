@@ -72,8 +72,7 @@ export default function DISC() {
     const unanswered = questions.filter(q => !answers[`${q.id}_most`] || !answers[`${q.id}_least`]);
     
     if (unanswered.length > 0) {
-      alert(`Harap selesaikan semua soal! Terdapat ${unanswered.length} soal yang belum terisi (Pastikan Anda memilih 1 MOST dan 1 LEAST di setiap soal).`);
-      return;
+            return;
     }
 
     setSubmitting(true);
@@ -90,11 +89,11 @@ export default function DISC() {
         localStorage.setItem('test_completed_disc', 'true'); 
         window.location.href = '/testee/session';
       } else {
-        alert("Gagal mengirim jawaban.");
+        console.error("Gagal mengirim jawaban.");
       }
     } catch (e) {
       console.error(e);
-      alert("Terjadi kesalahan.");
+      console.error("Terjadi kesalahan.");
     } finally {
       setSubmitting(false);
     }
