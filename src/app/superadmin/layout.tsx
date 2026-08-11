@@ -48,8 +48,9 @@ const SECTIONS = [
   {
     label: 'Hasil & Evaluasi',
     items: [
-      { label: 'Laporan & QC Review',   path: '/superadmin/reports',  icon: 'report' },
-      { label: 'Proctoring Center',     path: '/superadmin/proctor',  icon: 'proctor', badge: 'Live', live: true },
+      { label: 'Laporan & QC Review',   path: '/superadmin/reports',     icon: 'report' },
+      { label: 'Live Stream CCTV',      path: '/superadmin/live-stream', icon: 'proctor', badge: 'Live', live: true },
+      { label: 'Proctoring Center',     path: '/superadmin/proctor',     icon: 'proctor' },
     ],
   },
   {
@@ -67,6 +68,7 @@ const PAGE_META: Record<string, { title: string; crumb: string }> = {
   '/superadmin/psychograph':   { title: 'Master Kompetensi & Alat Tes',crumb: 'Kompetensi & Alat Tes' },
   '/superadmin/schedule':      { title: 'Sesi Ujian & Penjadwalan',    crumb: 'Penjadwalan' },
   '/superadmin/reports':       { title: 'Laporan & QC Review',         crumb: 'Laporan' },
+  '/superadmin/live-stream':   { title: 'Live Stream CCTV Control Room', crumb: 'Live Stream CCTV' },
   '/superadmin/proctor':       { title: 'Proctoring Center',           crumb: 'Proctoring' },
   '/superadmin/clients':       { title: 'Klien Perusahaan',            crumb: 'Klien' },
   '/superadmin/team':          { title: 'Manajemen Tim',               crumb: 'Tim' },
