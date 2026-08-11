@@ -86,6 +86,55 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
   const name      = session?.user?.name ?? 'Administrator';
   const initial   = name.charAt(0).toUpperCase();
 
+  // Redirect psychologist to reports directly
+  React.useEffect(() => {
+    if (role === 'psikolog' && pathname === '/superadmin') {
+      router.replace('/superadmin/reports');
+    }
+  }, [role, pathname, router]);
+
+  // Dynamically filter sections based on role
+  let filteredSections = SECTIONS;
+  if (role === 'psikolog') {
+    filteredSections = [
+      {
+        label: 'Hasil & Evaluasi',
+        items: [
+          { label: 'Laporan & QC Review', path: '/superadmin/reports', icon: 'report' },
+        ],
+      },
+    ];
+  } else if (role === 'admin' || role === 'admin_tester') {
+    filteredSections = [
+      {
+        label: 'Pusat Kendali',
+        items: [
+          { label: 'Dashboard', path: '/superadmin', icon: 'home', exact: true },
+        ],
+      },
+      {
+        label: 'Manajemen Proyek',
+        items: [
+          { label: 'Sesi & Penjadwalan', path: '/superadmin/schedule', icon: 'schedule', badge: 'Aktif' },
+        ],
+      },
+      {
+        label: 'Hasil & Evaluasi',
+        items: [
+          { label: 'Laporan & QC Review', path: '/superadmin/reports', icon: 'report' },
+          { label: 'Live Stream CCTV', path: '/superadmin/live-stream', icon: 'proctor', badge: 'Live', live: true },
+          { label: 'Proctoring Center', path: '/superadmin/proctor', icon: 'proctor' },
+        ],
+      },
+      {
+        label: 'Administrasi',
+        items: [
+          { label: 'Klien Perusahaan', path: '/superadmin/clients', icon: 'client' },
+        ],
+      },
+    ];
+  }
+
   const isActive  = (path: string, exact?: boolean) =>
     exact ? pathname === path : pathname === path || pathname.startsWith(path + '/');
 
@@ -115,7 +164,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
-        {SECTIONS.map(sec => (
+        {filteredSections.map(sec => (
           <div key={sec.label}>
             <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400 px-2.5 mb-1.5">
               {sec.label}

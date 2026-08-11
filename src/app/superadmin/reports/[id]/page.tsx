@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { ASPECT_DESCRIPTIONS } from '../../job-positions/builder/page';
 
 import { getDiscScale, mapScoreToYPercent } from './discHelpers';
@@ -147,7 +148,10 @@ const getISTClassification = (testType: string, r: number) => {
 export default function ReportDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session } = useSession();
   const id = params.id as string;
+  
+  const role = (session?.user as any)?.role;
   
   const [participant, setParticipant] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -712,16 +716,18 @@ export default function ReportDetailPage() {
                             Kirim ke QC
                         </button>
 
-                        <button 
-                            onClick={() => {
-                                if (confirm('Yakin ingin menandai laporan ini selesai dan siap rilis ke klien?')) {
-                                    handleSaveReview('RELEASED');
-                                }
-                            }}
-                            disabled={savingReview}
-                            style={{ background: '#0D9488', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
-                            Setujui & Rilis (QC)
-                        </button>
+                        {role !== 'psikolog' && (
+                          <button 
+                              onClick={() => {
+                                  if (confirm('Yakin ingin menandai laporan ini selesai dan siap rilis ke klien?')) {
+                                      handleSaveReview('RELEASED');
+                                  }
+                              }}
+                              disabled={savingReview}
+                              style={{ background: '#0D9488', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
+                              Setujui & Rilis (QC)
+                          </button>
+                        )}
                     </div>
                 </div>
             </div>
