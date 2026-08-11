@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { signOut } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 
 interface Candidate {
@@ -34,40 +34,35 @@ interface ClientTest {
   _count?: { participants: number };
 }
 
-interface SecurityLog {
-  id: number;
-  logType: string;
-  mediaUrl: string;
-  createdAt: string;
-  participant: {
-    user: {
-      name: string;
-    };
-    test: {
-      title: string;
-    };
-  };
-}
-
 export default function ClientDashboardPage() {
+  const { data: session } = useSession();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [tests, setTests] = useState<ClientTest[]>([]);
-  const [logs, setLogs] = useState<SecurityLog[]>([]);
-  const [clientName, setClientName] = useState<string>('HRD Perusahaan');
+  const [clientName, setClientName] = useState<string>('Client Perusahaan');
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'candidates' | 'schedules' | 'security'>('candidates');
+  const [activeTab, setActiveTab] = useState<'candidates' | 'schedule'>('candidates');
 
   // Filters
   const [search, setSearch] = useState<string>('');
   const [selectedBatchId, setSelectedBatchId] = useState<string>('ALL');
 
   useEffect(() => {
+    // Sync active tab from URL query params
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab === 'schedule') {
+        setActiveTab('schedule');
+      } else {
+        setActiveTab('candidates');
+      }
+    }
+
     fetchClientData();
-    fetchSchedules();
-    fetchTokenLogs();
   }, []);
 
   const fetchClientData = async () => {
+    setLoading(true);
     try {
       const res = await fetch('/api/client/reports');
       if (res.ok) {
@@ -77,33 +72,18 @@ export default function ClientDashboardPage() {
         if (data.clientName) setClientName(data.clientName);
       }
     } catch (e) {
-      console.error('Failed to fetch client reports:', e);
+      console.error('Failed to fetch client data:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchSchedules = async () => {
-    try {
-      const res = await fetch('/api/client/schedule');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.tests) setTests(data.tests);
-      }
-    } catch (e) {
-      console.error('Failed to fetch schedules:', e);
-    }
-  };
-
-  const fetchTokenLogs = async () => {
-    try {
-      const res = await fetch('/api/client/token-logs');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.logs) setLogs(data.logs);
-      }
-    } catch (e) {
-      console.error('Failed to fetch token logs:', e);
+  const handleTabChange = (tab: 'candidates' | 'schedule') => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.pushState({}, '', url.toString());
     }
   };
 
@@ -125,465 +105,398 @@ export default function ClientDashboardPage() {
 
   const totalBatches = tests.length;
   const totalCandidates = candidates.length;
-  const releasedReportsCount = candidates.filter(
-    (c) => c.psychoResults?.status === 'RELEASED'
-  ).length;
+
+  const currentYear = new Date().getFullYear();
+
+  // Helper to check if session test is active
+  const isTestActive = (t: ClientTest) => {
+    if (!t.startDate || !t.endDate) return false;
+    const now = new Date();
+    return now >= new Date(t.startDate) && now <= new Date(t.endDate);
+  };
+
+  const activeSchedulesCount = tests.filter(isTestActive).length;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F1F5F9', fontFamily: 'Inter, sans-serif' }}>
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
       
-      {/* GLOWING TOP BANNER */}
-      <div style={{ background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)', color: 'white', padding: '2rem 1.5rem', borderBottom: '4px solid #0D9488' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div
-              style={{
-                width: '54px',
-                height: '54px',
-                background: 'rgba(13, 148, 136, 0.2)',
-                border: '2.5px solid #0D9488',
-                borderRadius: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '26px',
-                boxShadow: '0 8px 16px rgba(13, 148, 136, 0.15)',
-              }}
-            >
-              🏢
+      {/* ── SIDEBAR ── */}
+      <aside className="w-60 bg-white border-r border-slate-200 shadow-sm flex flex-col shrink-0">
+        
+        {/* Brand */}
+        <div className="px-5 pt-5 pb-4 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center shrink-0 shadow-sm">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
             </div>
             <div>
-              <div style={{ fontSize: '0.8rem', color: '#0D9488', fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '2px' }}>
-                HR PUBLIK ASSESSMENT
-              </div>
-              <h1 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 800, color: '#F8FAFC', letterSpacing: '-0.02em' }}>
-                Portal HRD Klien — {clientName}
-              </h1>
+              <p className="text-slate-900 font-bold text-sm leading-tight">HR Publik</p>
+              <p className="text-teal-600 text-[10px] font-semibold tracking-widest uppercase">Assessment Engine</p>
             </div>
           </div>
+        </div>
 
+        {/* Navigation Items */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
+          
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400 px-2.5 mb-1.5">
+              Pusat Kendali
+            </p>
+            <ul className="space-y-0.5">
+              <li>
+                <button
+                  onClick={() => handleTabChange('candidates')}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all text-left ${
+                    activeTab === 'candidates'
+                      ? 'bg-teal-50 text-teal-700 font-semibold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <span className={activeTab === 'candidates' ? 'text-teal-600' : 'text-slate-400'}>
+                    📁
+                  </span>
+                  <span className="flex-1 leading-snug">Dashboard</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.13em] text-slate-400 px-2.5 mb-1.5">
+              Manajemen Ujian
+            </p>
+            <ul className="space-y-0.5">
+              <li>
+                <button
+                  onClick={() => handleTabChange('candidates')}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all text-left ${
+                    activeTab === 'candidates'
+                      ? 'bg-teal-50 text-teal-700 font-semibold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <span className={activeTab === 'candidates' ? 'text-teal-600' : 'text-slate-400'}>
+                    📄
+                  </span>
+                  <span className="flex-1 leading-snug">Laporan Skor Per Tes</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => handleTabChange('schedule')}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all text-left ${
+                    activeTab === 'schedule'
+                      ? 'bg-teal-50 text-teal-700 font-semibold'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <span className={activeTab === 'schedule' ? 'text-teal-600' : 'text-slate-400'}>
+                    📅
+                  </span>
+                  <span className="flex-1 leading-snug">Jadwal Sesi Ujian</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+        </nav>
+
+        {/* Footer User Info */}
+        <div className="border-t border-slate-100 px-4 py-4 shrink-0">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-xs shrink-0">
+              {clientName.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold text-slate-800 truncate">{clientName}</p>
+              <p className="text-[11px] text-slate-400 capitalize">Client</p>
+            </div>
+          </div>
           <button
             onClick={() => signOut({ callbackUrl: '/' })}
-            style={{
-              padding: '10px 20px',
-              background: '#EF4444',
-              color: 'white',
-              border: 'none',
-              borderRadius: '10px',
-              fontWeight: 700,
-              fontSize: '13px',
-              cursor: 'pointer',
-              boxShadow: '0 4px 6px rgba(239, 68, 68, 0.2)',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = '#DC2626'}
-            onMouseOut={(e) => e.currentTarget.style.background = '#EF4444'}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-medium text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
           >
-            Log Out Akun
+            🚪 Keluar dari Sistem
           </button>
-
         </div>
-      </div>
 
-      {/* METRIC CARDS ROW */}
-      <div style={{ maxWidth: '1200px', margin: '-1.5rem auto 1.5rem', padding: '0 1.5rem', boxSizing: 'border-box' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
-          
-          {/* Sesi Ujian */}
-          <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '1.5rem', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#F0FDF4', color: '#16A34A', display: 'flex', alignItems: 'center', fontSize: '22px', justifyContent: 'center' }}>📅</div>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', letterSpacing: '0.5px', textTransform: 'uppercase' }}>BATCH SESI UJIAN</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', marginTop: '2px' }}>
-                {totalBatches} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#64748B' }}>Sesi</span>
-              </div>
-            </div>
-          </div>
+      </aside>
 
-          {/* Total Kandidat */}
-          <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '1.5rem', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#EFF6FF', color: '#2563EB', display: 'flex', alignItems: 'center', fontSize: '22px', justifyContent: 'center' }}>👥</div>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', letterSpacing: '0.5px', textTransform: 'uppercase' }}>TOTAL KANDIDAT</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0284C7', marginTop: '2px' }}>
-                {totalCandidates} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#64748B' }}>Peserta</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Laporan Siap */}
-          <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '1.5rem', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#F0FDF4', color: '#10B981', display: 'flex', alignItems: 'center', fontSize: '22px', justifyContent: 'center' }}>🟢</div>
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', letterSpacing: '0.5px', textTransform: 'uppercase' }}>LAPORAN FINAL SIAP</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#16A34A', marginTop: '2px' }}>
-                {releasedReportsCount} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#64748B' }}>Kandidat</span>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* CORE CONTAINER */}
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1.5rem 3rem', boxSizing: 'border-box' }}>
+      {/* ── MAIN CONTENT AREA ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         
-        {/* INTERACTIVE NAVIGATION TABS */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '1.25rem', borderBottom: '2px solid #CBD5E1', paddingBottom: '10px' }}>
-          <button
-            onClick={() => setActiveTab('candidates')}
-            style={{
-              padding: '10px 20px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'candidates' ? '#0D9488' : 'transparent',
-              color: activeTab === 'candidates' ? 'white' : '#475569',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            📋 Daftar Kandidat & Laporan
-          </button>
-          <button
-            onClick={() => setActiveTab('schedules')}
-            style={{
-              padding: '10px 20px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'schedules' ? '#0D9488' : 'transparent',
-              color: activeTab === 'schedules' ? 'white' : '#475569',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            📅 Jadwal Sesi (Batch)
-          </button>
-          <button
-            onClick={() => setActiveTab('security')}
-            style={{
-              padding: '10px 20px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'security' ? '#0D9488' : 'transparent',
-              color: activeTab === 'security' ? 'white' : '#475569',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            🛡️ Log Keamanan & Monitor
-          </button>
-        </div>
+        {/* Top Header Bar */}
+        <header className="h-14 bg-white border-b border-slate-200 flex items-center gap-3 px-4 md:px-6 shrink-0">
+          
+          {/* Breadcrumb */}
+          <div className="flex-1 min-w-0 hidden md:flex items-center gap-2 text-sm text-slate-400">
+            <span className="font-medium text-slate-500">HR Publik</span>
+            <span className="text-slate-300">/</span>
+            <span className="font-semibold text-slate-800 truncate">Dashboard</span>
+          </div>
 
-        {/* TAB 1: CANDIDATES */}
-        {activeTab === 'candidates' && (
-          <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+          {/* Search bar */}
+          <div className="hidden sm:flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-xl px-3 py-2 w-52 lg:w-64 focus-within:border-teal-400 focus-within:bg-white transition-all">
+            <span className="text-slate-400">🔍</span>
+            <input
+              type="text"
+              placeholder="Cari kandidat, sesi..."
+              className="flex-1 bg-transparent text-[13px] text-slate-700 outline-none placeholder-slate-400"
+            />
+          </div>
+
+          {/* Role Indicator dropdown */}
+          <div className="flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-xl px-3 py-2">
+            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide hidden sm:inline">Peran:</span>
+            <span className="text-[12px] font-bold text-teal-600">Client</span>
+          </div>
+
+          {/* Notification bell */}
+          <button className="relative p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+            🔔
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full" />
+          </button>
+
+          {/* Avatar */}
+          <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-xs shrink-0">
+            {clientName.charAt(0).toUpperCase()}
+          </div>
+
+        </header>
+
+        {/* Scrollable Page Content */}
+        <main className="flex-1 overflow-y-auto px-4 md:px-6 py-6">
+          <div className="max-w-7xl mx-auto space-y-6">
             
-            {/* FILTER BAR */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+            {/* Title Section */}
+            <div>
+              <h1 className="text-[1.3rem] font-extrabold text-slate-900">Dashboard Klien Perusahaan</h1>
+            </div>
+
+            {/* METRIC CARDS */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               
-              {/* Search Box */}
-              <div style={{ position: 'relative', width: '320px', maxWidth: '100%' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', fontSize: '14px' }}>🔍</span>
-                <input
-                  type="text"
-                  placeholder="Cari nama, username, batch..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px 9px 36px',
-                    borderRadius: '8px',
-                    border: '1.5px solid #CBD5E1',
-                    fontSize: '14px',
-                    outline: 'none',
-                    backgroundColor: '#FFFFFF',
-                    color: '#0F172A',
-                  }}
-                />
+              {/* Perusahaan Mitra */}
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex items-center gap-4">
+                <div className="w-11 h-11 bg-slate-50 rounded-xl flex items-center justify-center text-xl shrink-0 border border-slate-100">🏢</div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Perusahaan Mitra</p>
+                  <p className="text-lg font-black text-slate-800 mt-0.5">{clientName}</p>
+                </div>
               </div>
 
-              {/* Batch Filter */}
-              <select
-                value={selectedBatchId}
-                onChange={(e) => setSelectedBatchId(e.target.value)}
-                style={{
-                  padding: '9px 14px',
-                  borderRadius: '8px',
-                  border: '1.5px solid #CBD5E1',
-                  fontSize: '14px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#0F172A',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="ALL">Semua Batch Sesi Ujian ({tests.length})</option>
-                {tests.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    📌 {t.title} ({t._count?.participants || 0} kandidat)
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* TABLE */}
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
-                    <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      KANDIDAT PESERTA
-                    </th>
-                    <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      BATCH & JABATAN
-                    </th>
-                    <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      STATUS PENGERJAAN
-                    </th>
-                    <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      STATUS LAPORAN
-                    </th>
-                    <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right' }}>
-                      AKSI LAPORAN
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: '#64748B' }}>
-                        Memuat data kandidat...
-                      </td>
-                    </tr>
-                  ) : filteredCandidates.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: '#64748B' }}>
-                        Belum ada data kandidat untuk perusahaan Anda.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredCandidates.map((c) => (
-                      <tr key={c.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                        
-                        {/* KANDIDAT */}
-                        <td style={{ padding: '16px' }}>
-                          <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '14px' }}>
-                            {c.user.name}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
-                            ID: <span style={{ fontFamily: 'monospace' }}>{c.user.username}</span>
-                          </div>
-                        </td>
-
-                        {/* BATCH & JABATAN */}
-                        <td style={{ padding: '16px' }}>
-                          <div style={{ fontWeight: 600, color: '#334155', fontSize: '13px' }}>
-                            {c.test?.title || 'Sesi Ujian'}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#0D9488', fontWeight: 600, marginTop: '2px' }}>
-                            Posisi: {c.test?.jobPosition?.name || '-'}
-                          </div>
-                        </td>
-
-                        {/* STATUS PENGERJAAN */}
-                        <td style={{ padding: '16px' }}>
-                          {c.status === 'completed' ? (
-                            <span style={{ background: '#DCFCE7', color: '#166534', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 700 }}>
-                              ✓ Selesai Ujian
-                            </span>
-                          ) : (
-                            <span style={{ background: '#FEF3C7', color: '#92400E', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 700 }}>
-                              • Belum Selesai
-                            </span>
-                          )}
-                        </td>
-
-                        {/* STATUS LAPORAN */}
-                        <td style={{ padding: '16px' }}>
-                          {c.psychoResults?.status === 'RELEASED' ? (
-                            <span style={{ background: '#DCFCE7', color: '#15803D', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 700 }}>
-                              🟢 Rilis & Final
-                            </span>
-                          ) : c.psychoResults?.status === 'WAITING_QC' ? (
-                            <span style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 700 }}>
-                              🟡 Verifikasi QC
-                            </span>
-                          ) : (
-                            <span style={{ background: '#F1F5F9', color: '#64748B', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 700 }}>
-                              ⚪ Proses Evaluasi
-                            </span>
-                          )}
-                        </td>
-
-                        {/* AKSI */}
-                        <td style={{ padding: '16px', textAlign: 'right' }}>
-                          {c.psychoResults?.status === 'RELEASED' ? (
-                            <Link
-                              href={`/report-pdf/${c.id}`}
-                              target="_blank"
-                              style={{
-                                background: '#0D9488',
-                                color: 'white',
-                                padding: '7px 14px',
-                                borderRadius: '6px',
-                                fontSize: '12px',
-                                fontWeight: 700,
-                                textDecoration: 'none',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                boxShadow: '0 2px 4px rgba(13, 148, 136, 0.2)',
-                              }}
-                            >
-                              📄 Lihat PDF Psikogram
-                            </Link>
-                          ) : (
-                            <span style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic' }}>
-                              Menunggu rilis
-                            </span>
-                          )}
-                        </td>
-
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-          </div>
-        )}
-
-        {/* TAB 2: SCHEDULES */}
-        {activeTab === 'schedules' && (
-          <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: 800, color: '#0F172A' }}>
-              Jadwal Sesi Ujian (Batch) Aktif
-            </h3>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
-              {tests.length === 0 ? (
-                <div style={{ padding: '24px', textAlign: 'center', color: '#64748B', gridColumn: '1/-1' }}>
-                  Belum ada jadwal sesi ujian yang ditugaskan ke Anda.
+              {/* Total Kandidat */}
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex items-center gap-4">
+                <div className="w-11 h-11 bg-slate-50 rounded-xl flex items-center justify-center text-xl shrink-0 border border-slate-100">👥</div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Kandidat</p>
+                  <p className="text-lg font-black text-slate-800 mt-0.5">{totalCandidates}</p>
                 </div>
-              ) : (
-                tests.map((t) => (
-                  <div key={t.id} style={{ border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem', background: '#F8FAFC' }}>
-                    <div style={{ fontWeight: 800, color: '#0F172A', fontSize: '14px', marginBottom: '8px' }}>
-                      {t.title}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#475569', marginBottom: '12px' }}>
-                      Posisi: <strong style={{ color: '#0D9488' }}>{t.jobPosition?.name || 'Umum'}</strong>
-                    </div>
+              </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px', color: '#64748B', borderTop: '1px solid #E2E8F0', paddingTop: '10px' }}>
-                      <div>📅 <strong>Mulai:</strong> {t.startDate ? new Date(t.startDate).toLocaleString('id-ID') : '-'}</div>
-                      <div>📅 <strong>Selesai:</strong> {t.endDate ? new Date(t.endDate).toLocaleString('id-ID') : '-'}</div>
-                      <div style={{ marginTop: '4px', fontWeight: 700, color: '#334155' }}>
-                        👤 Terdaftar: {t._count?.participants || 0} Kandidat
-                      </div>
+              {/* Sesi Ujian Dijadwalkan */}
+              <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm flex items-center gap-4">
+                <div className="w-11 h-11 bg-slate-50 rounded-xl flex items-center justify-center text-xl shrink-0 border border-slate-100">🗓️</div>
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sesi Ujian Dijadwalkan</p>
+                  <p className="text-lg font-black text-slate-800 mt-0.5">{totalBatches}</p>
+                </div>
+              </div>
+
+            </div>
+
+            {/* TAB CONTENT: CANDIDATES */}
+            {activeTab === 'candidates' && (
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-5">
+                
+                {/* Candidates Sub-Filters */}
+                <div className="flex justify-between items-center flex-wrap gap-4">
+                  {/* Search bar */}
+                  <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 w-72 focus-within:border-teal-500 focus-within:bg-white transition-all bg-white">
+                    <span className="text-slate-400">🔍</span>
+                    <input
+                      type="text"
+                      placeholder="Cari nama kandidat / username..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="flex-1 bg-transparent text-[13px] text-slate-700 outline-none placeholder-slate-400"
+                    />
+                  </div>
+
+                  {/* Sesi Ujian select filter */}
+                  <select
+                    value={selectedBatchId}
+                    onChange={(e) => setSelectedBatchId(e.target.value)}
+                    className="border border-slate-200 rounded-xl px-3.5 py-2 text-[13px] font-semibold text-slate-700 bg-white cursor-pointer outline-none focus:border-teal-500"
+                  >
+                    <option value="ALL">Semua Sesi Ujian ({tests.length})</option>
+                    {tests.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* TABLE OF CANDIDATES */}
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <th className="pb-3 pl-2">NO</th>
+                        <th className="pb-3">NAMA KANDIDAT</th>
+                        <th className="pb-3">SESI UJIAN</th>
+                        <th className="pb-3">STATUS</th>
+                        <th className="pb-3">HASIL SKOR PER TES</th>
+                        <th className="pb-3 text-right pr-2">AKSI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {loading ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
+                            Memuat data kandidat...
+                          </td>
+                        </tr>
+                      ) : filteredCandidates.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
+                            Belum ada data kandidat.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredCandidates.map((c, index) => (
+                          <tr key={c.id} className="border-b border-slate-100 last:border-none text-[13px] text-slate-700 hover:bg-slate-50/50 transition-colors">
+                            <td className="py-4 pl-2 font-semibold text-slate-400">{index + 1}</td>
+                            <td className="py-4">
+                              <div className="font-bold text-slate-900">{c.user.name}</div>
+                              <div className="text-[11px] text-slate-400 font-mono mt-0.5">{c.user.username}</div>
+                            </td>
+                            <td className="py-4">
+                              <div className="font-semibold text-slate-800">{c.test?.title || 'Sesi Ujian'}</div>
+                              <div className="text-[11px] text-teal-600 font-medium mt-0.5">{c.test?.jobPosition?.name || '-'}</div>
+                            </td>
+                            <td className="py-4">
+                              {c.status === 'completed' ? (
+                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-block">
+                                  ✓ Selesai Ujian
+                                </span>
+                              ) : (
+                                <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-block">
+                                  • Belum Selesai
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-4">
+                              {c.psychoResults?.status === 'RELEASED' ? (
+                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-block">
+                                  Laporan Rilis & Final
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 italic text-[12px]">Menunggu Rilis</span>
+                              )}
+                            </td>
+                            <td className="py-4 text-right pr-2">
+                              {c.psychoResults?.status === 'RELEASED' ? (
+                                <Link
+                                  href={`/report-pdf/${c.id}`}
+                                  target="_blank"
+                                  className="inline-flex items-center gap-1 bg-teal-600 hover:bg-teal-700 text-white font-bold text-[12px] px-3.5 py-1.5 rounded-lg transition-all shadow-sm"
+                                >
+                                  📄 Lihat PDF Psikogram
+                                </Link>
+                              ) : (
+                                <span className="text-slate-400 text-xs italic">Menunggu rilis</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            )}
+
+            {/* TAB CONTENT: SCHEDULE (JADWAL SESI UJIAN) */}
+            {activeTab === 'schedule' && (
+              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-5">
+                
+                {/* Title and stats bar */}
+                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📅</span>
+                    <div>
+                      <h3 className="font-extrabold text-slate-800 text-base">Jadwal Sesi Ujian Perusahaan</h3>
+                      <p className="text-[12px] text-slate-400 mt-0.5">Daftar sesi tes & jadwal kandidat yang telah disiapkan oleh Superadmin.</p>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: SECURITY LOGS */}
-        {activeTab === 'security' && (
-          <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', fontWeight: 800, color: '#0F172A' }}>
-              Log Keamanan & Pemantauan Kandidat
-            </h3>
-            <p style={{ margin: '0 0 1.5rem 0', color: '#64748B', fontSize: '0.85rem' }}>
-              Log aktivitas realtime dari seluruh kandidat yang mengikuti ujian di bawah batch Anda.
-            </p>
-
-            <div style={{ maxHeight: '480px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {logs.length === 0 ? (
-                <div style={{ padding: '24px', textAlign: 'center', color: '#64748B' }}>
-                  Belum ada log aktivitas keamanan masuk.
+                  <span className="bg-teal-50 text-teal-700 border border-teal-200 px-3 py-1 rounded-full text-[11px] font-bold">
+                    {activeSchedulesCount} Sesi Aktif
+                  </span>
                 </div>
-              ) : (
-                logs.map((log) => {
-                  let badgeBg = '#F1F5F9';
-                  let badgeText = '#475569';
-                  let icon = '📝';
 
-                  if (log.logType === 'camera') {
-                    badgeBg = '#ECFDF5';
-                    badgeText = '#047857';
-                    icon = '📷';
-                  } else if (log.logType === 'screen') {
-                    badgeBg = '#EFF6FF';
-                    badgeText = '#1D4ED8';
-                    icon = '🖥️';
-                  } else if (log.logType === 'blur_fullscreen' || log.logType?.includes('blur')) {
-                    badgeBg = '#FEF2F2';
-                    badgeText = '#B91C1C';
-                    icon = '⚠️';
-                  }
+                {/* TABLE OF SCHEDULES */}
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        <th className="pb-3 pl-2">ID SESI</th>
+                        <th className="pb-3">NAMA SESI UJIAN</th>
+                        <th className="pb-3">POSISI JABATAN</th>
+                        <th className="pb-3">TANGGAL PELAKSANAAN</th>
+                        <th className="pb-3">JUMLAH PESERTA</th>
+                        <th className="pb-3 text-right pr-2">STATUS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tests.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
+                            Belum ada sesi tes yang dijadwalkan oleh Superadmin.
+                          </td>
+                        </tr>
+                      ) : (
+                        tests.map((t) => {
+                          const isActive = isTestActive(t);
+                          return (
+                            <tr key={t.id} className="border-b border-slate-100 last:border-none text-[13px] text-slate-700 hover:bg-slate-50/50 transition-colors">
+                              <td className="py-4 pl-2 font-mono text-slate-400">#{t.id}</td>
+                              <td className="py-4 font-bold text-slate-900">{t.title}</td>
+                              <td className="py-4 font-semibold text-teal-600">{t.jobPosition?.name || 'Umum'}</td>
+                              <td className="py-4 text-slate-500 font-medium">
+                                <div>Mulai: {t.startDate ? new Date(t.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}</div>
+                                <div className="text-[11px] text-slate-400 mt-0.5">Selesai: {t.endDate ? new Date(t.endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}</div>
+                              </td>
+                              <td className="py-4 font-bold text-slate-800">{t._count?.participants || 0} Orang</td>
+                              <td className="py-4 text-right pr-2">
+                                {isActive ? (
+                                  <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full text-[11px] font-bold">
+                                    Aktif
+                                  </span>
+                                ) : (
+                                  <span className="bg-slate-100 text-slate-500 border border-slate-200 px-2.5 py-1 rounded-full text-[11px] font-bold">
+                                    Selesai
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
 
-                  return (
-                    <div
-                      key={log.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '10px 14px',
-                        border: '1px solid #E2E8F0',
-                        borderRadius: '10px',
-                        background: '#FAF5FF',
-                        flexWrap: 'wrap',
-                        gap: '8px',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ fontSize: '18px' }}>{icon}</span>
-                        <div>
-                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B' }}>
-                            {log.participant?.user?.name || 'Peserta'}
-                          </div>
-                          <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
-                            {log.participant?.test?.title || 'Sesi Ujian'}
-                          </div>
-                        </div>
-                      </div>
+              </div>
+            )}
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span
-                          style={{
-                            background: badgeBg,
-                            color: badgeText,
-                            padding: '2px 8px',
-                            borderRadius: '6px',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            textTransform: 'uppercase',
-                          }}
-                        >
-                          {log.logType === 'blur_fullscreen' ? 'Pindah Tab/Alt+Tab' : log.logType}
-                        </span>
-                        <span style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'monospace' }}>
-                          {new Date(log.createdAt).toLocaleTimeString('id-ID')}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
           </div>
-        )}
+        </main>
 
       </div>
     </div>
