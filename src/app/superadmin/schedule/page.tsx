@@ -240,15 +240,15 @@ export default function SchedulePage() {
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
           <div className="border-b border-slate-100 pb-4 mb-5">
             <h3 className="text-[14px] font-bold text-slate-900">Buat Sesi & Akun Peserta</h3>
-            <p className="text-[12px] text-slate-400 mt-0.5">Pilih Standar Jabatan Posisi, Klien, Alat Tes, Tanggal Ujian, dan Tester</p>
+            <p className="text-[12px] text-slate-400 mt-0.5">Isi Nama Jabatan, Standar Jabatan Posisi, Klien, Alat Tes, Tanggal Ujian, dan Tester</p>
           </div>
 
           <form onSubmit={handleGenerate} className="space-y-4">
 
-            {/* Nama Jabatan */}
+            {/* Nama Jabatan / Batch */}
             <div>
               <label className="block text-[12px] font-bold text-slate-700 mb-1.5">
-                Nama Jabatan <span className="text-rose-500">*</span>
+                Nama Jabatan / Batch <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
