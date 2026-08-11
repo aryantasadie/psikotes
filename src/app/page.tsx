@@ -16,6 +16,15 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
+    // 1. Immediately request fullscreen on user click gesture (synchronous)
+    try {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    } catch (fErr) {
+      console.warn(fErr);
+    }
+
     try {
       const res = await signIn('credentials', {
         redirect: false,
@@ -26,6 +35,10 @@ export default function LoginPage() {
       if (res?.error) {
         setError('Username atau password salah.');
         setLoading(false);
+        // Exit fullscreen on failed login
+        try {
+          if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+        } catch {}
       } else {
         // Ambil session untuk mengecek role
         const sessionRes = await fetch('/api/auth/session');
@@ -34,32 +47,36 @@ export default function LoginPage() {
         const role = sessionData?.user?.role;
 
         if (role === 'superadmin' || role === 'admin' || role === 'psikolog') {
+          // Exit fullscreen for admins
+          try {
+            if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+          } catch {}
           router.push('/superadmin');
           router.refresh();
         } else if (role === 'client') {
+          // Exit fullscreen for clients
+          try {
+            if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+          } catch {}
           router.push('/client');
           router.refresh();
         } else if (role === 'testee' || role === 'user') {
-          // Immediately request fullscreen on login button click (user gesture context)
-          try {
-            if (document.documentElement.requestFullscreen) {
-              document.documentElement.requestFullscreen().catch((err) => {
-                console.warn('Auto fullscreen login warning:', err);
-              });
-            }
-          } catch (fErr) {
-            console.warn(fErr);
-          }
           router.push('/testee/session');
           router.refresh();
         } else {
           setLoading(false);
           setError('Akses ditolak: Peran (Role) tidak terdaftar.');
+          try {
+            if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+          } catch {}
         }
       }
     } catch (err) {
       setError('Terjadi kesalahan koneksi sistem.');
       setLoading(false);
+      try {
+        if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      } catch {}
     }
   };
 
