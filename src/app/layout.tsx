@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AuthProvider from "@/components/AuthProvider";
+import ClientProctorWrapper from "@/components/ClientProctorWrapper";
 
 export const metadata: Metadata = {
   title: "HR Publik - Portal Psikotes & Assessment Center Engine",
@@ -15,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body className="bg-slate-50 text-slate-900 font-sans antialiased">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <ClientProctorWrapper>{children}</ClientProctorWrapper>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 type Question = {
   id: string;
@@ -15,6 +16,7 @@ export default function MSDT() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showInstruction, setShowInstruction] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     fetch('/api/questions?testType=MSDT')
@@ -65,7 +67,7 @@ export default function MSDT() {
         const data = await res.json();
         localStorage.setItem('msdtResult', JSON.stringify(data));
         await fetch('/api/answers/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ testType: 'MSDT', answers }) });
-        localStorage.setItem('test_completed_msdt', 'true'); window.location.href = '/testee/session';
+        localStorage.setItem('test_completed_msdt', 'true'); router.push('/testee/session');
       } else {
         console.error("Gagal mengirim jawaban.");
       }

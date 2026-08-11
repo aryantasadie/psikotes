@@ -185,7 +185,7 @@ export default function CFIT2() {
                     body: JSON.stringify({ testType: 'CFIT 2', answers })
                   });
                 } catch(e) { console.error(e); }
-                localStorage.setItem('test_completed_cfit2', 'true'); window.location.href = '/testee/session';
+                localStorage.setItem('test_completed_cfit2', 'true'); router.push('/testee/session');
               }}
               style={{ padding: '12px 24px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(46, 204, 113, 0.3)' }}
             >

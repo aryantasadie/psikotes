@@ -87,7 +87,7 @@ export default function DISC() {
         localStorage.setItem('discResult', JSON.stringify(data.scores));
         await fetch('/api/answers/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ testType: 'DISC', answers }) });
         localStorage.setItem('test_completed_disc', 'true'); 
-        window.location.href = '/testee/session';
+        router.push('/testee/session');
       } else {
         console.error("Gagal mengirim jawaban.");
       }

@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 type Question = {
   id: string;
@@ -15,6 +16,7 @@ export default function POWER() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showInstruction, setShowInstruction] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     fetch('/api/questions?testType=POWER')
@@ -62,7 +64,7 @@ export default function POWER() {
         await fetch('/api/answers/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ testType: 'POWER LEADER', answers }) });
         localStorage.setItem('test_completed_power', 'true');
         localStorage.setItem('test_completed_powerleader', 'true');
-        window.location.href = '/testee/session';
+        router.push('/testee/session');
       } else {
         console.error("Gagal mengirim jawaban.");
       }

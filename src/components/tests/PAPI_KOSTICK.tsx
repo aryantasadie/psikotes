@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 type Question = {
   id: string;
@@ -15,6 +16,7 @@ export default function PAPI() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showInstruction, setShowInstruction] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     fetch('/api/questions?testType=PAPI_KOSTICK')
@@ -69,7 +71,7 @@ export default function PAPI() {
         localStorage.setItem('papiResult', JSON.stringify(data.scores));
         localStorage.setItem('test_completed_papi', 'true');
         localStorage.setItem('test_completed_papikostick', 'true');
-        window.location.href = '/testee/session';
+        router.push('/testee/session');
       } else {
         console.error("Gagal mengirim jawaban.");
       }
