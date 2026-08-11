@@ -484,7 +484,7 @@ export default function SchedulePage() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nama Batch & Tanggal</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Standar Jabatan</th>
+                <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">BATTERY TEST</th>
                 <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Klien Perusahaan</th>
                 <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tester PJ</th>
                 <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Jumlah Akun</th>
@@ -550,13 +550,6 @@ export default function SchedulePage() {
                           className="text-[11px] font-bold bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm"
                         >
                           Lihat Akun & Password
-                        </button>
-                        <button
-                          onClick={() => handleCopyBatchFormatted(batch)}
-                          className="text-[11px] font-semibold border border-slate-200 text-slate-600 hover:bg-slate-100 px-2.5 py-1.5 rounded-lg transition-colors"
-                          title="Salin Format Pesan WA/Email"
-                        >
-                          Salin Pesan
                         </button>
                         <button
                           onClick={() => handleDeleteBatch(batch)}
