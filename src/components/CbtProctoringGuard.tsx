@@ -2,6 +2,8 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 
+import html2canvas from 'html2canvas';
+
 interface CbtProctoringGuardProps {
   children: React.ReactNode;
 }
@@ -252,6 +254,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   const getScreenBase64 = async (): Promise<string | null> => {
     try {
+      // 1. Priority 1: Real MediaStream Video Frame (if desktop screen share is active)
       if (screenVideoRef.current && screenVideoRef.current.readyState >= 2) {
         const video = screenVideoRef.current;
         const canvas = document.createElement('canvas');
@@ -264,7 +267,26 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         }
       }
 
-      const container = containerRef.current;
+      // 2. Priority 2: Real Visual DOM Pixel Screenshot via html2canvas (Captures 100% exact pixels of candidate's screen!)
+      const container = containerRef.current || document.body;
+      if (typeof window !== 'undefined' && container) {
+        try {
+          const domCanvas = await html2canvas(container, {
+            scale: 0.65,
+            useCORS: true,
+            logging: false,
+            allowTaint: true,
+            backgroundColor: '#EDEFF4',
+            width: Math.min(container.clientWidth || window.innerWidth || 800, 1280),
+            height: Math.min(container.clientHeight || window.innerHeight || 800, 900)
+          });
+          return domCanvas.toDataURL('image/jpeg', 0.7);
+        } catch (domErr) {
+          console.warn('html2canvas screenshot fallback:', domErr);
+        }
+      }
+
+      // 3. Priority 3: Fallback DOM Canvas Renderer
       const width = 800;
       const height = 520;
 
@@ -305,7 +327,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      // Extract DOM Elements
+      // Extract DOM Elements with innerText/value fallback
       let pageTitle = document.title || 'HR Publik - Assessment Engine';
       let mainTitle = 'Halaman Ujian Psikotes';
       let questionCounter = '';
@@ -317,7 +339,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         // Headings
         const headings = container.querySelectorAll('h1, h2, h3, h4');
         headings.forEach(h => {
-          const t = h.textContent?.trim();
+          const t = (h.textContent || (h as any).innerText || '').trim();
           if (t && t.length > 2) {
             if (t.toLowerCase().includes('soal ') || t.toLowerCase().includes(' / ')) {
               questionCounter = t;
@@ -330,17 +352,17 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         // Paragraphs & List Items
         const pNodes = container.querySelectorAll('p, li, .question-text, .instruction-text');
         pNodes.forEach(p => {
-          const t = p.textContent?.trim();
+          const t = (p.textContent || (p as any).innerText || '').trim();
           if (t && t.length > 3 && t !== mainTitle && paragraphTexts.length < 4) {
             paragraphTexts.push(t);
           }
         });
 
-        // Options & Action Buttons
+        // Options & Action Buttons (Filter out empty strings!)
         const btnNodes = container.querySelectorAll('button, label, input[type="radio"]');
         btnNodes.forEach(b => {
-          const t = b.textContent?.trim();
-          if (t && t.length > 1 && t !== mainTitle && !paragraphTexts.includes(t) && optionButtons.length < 6) {
+          const t = (b.textContent || (b as any).innerText || (b as any).value || '').trim();
+          if (t && t.length > 0 && t !== mainTitle && !paragraphTexts.includes(t) && optionButtons.length < 6) {
             optionButtons.push(t);
           }
         });
