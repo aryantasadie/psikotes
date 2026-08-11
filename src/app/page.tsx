@@ -40,6 +40,16 @@ export default function LoginPage() {
           router.push('/client');
           router.refresh();
         } else if (role === 'testee' || role === 'user') {
+          // Immediately request fullscreen on login button click (user gesture context)
+          try {
+            if (document.documentElement.requestFullscreen) {
+              document.documentElement.requestFullscreen().catch((err) => {
+                console.warn('Auto fullscreen login warning:', err);
+              });
+            }
+          } catch (fErr) {
+            console.warn(fErr);
+          }
           router.push('/testee/session');
           router.refresh();
         } else {
