@@ -246,7 +246,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
       const container = containerRef.current;
       const width = 800;
-      const height = 450;
+      const height = 480;
 
       const canvas = document.createElement('canvas');
       canvas.width = width;
@@ -254,61 +254,118 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
 
-      ctx.fillStyle = '#0F172A';
+      // 1. Light theme background (#EDEFF4 matching HR Publik app)
+      ctx.fillStyle = '#EDEFF4';
       ctx.fillRect(0, 0, width, height);
 
-      ctx.fillStyle = '#1E293B';
-      ctx.fillRect(0, 0, width, 50);
-      ctx.fillStyle = '#38BDF8';
-      ctx.font = 'bold 14px sans-serif';
-      ctx.fillText('💻 CBT PSYCHOMETRIC TESTEE SCREEN MONITOR', 20, 30);
-      ctx.fillStyle = '#10B981';
-      ctx.font = '12px sans-serif';
-      ctx.fillText('🔴 LIVE RECORDING', width - 150, 30);
+      // 2. Top Header Bar (#0F172A)
+      ctx.fillStyle = '#0F172A';
+      ctx.fillRect(0, 0, width, 44);
 
-      ctx.fillStyle = '#1E293B';
+      ctx.fillStyle = '#38BDF8';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.fillText('📱 CBT MOBILE SCREEN MONITOR', 20, 27);
+
+      ctx.fillStyle = '#10B981';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('🔴 LIVE RECORDING', width - 140, 27);
+
+      // 3. Main Crisp White Card (#FFFFFF)
+      const cardX = 24;
+      const cardY = 60;
+      const cardW = width - 48;
+      const cardH = height - 80;
+
+      ctx.fillStyle = '#FFFFFF';
       ctx.beginPath();
-      ctx.roundRect(20, 70, width - 40, height - 90, 12);
+      if (ctx.roundRect) {
+        ctx.roundRect(cardX, cardY, cardW, cardH, 16);
+      } else {
+        ctx.rect(cardX, cardY, cardW, cardH);
+      }
       ctx.fill();
 
-      let questionTitle = 'Halaman Soal Tes Psikotes sedang Dikerjakan';
-      let selectedOption = 'Mengerjakan Soal...';
-      let pageTitle = document.title || 'Ujian Psikotes';
+      // Card border
+      ctx.strokeStyle = '#E2E8F0';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // 4. Extract Real DOM Texts from current page
+      let mainTitle = 'Persiapan Ujian Asesmen';
+      let pageTitle = document.title || 'HR Publik - Assessment Engine';
+      let textItems: string[] = [];
+      const testeeName = sessionStorage.getItem('testee_name') || 'Peserta Ujian';
 
       if (container) {
-        const headings = container.querySelectorAll('h1, h2, h3, p, label');
-        const textArr: string[] = [];
-        headings.forEach(h => {
-          const t = (h.textContent || '').trim();
-          if (t.length > 5 && textArr.length < 5) textArr.push(t);
+        const headings = container.querySelectorAll('h1, h2, h3');
+        if (headings.length > 0 && headings[0].textContent) {
+          mainTitle = headings[0].textContent.trim().substring(0, 60);
+        }
+
+        const paragraphs = container.querySelectorAll('p, label, button, li, .option-text');
+        paragraphs.forEach(p => {
+          const txt = p.textContent?.trim();
+          if (txt && txt.length > 3 && txt !== mainTitle && textItems.length < 5) {
+            textItems.push(txt.substring(0, 75));
+          }
         });
-        if (textArr.length > 0) questionTitle = textArr[0].substring(0, 70);
-        if (textArr.length > 1) selectedOption = textArr[1].substring(0, 70);
       }
 
-      ctx.fillStyle = '#94A3B8';
-      ctx.font = '12px sans-serif';
-      ctx.fillText(`Modul: ${pageTitle}`, 40, 100);
+      // 5. Draw Module Title Badge
+      ctx.fillStyle = '#F1F5F9';
+      if (ctx.roundRect) ctx.roundRect(cardX + 24, cardY + 20, cardW - 48, 30, 8);
+      else ctx.rect(cardX + 24, cardY + 20, cardW - 48, 30);
+      ctx.fill();
 
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 16px sans-serif';
-      ctx.fillText(questionTitle, 40, 135);
+      ctx.fillStyle = '#475569';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText(`Modul: ${pageTitle}`, cardX + 36, cardY + 39);
 
-      ctx.fillStyle = '#CBD5E1';
-      ctx.font = '13px sans-serif';
-      ctx.fillText(selectedOption, 40, 175);
+      // 6. Draw Main Heading Title
+      ctx.fillStyle = '#0F172A';
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillText(mainTitle, cardX + 24, cardY + 82);
 
-      ctx.fillStyle = '#0284C7';
-      ctx.fillRect(40, 220, 200, 36);
-      ctx.fillStyle = '#FFFFFF';
+      // 7. Draw Content Lines / Paragraphs / Questions
+      let currY = cardY + 118;
+      textItems.forEach((itemText) => {
+        if (itemText.toLowerCase().includes('mulai') || itemText.toLowerCase().includes('lanjut') || itemText.toLowerCase().includes('simpan')) {
+          // Green Action Button Style
+          ctx.fillStyle = '#10B981';
+          if (ctx.roundRect) ctx.roundRect(cardX + 24, currY - 6, cardW - 48, 42, 10);
+          else ctx.rect(cardX + 24, currY - 6, cardW - 48, 42);
+          ctx.fill();
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 14px sans-serif';
+          ctx.fillText(`[ ${itemText} ]`, cardX + 40, currY + 20);
+          currY += 56;
+        } else {
+          // Regular Text Line
+          ctx.fillStyle = '#334155';
+          ctx.font = '13px sans-serif';
+          ctx.fillText(`• ${itemText}`, cardX + 24, currY);
+          currY += 28;
+        }
+      });
+
+      // 8. Footer Candidate Badge & Timestamp
+      ctx.fillStyle = '#ECFDF5';
+      if (ctx.roundRect) ctx.roundRect(cardX + 24, cardY + cardH - 46, 260, 30, 8);
+      else ctx.rect(cardX + 24, cardY + cardH - 46, 260, 30);
+      ctx.fill();
+      ctx.strokeStyle = '#A7F3D0';
+      ctx.stroke();
+
+      ctx.fillStyle = '#047857';
       ctx.font = 'bold 12px sans-serif';
-      ctx.fillText(`Peserta ID: #${participantId || 'Live'}`, 55, 243);
+      ctx.fillText(`👤 ${testeeName} (#${participantId || 'Live'})`, cardX + 34, cardY + cardH - 26);
 
-      ctx.fillStyle = '#64748B';
-      ctx.font = '11px monospace';
-      ctx.fillText(`Tangkapan Layar CBT - ${new Date().toLocaleString('id-ID')}`, 40, height - 40);
+      ctx.fillStyle = '#94A3B8';
+      ctx.font = '10px monospace';
+      ctx.fillText(`CBT Capture: ${new Date().toLocaleString('id-ID')}`, cardX + cardW - 220, cardY + cardH - 26);
 
-      return canvas.toDataURL('image/jpeg', 0.7);
+      return canvas.toDataURL('image/jpeg', 0.75);
     } catch (err) {
       console.error('Screen capture error:', err);
       return null;
