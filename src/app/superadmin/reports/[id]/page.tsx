@@ -434,7 +434,7 @@ export default function ReportDetailPage() {
             Detail Jawaban: {participant.user.name}
           </h2>
           <p style={{ color: '#64748B' }}>
-            {(participant.jobPosition?.name || participant.test?.jobPosition?.name) || 'Posisi Tidak Diketahui'} &bull; Dikerjakan pada {participant.startTime ? new Date(participant.startTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
+            {(participant.test?.title?.split('-')[0]?.trim() || participant.jobPosition?.name || participant.test?.jobPosition?.name || 'Posisi General')} &bull; Dikerjakan pada {participant.startTime ? new Date(participant.startTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
           </p>
         </div>
         

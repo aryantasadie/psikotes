@@ -277,7 +277,7 @@ export default function ReportPdfPage() {
             <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, letterSpacing: '0.05em' }}>HR PUBLIK ASSESSMENT CENTER & CONSULTING</div>
           </div>
           <div style={{ textAlign: 'right', fontSize: '13px' }}>
-            <div style={{ color: '#64748B' }}>Posisi: <span style={{ color: '#0F172A', fontWeight: 700 }}>{jobPosition?.name || '-'}</span></div>
+            <div style={{ color: '#64748B' }}>Posisi: <span style={{ color: '#0F172A', fontWeight: 700 }}>{participant.test?.title?.split('-')[0]?.trim() || jobPosition?.name || '-'}</span></div>
             <div style={{ color: '#64748B' }}>Nama Peserta: <span style={{ color: '#0F172A', fontWeight: 700 }}>{participant.user?.name || '-'}</span></div>
           </div>
         </div>
