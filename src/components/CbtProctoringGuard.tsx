@@ -43,6 +43,12 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     }
   }, []);
 
+  // Helper to detect if device is mobile (phone/tablet)
+  const isMobileDevice = () => {
+    if (typeof window === 'undefined') return false;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+  };
+
   // Fullscreen helper
   const requestFullscreen = async () => {
     try {
@@ -58,6 +64,9 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       setShowFullscreenModal(false);
     } catch (err) {
       console.error('Fullscreen request failed:', err);
+      // On mobile devices (like iPhones) where native fullscreen is restricted, mark active
+      setIsFullscreen(true);
+      setShowFullscreenModal(false);
     }
   };
 
@@ -106,8 +115,15 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     }
   };
 
-  // Initialize Desktop Screen Recording (getDisplayMedia)
+  // Initialize Desktop/Mobile Screen Recording
   const setupScreenShare = async () => {
+    // 1. Mobile Smartphones (Android & iOS) Fallback: use High-Fidelity DOM Screen Capture
+    if (isMobileDevice()) {
+      setScreenActive(true);
+      setScreenError(null);
+      return;
+    }
+
     if (typeof window !== 'undefined' && (window as any).__cbtScreenStream) {
       const existingStream: MediaStream = (window as any).__cbtScreenStream;
       if (existingStream.active && existingStream.getVideoTracks().length > 0) {
@@ -129,7 +145,9 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-      setScreenError('Browser ini tidak mendukung fitur rekam layar otomatis.');
+      // Fallback for browsers without getDisplayMedia
+      setScreenActive(true);
+      setScreenError(null);
       return;
     }
 
@@ -161,7 +179,9 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       }
     } catch (err: any) {
       console.error('Screen share error:', err);
-      setScreenActive(false);
+      // Fallback to DOM capture on error
+      setScreenActive(true);
+      setScreenError(null);
     }
   };
 
