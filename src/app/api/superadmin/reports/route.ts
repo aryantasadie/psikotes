@@ -30,8 +30,14 @@ export async function GET(req: Request) {
       where: whereClause,
       include: {
         user: true,
+        jobPosition: true,
+        psychoResults: true,
+        logs: true,
         test: {
-          include: { jobPosition: true }
+          include: {
+            jobPosition: true,
+            client: true
+          }
         },
         rawResults: true,
         answers: {
@@ -41,7 +47,7 @@ export async function GET(req: Request) {
         }
       },
       orderBy: {
-        startTime: 'desc'
+        id: 'desc'
       }
     });
 
