@@ -337,6 +337,35 @@ export default function ReportDetailPage() {
     return scores;
   }, [participant]);
 
+  // Group security logs by timestamp (nearest 4s) for side-by-side camera/screen proctoring view
+  const groupedLogs = React.useMemo(() => {
+    if (!participant || !participant.logs) return [];
+    
+    const groups: { time: string; logs: any[] }[] = [];
+    const logsList = [...participant.logs].sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    
+    logsList.forEach(log => {
+      const logTime = new Date(log.createdAt);
+      const timeStr = logTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ', ' + logTime.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+      const timeMs = logTime.getTime();
+      
+      let foundGroup = groups.find(g => {
+        const groupTime = new Date(g.logs[0].createdAt).getTime();
+        return Math.abs(groupTime - timeMs) <= 4000;
+      });
+      
+      if (foundGroup) {
+        foundGroup.logs.push(log);
+      } else {
+        groups.push({ time: timeStr, logs: [log] });
+      }
+    });
+    
+    return groups;
+  }, [participant]);
+
   // Initialize review form from existing psychoResults
   useEffect(() => {
     if (participant?.psychoResults) {
@@ -442,7 +471,6 @@ export default function ReportDetailPage() {
           </p>
         </div>
         
-        {sequence.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '0.9rem', color: '#64748B', fontWeight: 500 }}>Lihat Modul:</span>
             <select 
@@ -454,9 +482,9 @@ export default function ReportDetailPage() {
               {sequence.map((testName: string) => (
                 <option key={testName} value={testName}>{testName}</option>
               ))}
+              <option value="Proctoring">📷 Log Pengawasan & Keamanan</option>
             </select>
           </div>
-        )}
       </div>
 
       {selectedTest === 'Psikogram' ? (
@@ -744,6 +772,109 @@ export default function ReportDetailPage() {
                     </div>
                 </div>
             </div>
+
+        </div>
+      ) : selectedTest === 'Proctoring' ? (
+        <div style={{ animation: 'fadeIn 0.3s ease-in-out', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          
+          <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', padding: '24px' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
+              📷 Log Pengawasan & Rekaman Layar (Proctoring)
+            </h3>
+            <p style={{ margin: 0, fontSize: '13px', color: '#64748B' }}>
+              Rangkaian foto webcam kamera peserta dan tangkapan layar desktop (screen capture) yang terekam secara realtime selama ujian berlangsung.
+            </p>
+          </div>
+
+          {groupedLogs.length === 0 ? (
+            <div style={{ padding: '3rem', textAlign: 'center', color: '#64748B', background: 'white', borderRadius: '12px', border: '1px dashed #CBD5E1' }}>
+              Belum ada log pengawasan atau rekaman yang tersimpan untuk peserta ini.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {groupedLogs.map((group: any, idx: number) => {
+                const cameraLog = group.logs.find((l: any) => l.logType.startsWith('camera'));
+                const screenLog = group.logs.find((l: any) => l.logType.startsWith('screen'));
+                const isViolation = group.logs.some((l: any) => 
+                  l.logType.includes('tab_switch') || 
+                  l.logType.includes('fullscreen') || 
+                  l.logType.includes('forbidden')
+                );
+
+                const logLabels = group.logs.map((l: any) => {
+                  const type = l.logType;
+                  if (type.includes('tab_switch')) return 'Pindah Tab / Kehilangan Fokus';
+                  if (type.includes('fullscreen')) return 'Keluar Fullscreen';
+                  if (type.includes('forbidden_key')) return 'Kombinasi Tombol Terlarang';
+                  return 'Tangkapan Berkala';
+                });
+                const uniqueLabels = Array.from(new Set(logLabels)).join(', ');
+
+                return (
+                  <div key={idx} style={{ 
+                    background: 'white', 
+                    borderRadius: '16px', 
+                    border: isViolation ? '2.5px solid #F59E0B' : '1.5px solid #E2E8F0', 
+                    padding: '24px', 
+                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '16px' 
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                      <div>
+                        <span style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>⏱️ {group.time}</span>
+                        <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px', fontWeight: 600 }}>
+                          Kategori: {uniqueLabels}
+                        </div>
+                      </div>
+                      {isViolation ? (
+                        <span style={{ background: '#FEF3C7', color: '#D97706', border: '1px solid #FDE68A', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 800 }}>
+                          🚨 Pelanggaran Keamanan
+                        </span>
+                      ) : (
+                        <span style={{ background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 800 }}>
+                          ✓ Pengawasan Rutin
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '20px', minHeight: '200px' }}>
+                      <div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>📷 Kamera Webcam:</div>
+                        {cameraLog ? (
+                          <img 
+                            src={cameraLog.mediaUrl} 
+                            alt="Webcam Capture" 
+                            style={{ width: '100%', borderRadius: '12px', border: '1px solid #CBD5E1', objectFit: 'cover', height: '220px' }} 
+                          />
+                        ) : (
+                          <div style={{ height: '220px', background: '#F8FAFC', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: '12px', border: '1px dashed #CBD5E1' }}>
+                            Kamera tidak terambil
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>🖥️ Tangkapan Layar Desktop:</div>
+                        {screenLog ? (
+                          <img 
+                            src={screenLog.mediaUrl} 
+                            alt="Screen Capture" 
+                            style={{ width: '100%', borderRadius: '12px', border: '1px solid #CBD5E1', objectFit: 'contain', height: '220px', background: '#0F172A' }} 
+                          />
+                        ) : (
+                          <div style={{ height: '220px', background: '#F8FAFC', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: '12px', border: '1px dashed #CBD5E1' }}>
+                            Layar tidak terambil
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
         </div>
       ) : (
