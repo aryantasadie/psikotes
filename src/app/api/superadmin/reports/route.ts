@@ -3,23 +3,39 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 
-
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     let whereClause: any = {};
+    let assignedTests: any[] = [];
 
     if (session?.user) {
       const userRole = (session.user as any).role;
-      const assignedTestIdsStr = (session.user as any).assignedTestIds;
+      const userId = parseInt((session.user as any).id);
 
-      // If tester/admin has specific assigned Batch IDs, restrict results to those batches
       if (userRole === 'tester' || userRole === 'psikolog') {
+        // Fetch fresh assignedTestIds from database to bypass NextAuth token caching
+        const dbUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { assignedTestIds: true }
+        });
+        const assignedTestIdsStr = dbUser?.assignedTestIds;
+
         if (assignedTestIdsStr) {
           try {
             const testIds: number[] = JSON.parse(assignedTestIdsStr);
             if (Array.isArray(testIds) && testIds.length > 0) {
               whereClause.testId = { in: testIds };
+              
+              // Fetch details of tests assigned to this tester/psychologist
+              assignedTests = await prisma.test.findMany({
+                where: { id: { in: testIds } },
+                include: {
+                  jobPosition: true,
+                  client: true
+                },
+                orderBy: { id: 'desc' }
+              });
             } else {
               whereClause.testId = -1; // Block access to everything
             }
@@ -30,6 +46,15 @@ export async function GET(req: Request) {
         } else {
           whereClause.testId = -1; // Block access if no test IDs are assigned
         }
+      } else {
+        // Superadmin gets all tests
+        assignedTests = await prisma.test.findMany({
+          include: {
+            jobPosition: true,
+            client: true
+          },
+          orderBy: { id: 'desc' }
+        });
       }
     }
 
@@ -58,7 +83,7 @@ export async function GET(req: Request) {
       }
     });
 
-    return NextResponse.json(participants);
+    return NextResponse.json({ participants, assignedTests });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

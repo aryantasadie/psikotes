@@ -21,6 +21,7 @@ export default function ReportsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [participants, setParticipants] = useState<any[]>([]);
+  const [assignedTests, setAssignedTests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
@@ -35,7 +36,13 @@ export default function ReportsPage() {
     fetch('/api/superadmin/reports')
       .then(res => res.json())
       .then(data => {
-        setParticipants(Array.isArray(data) ? data : []);
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          setParticipants(data.participants || []);
+          setAssignedTests(data.assignedTests || []);
+        } else {
+          setParticipants(Array.isArray(data) ? data : []);
+          setAssignedTests([]);
+        }
         setLoading(false);
       })
       .catch(err => {
@@ -57,27 +64,55 @@ export default function ReportsPage() {
   // Group participants by Batch Session (Test)
   const batchesMap = new Map<number, BatchSessionGroup>();
 
-  participants.forEach(p => {
-    const testId = p.testId || p.test?.id || 0;
-    const testObj = p.test || {};
-    const title = testObj.title || 'Sesi Tanpa Judul';
-    const startDate = p.startTime || testObj.startDate;
-    const clientName = testObj.client?.name || 'Umum / Internal';
-    const jobPositionName = p.jobPosition?.name || testObj.jobPosition?.name || title.split('-')[0]?.trim() || 'General';
+  // Pre-populate batchesMap with all assigned tests to guarantee empty batches are displayed
+  assignedTests.forEach(test => {
+    const testId = test.id;
+    const title = test.title || 'Sesi Tanpa Judul';
+    const startDate = test.startDate;
+    const clientName = test.client?.name || 'Umum / Internal';
+    const jobPositionName = test.jobPosition?.name || title.split('-')[0]?.trim() || 'General';
 
     let testToolsArr = [];
-    if (testObj.sequence) {
-      try { testToolsArr = JSON.parse(testObj.sequence); } catch(e){}
+    if (test.sequence) {
+      try { testToolsArr = JSON.parse(test.sequence); } catch(e){}
     }
     const batteryTestStr = testToolsArr.length > 0 ? testToolsArr.join(' + ') : 'coba';
 
-    let assignedTesters: string[] = ['aku'];
-    if (testObj.assignedTesters) {
-      assignedTesters = testObj.assignedTesters;
-    }
+    let assignedTesters = ['aku'];
 
-    if (!batchesMap.has(testId)) {
-      batchesMap.set(testId, {
+    batchesMap.set(testId, {
+      id: testId,
+      title,
+      startDate,
+      jobPositionName,
+      clientName,
+      assignedTesters,
+      batteryTestStr,
+      totalParticipants: 0,
+      completedParticipants: 0
+    });
+  });
+
+  participants.forEach(p => {
+    const testId = p.testId || p.test?.id || 0;
+    
+    let b = batchesMap.get(testId);
+    if (!b) {
+      const testObj = p.test || {};
+      const title = testObj.title || 'Sesi Tanpa Judul';
+      const startDate = p.startTime || testObj.startDate;
+      const clientName = testObj.client?.name || 'Umum / Internal';
+      const jobPositionName = p.jobPosition?.name || testObj.jobPosition?.name || title.split('-')[0]?.trim() || 'General';
+
+      let testToolsArr = [];
+      if (testObj.sequence) {
+        try { testToolsArr = JSON.parse(testObj.sequence); } catch(e){}
+      }
+      const batteryTestStr = testToolsArr.length > 0 ? testToolsArr.join(' + ') : 'coba';
+
+      let assignedTesters = ['aku'];
+
+      b = {
         id: testId,
         title,
         startDate,
@@ -87,10 +122,10 @@ export default function ReportsPage() {
         batteryTestStr,
         totalParticipants: 0,
         completedParticipants: 0
-      });
+      };
+      batchesMap.set(testId, b);
     }
 
-    const b = batchesMap.get(testId)!;
     b.totalParticipants += 1;
     if (p.status === 'completed') {
       b.completedParticipants += 1;
