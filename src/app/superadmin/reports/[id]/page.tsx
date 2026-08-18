@@ -215,7 +215,7 @@ export default function ReportDetailPage() {
     const scores: Record<string, number> = {};
     if (!participant || !participant.answers) return scores;
 
-    // Helper: Map WPT Raw Score to 1-5 Rating Scale using getWPTIQ and getWPTClassification
+    // 1. WPT Scoring (Raw + Age bonus -> IQ -> 1-5 scale)
     const calculateWptScale = () => {
       const wptAnswers = participant.answers.filter((a: any) => 
         a.question && (a.question.testType === 'WPT' || a.question.testType === 'WPT_AGE')
@@ -230,7 +230,18 @@ export default function ReportDetailPage() {
         if (normAns === normKey) wptCorrect++;
       });
 
-      const iq = getWPTIQ(wptCorrect);
+      const ageRaw = participant.rawResults?.find((r: any) => r.testType === 'WPT_AGE');
+      const age = ageRaw ? parseInt(ageRaw.rawData, 10) : null;
+      let ageBonus = 0;
+      if (age !== null && !isNaN(age)) {
+        if (age >= 30 && age <= 39) ageBonus = 1;
+        else if (age >= 40 && age <= 49) ageBonus = 2;
+        else if (age >= 50 && age <= 59) ageBonus = 3;
+        else if (age >= 60) ageBonus = 4;
+      }
+
+      const adjustedRawScore = Math.min(50, wptCorrect + ageBonus);
+      const iq = getWPTIQ(adjustedRawScore);
       if (iq <= 79) return 1;      // KS (Kurang Sekali)
       else if (iq <= 89) return 2; // K (Kurang)
       else if (iq <= 109) return 3;// C (Cukup)
@@ -238,7 +249,7 @@ export default function ReportDetailPage() {
       else return 5;               // BS (Baik Sekali)
     };
 
-    // Helper: Map IST Subtest Raw Score to 1-5 Rating Scale using getISTClassification
+    // 2. IST Subtests Scoring (Raw -> Classification -> 1-5 scale)
     const calculateIstScale = (subtest: string) => {
       const istAnswers = participant.answers.filter((a: any) => 
         a.question && a.question.testType === subtest
@@ -262,7 +273,7 @@ export default function ReportDetailPage() {
       return 3;
     };
 
-    // Helper: Map TIKI Subtest Raw Score to 1-5 Rating Scale using getTikiClassification
+    // 3. TIKI Subtests Scoring (Raw -> Norm -> Classification -> 1-5 scale)
     const calculateTikiScale = (subtest: string) => {
       const tikiAnswers = participant.answers.filter((a: any) => 
         a.question && a.question.testType === subtest
@@ -278,7 +289,11 @@ export default function ReportDetailPage() {
       });
 
       let stdScore = correct;
-      if (subtest === 'TIKI 6') stdScore = getTiki6Norm(correct);
+      if (subtest === 'TIKI 1') stdScore = getTiki1Norm(correct);
+      else if (subtest === 'TIKI 2') stdScore = getTiki2Norm(correct);
+      else if (subtest === 'TIKI 3') stdScore = getTiki3Norm(correct);
+      else if (subtest === 'TIKI 4') stdScore = getTiki4Norm(correct);
+      else if (subtest === 'TIKI 6') stdScore = getTiki6Norm(correct);
 
       const cls = getTikiClassification(stdScore);
       if (cls.label === 'KS') return 1;
@@ -289,20 +304,112 @@ export default function ReportDetailPage() {
       return 3;
     };
 
+    // 4. PAPI Kostick 20 Traits Scoring (0-9 Raw -> 1-5 Normalization)
+    const papiRaw: Record<string, number> = { N: 0, G: 0, A: 0, L: 0, P: 0, I: 0, T: 0, V: 0, X: 0, S: 0, B: 0, O: 0, R: 0, D: 0, C: 0, Z: 0, E: 0, K: 0, F: 0, W: 0 };
+    let hasPapi = false;
+    const papiAnswers = participant.answers.filter((a: any) => 
+      a.question && (a.question.testType === 'PAPI' || a.question.testType === 'PAPI_KOSTICK' || a.question.testType === 'PAPI KOSTICK')
+    );
+    if (papiAnswers.length > 0) {
+      hasPapi = true;
+      papiAnswers.forEach((ans: any) => {
+        const qNum = ans.question?.order || ans.questionId || 0;
+        let choice = '';
+        try {
+          const parsed = JSON.parse(ans.selectedOption);
+          if (parsed === 'A' || parsed === 'B') choice = parsed;
+          else if (parsed.answer) choice = parsed.answer;
+          else if (parsed.selectedOption) choice = parsed.selectedOption;
+          else if (typeof parsed === 'string') choice = parsed;
+        } catch (e) {
+          choice = ans.selectedOption;
+        }
+        if (papiScoringKeys[qNum]) {
+          if (choice === 'A' && papiScoringKeys[qNum].A) papiRaw[papiScoringKeys[qNum].A]++;
+          else if (choice === 'B' && papiScoringKeys[qNum].B) papiRaw[papiScoringKeys[qNum].B]++;
+        }
+      });
+    }
+
+    const papiNorm = (raw: number) => {
+      if (raw <= 2) return 1;
+      if (raw <= 4) return 2;
+      if (raw <= 6) return 3;
+      if (raw <= 8) return 4;
+      return 5;
+    };
+
+    // 5. DISC Scoring (D, I, S, C diff -> scale 1-8 -> 1-5 normalization)
+    let discNorm = { D: 3, I: 3, S: 3, C: 3 };
+    let hasDisc = false;
+    const discAnswers = participant.answers.filter((a: any) => 
+      a.question && a.question.testType === 'DISC'
+    );
+    if (discAnswers.length > 0) {
+      hasDisc = true;
+      let dM = 0, iM = 0, sM = 0, cM = 0;
+      let dL = 0, iL = 0, sL = 0, cL = 0;
+      discAnswers.forEach((ans: any) => {
+        try {
+          const parsed = JSON.parse(ans.selectedOption);
+          const qNum = ans.question?.order || ans.questionId || 0;
+          if (discScoringKeys[qNum]) {
+            const mappedMost = discScoringKeys[qNum].most[parsed.most];
+            if (mappedMost === 'D') dM++;
+            if (mappedMost === 'I') iM++;
+            if (mappedMost === 'S') sM++;
+            if (mappedMost === 'C') cM++;
+            
+            const mappedLeast = discScoringKeys[qNum].least[parsed.least];
+            if (mappedLeast === 'D') dL++;
+            if (mappedLeast === 'I') iL++;
+            if (mappedLeast === 'S') sL++;
+            if (mappedLeast === 'C') cL++;
+          }
+        } catch(e) {}
+      });
+      const diffD = dM - dL;
+      const diffI = iM - iL;
+      const diffS = sM - sL;
+      const diffC = cM - cL;
+
+      const to5Scale = (scale8: number) => Math.min(5, Math.max(1, Math.round(scale8 * 5 / 8)));
+      discNorm = {
+        D: to5Scale(getDiscScale('D', diffD)),
+        I: to5Scale(getDiscScale('I', diffI)),
+        S: to5Scale(getDiscScale('S', diffS)),
+        C: to5Scale(getDiscScale('C', diffC))
+      };
+    }
+
+    // Cognitive evaluations
     const wptVal = calculateWptScale();
+    const ist1Val = calculateIstScale('IST 1');
     const ist2Val = calculateIstScale('IST 2');
     const ist3Val = calculateIstScale('IST 3');
+    const ist4Val = calculateIstScale('IST 4');
+    const ist5Val = calculateIstScale('IST 5');
     const ist6Val = calculateIstScale('IST 6');
     const ist7Val = calculateIstScale('IST 7');
+    const ist8Val = calculateIstScale('IST 8');
+    const ist9Val = calculateIstScale('IST 9');
+    const tiki1Val = calculateTikiScale('TIKI 1');
+    const tiki2Val = calculateTikiScale('TIKI 2');
+    const tiki3Val = calculateTikiScale('TIKI 3');
+    const tiki4Val = calculateTikiScale('TIKI 4');
     const tiki6Val = calculateTikiScale('TIKI 6');
 
-    // Cognitive / Intellectual Aspect Mapping
-    const cogScale = wptVal ?? tiki6Val ?? ist3Val ?? 3;
-    const verbalScale = ist2Val ?? wptVal ?? 3;
-    const logicScale = ist3Val ?? wptVal ?? 3;
-    const abstractScale = ist6Val ?? tiki6Val ?? wptVal ?? 3;
-    const numericScale = ist7Val ?? wptVal ?? 3;
+    // Cognitive synthesis
+    const cogScale = wptVal ?? ist3Val ?? tiki6Val ?? 3;
+    const logicScale = ist3Val ?? ist6Val ?? wptVal ?? 3;
+    const verbalScale = ist2Val ?? tiki3Val ?? wptVal ?? 3;
+    const abstractScale = ist4Val ?? ist6Val ?? ist7Val ?? ist8Val ?? tiki6Val ?? wptVal ?? 3;
+    const numericScale = ist5Val ?? ist6Val ?? tiki1Val ?? wptVal ?? 3;
+    const catchScale = ist1Val ?? ist9Val ?? wptVal ?? 3;
 
+    // --- MAPPING TO PSYCHOGRAM DIMENSIONS ---
+    
+    // I. Intelegensi & Kognitif
     scores['IQ / Kapasitas Intelektual'] = cogScale;
     scores['Inteligensi Umum'] = cogScale;
     scores['Kemampuan Kognitif'] = cogScale;
@@ -311,20 +418,88 @@ export default function ReportDetailPage() {
     scores['Daya Abstraksi'] = abstractScale;
     scores['Pemahaman Verbal'] = verbalScale;
     scores['Kemampuan Numerik'] = numericScale;
-    scores['Problem Solving'] = cogScale;
-    scores['Daya Tangkap'] = cogScale;
+    scores['Problem Solving'] = Math.round(((cogScale * 2) + logicScale) / 3);
+    scores['Daya Tangkap'] = catchScale;
 
-    // Power Leader / Personality Scores
-    const powerAnswers = participant.answers.filter((a: any) => 
-      a.question && (a.question.testType === 'POWER' || a.question.testType === 'POWER LEADER')
-    );
-    if (powerAnswers.length > 0) {
-      let pScale = 4;
-      if (powerAnswers.length >= 40) pScale = 4;
-      scores['Kepemimpinan'] = pScale;
-      scores['Daya Pimpin'] = pScale;
-      scores['Pengambilan Keputusan'] = pScale;
-      scores['Motivasi Kerja'] = pScale;
+    // II. Sikap Kerja
+    if (hasPapi) {
+      scores['Orientasi Berprestasi'] = papiNorm(papiRaw.A);
+      scores['Daya Juang'] = Math.round((papiNorm(papiRaw.G) * 0.4 + papiNorm(papiRaw.N) * 0.4 + papiNorm(papiRaw.A) * 0.2));
+      scores['Kedetailan'] = papiNorm(papiRaw.D);
+      scores['Ketelitian Kerja'] = Math.round((papiNorm(papiRaw.D) * 0.6 + papiNorm(papiRaw.W) * 0.4));
+      scores['Sistematika Kerja'] = Math.round((papiNorm(papiRaw.C) * 0.6 + papiNorm(papiRaw.W) * 0.4));
+      scores['Kecepatan Kerja'] = papiNorm(papiRaw.T);
+      scores['Daya Tahan Stress'] = Math.round((papiNorm(papiRaw.E) * 0.5 + papiNorm(papiRaw.V) * 0.5));
+    } else if (hasDisc) {
+      scores['Orientasi Berprestasi'] = discNorm.D >= 4 ? 4 : 3;
+      scores['Daya Juang'] = discNorm.D >= 4 ? 4 : 3;
+      scores['Kedetailan'] = discNorm.C;
+      scores['Ketelitian Kerja'] = discNorm.C;
+      scores['Sistematika Kerja'] = discNorm.C;
+      scores['Kecepatan Kerja'] = discNorm.D >= 4 ? 4 : 3;
+      scores['Daya Tahan Stress'] = discNorm.S;
+    } else {
+      scores['Orientasi Berprestasi'] = 3;
+      scores['Daya Juang'] = 3;
+      scores['Kedetailan'] = 3;
+      scores['Ketelitian Kerja'] = 3;
+      scores['Sistematika Kerja'] = 3;
+      scores['Kecepatan Kerja'] = 3;
+      scores['Daya Tahan Stress'] = 3;
+    }
+
+    // III. Kepribadian & Sosial
+    if (hasPapi) {
+      scores['Stabilitas Emosi'] = papiNorm(papiRaw.E);
+      scores['Kepekaan Emosi / Sosial'] = papiNorm(papiRaw.O);
+      scores['Kepekaan'] = papiNorm(papiRaw.O);
+      scores['Kepercayaan Diri'] = Math.round((papiNorm(papiRaw.X) * 0.35 + papiNorm(papiRaw.K) * 0.35 + papiNorm(papiRaw.L) * 0.3));
+      scores['Sosiabilitas'] = papiNorm(papiRaw.S);
+      scores['Adaptasi'] = papiNorm(papiRaw.Z);
+      scores['Komunikasi'] = Math.round((papiNorm(papiRaw.S) * 0.5 + papiNorm(papiRaw.X) * 0.5));
+      scores['Kerjasama'] = Math.round((papiNorm(papiRaw.B) * 0.4 + papiNorm(papiRaw.O) * 0.3 + papiNorm(papiRaw.F) * 0.3));
+      scores['Inisiatif'] = Math.round((papiNorm(papiRaw.I) * 0.4 + papiNorm(papiRaw.Z) * 0.3 + papiNorm(papiRaw.K) * 0.3));
+      scores['Tanggung Jawab'] = Math.round((papiNorm(papiRaw.N) * 0.6 + papiNorm(papiRaw.F) * 0.4));
+    } else if (hasDisc) {
+      scores['Stabilitas Emosi'] = discNorm.S;
+      scores['Kepekaan Emosi / Sosial'] = discNorm.S;
+      scores['Kepekaan'] = discNorm.S;
+      scores['Kepercayaan Diri'] = discNorm.D;
+      scores['Sosiabilitas'] = discNorm.I;
+      scores['Adaptasi'] = discNorm.I;
+      scores['Komunikasi'] = discNorm.I;
+      scores['Kerjasama'] = Math.round((discNorm.S + discNorm.I) / 2);
+      scores['Inisiatif'] = discNorm.D;
+      scores['Tanggung Jawab'] = Math.round((discNorm.C + discNorm.S) / 2);
+    } else {
+      scores['Stabilitas Emosi'] = 3;
+      scores['Kepekaan Emosi / Sosial'] = 3;
+      scores['Kepekaan'] = 3;
+      scores['Kepercayaan Diri'] = 3;
+      scores['Sosiabilitas'] = 3;
+      scores['Adaptasi'] = 3;
+      scores['Komunikasi'] = 3;
+      scores['Kerjasama'] = 3;
+      scores['Inisiatif'] = 3;
+      scores['Tanggung Jawab'] = 3;
+    }
+
+    // IV. Kepemimpinan
+    if (hasPapi) {
+      scores['Kepemimpinan'] = Math.round((papiNorm(papiRaw.L) * 0.4 + papiNorm(papiRaw.P) * 0.4 + papiNorm(papiRaw.I) * 0.2));
+      scores['Daya Pimpin'] = Math.round((papiNorm(papiRaw.L) * 0.5 + papiNorm(papiRaw.P) * 0.5));
+      scores['Pengambilan Keputusan'] = Math.round((papiNorm(papiRaw.I) * 0.6 + papiNorm(papiRaw.P) * 0.4));
+      scores['Motivasi Kerja'] = Math.round((papiNorm(papiRaw.A) * 0.5 + papiNorm(papiRaw.G) * 0.5));
+    } else if (hasDisc) {
+      scores['Kepemimpinan'] = discNorm.D;
+      scores['Daya Pimpin'] = discNorm.D;
+      scores['Pengambilan Keputusan'] = discNorm.D;
+      scores['Motivasi Kerja'] = discNorm.D >= 4 ? 4 : 3;
+    } else {
+      scores['Kepemimpinan'] = 3;
+      scores['Daya Pimpin'] = 3;
+      scores['Pengambilan Keputusan'] = 3;
+      scores['Motivasi Kerja'] = 3;
     }
 
     // Combine with normResults from DB if present
@@ -366,10 +541,12 @@ export default function ReportDetailPage() {
     return groups;
   }, [participant]);
 
-  // Initialize review form from existing psychoResults
+  // Initialize review form from existing psychoResults or auto-populate standard narratives
   useEffect(() => {
-    if (participant?.psychoResults) {
-      const pr = participant.psychoResults;
+    if (!participant) return;
+
+    const pr = participant.psychoResults;
+    if (pr) {
       setReviewStatus(pr.status || 'DRAFT');
       setReviewRekomendasi(pr.recommendation || 'DIPERTIMBANGKAN');
       setReviewKelebihan(pr.kelebihan || '');
@@ -382,7 +559,35 @@ export default function ReportDetailPage() {
         try { setModifiedScores(JSON.parse(pr.modifiedScores)); } catch(e){}
       }
     }
-  }, [participant]);
+
+    // Auto-generate standard dynamic interpretation if review fields are blank
+    if (!pr || !pr.dinamika) {
+      const name = participant.user?.name || 'Kandidat';
+      const cog = computerScores['IQ / Kapasitas Intelektual'] || 3;
+      const logic = computerScores['Logika Berpikir'] || 3;
+      const drive = computerScores['Daya Juang'] || 3;
+      const detail = computerScores['Kedetailan'] || 3;
+      const leader = computerScores['Kepemimpinan'] || 3;
+      const emo = computerScores['Stabilitas Emosi'] || 3;
+      const rel = computerScores['Kerjasama'] || 3;
+
+      const autoDinamika = {
+        intelegensi: `${name} memiliki kapasitas intelektual pada taraf ${cog >= 4 ? 'Baik (di atas rata-rata)' : cog === 3 ? 'Cukup (rata-rata populasi)' : 'Kurang'}. Mampu memahami persoalan dan menganalisis hubungan sebab-akibat secara ${logic >= 4 ? 'sistematis dan tajam' : 'memadai'}.`,
+        sikapKerja: `Dalam lingkungan kerja, menunjukkan tempo dan ritme kerja yang ${drive >= 4 ? 'cepat dan berorientasi hasil' : 'stabil'}. Memiliki ketelitian dan sistematika kerja pada kategori ${detail >= 4 ? 'sangat teliti dan rapi' : 'cukup teratur'}.`,
+        kepribadian: `Menampilkan kestabilan emosi yang ${emo >= 4 ? 'sangat baik dan matang' : 'cukup tenang dalam situasi umum'}. Mampu berinteraksi, beradaptasi dengan lingkungan baru, serta menjalin kerjasama tim dengan ${rel >= 4 ? 'kooperatif dan hangat' : 'wajar'}.`,
+        kepemimpinan: `Potensi kepemimpinan dan inisiatif berada pada tingkat ${leader >= 4 ? 'tinggi, mampu mengarahkan dan mengambil keputusan tegas' : 'cukup, dapat memimpin tim kecil dengan arahan yang jelas'}.`,
+        kesimpulan: `Berdasarkan integrasi hasil pemeriksaan psikologis, ${name} dinilai memiliki profil kompetensi yang ${cog >= 3 && drive >= 3 ? 'kompatibel dan potensial untuk menjalankan tanggung jawab pada posisi jabatan yang dituju' : 'memerlukan pembinaan pada beberapa aspek kerja tertentu'}.`
+      };
+
+      setReviewDinamika(autoDinamika);
+
+      // Auto recommendation
+      const avgScore = (cog + logic + drive + detail + leader + emo + rel) / 7;
+      if (avgScore >= 3.6) setReviewRekomendasi('DISARANKAN');
+      else if (avgScore >= 2.6) setReviewRekomendasi('DIPERTIMBANGKAN');
+      else setReviewRekomendasi('TIDAK_DISARANKAN');
+    }
+  }, [participant, computerScores]);
 
 
   if (loading) return <div style={{ padding: '3rem', textAlign: 'center' }}>Memuat data laporan...</div>;
