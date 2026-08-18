@@ -17,10 +17,6 @@ export default withAuth(
       return NextResponse.redirect(new URL('/', req.url));
     }
 
-    if (path.startsWith("/client") && role !== "client") {
-      return NextResponse.redirect(new URL('/', req.url));
-    }
-
     if (path.startsWith("/testee") && role !== "testee" && role !== "user") {
       return NextResponse.redirect(new URL('/', req.url));
     }
@@ -45,7 +41,6 @@ export default withAuth(
 export const config = {
   matcher: [
     "/superadmin/:path*", 
-    "/client/:path*", 
     "/testee/:path*",
     "/tes/:path*"
   ],

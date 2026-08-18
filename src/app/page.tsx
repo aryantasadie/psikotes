@@ -61,12 +61,8 @@ export default function LoginPage() {
           router.push('/superadmin/reports');
           router.refresh();
         } else if (role === 'client') {
-          // Exit fullscreen for clients
-          try {
-            if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
-          } catch {}
-          router.push('/client');
-          router.refresh();
+          setLoading(false);
+          setError('Akses ditolak: Portal Klien dinonaktifkan.');
         } else if (role === 'testee' || role === 'user') {
           router.push('/testee/session');
           router.refresh();
