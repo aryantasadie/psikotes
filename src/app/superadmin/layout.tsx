@@ -260,47 +260,51 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
           {/* Mobile: page title */}
           <p className="flex-1 text-sm font-semibold text-slate-800 truncate md:hidden">{meta.crumb}</p>
 
-          {/* Search */}
-          <div className="hidden sm:flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-xl px-3 py-2 w-52 lg:w-64 focus-within:border-teal-400 focus-within:bg-white transition-all">
-            <span className="text-slate-400"><Ico d={P.search} size={14} /></span>
-            <input
-              type="text" value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Cari kandidat, token, proyek…"
-              className="flex-1 bg-transparent text-[13px] text-slate-700 outline-none placeholder-slate-400"
-            />
-          </div>
+          {role === 'superadmin' && (
+            <>
+              {/* Search */}
+              <div className="hidden sm:flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-xl px-3 py-2 w-52 lg:w-64 focus-within:border-teal-400 focus-within:bg-white transition-all">
+                <span className="text-slate-400"><Ico d={P.search} size={14} /></span>
+                <input
+                  type="text" value={q} onChange={e => setQ(e.target.value)}
+                  placeholder="Cari kandidat, token, proyek…"
+                  className="flex-1 bg-transparent text-[13px] text-slate-700 outline-none placeholder-slate-400"
+                />
+              </div>
 
-          {/* Role switcher */}
-          <div className="flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-xl px-3 py-2">
-            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide hidden sm:inline">Peran:</span>
-            <select
-              value={role || ''}
-              onChange={e => {
-                const v = e.target.value;
-                if (v === 'testee') router.push('/testee/session');
-                else if (v === 'tester') router.push('/superadmin/live-stream');
-                else if (v === 'psikolog') router.push('/superadmin/reports');
-                else router.push('/superadmin');
-              }}
-              className="bg-transparent text-[12px] font-bold text-teal-600 focus:outline-none cursor-pointer"
-            >
-              <option value="superadmin">Superadmin</option>
-              <option value="psikolog">Psikolog</option>
-              <option value="tester">Tester</option>
-              <option value="testee">Peserta Tes</option>
-            </select>
-          </div>
+              {/* Role switcher */}
+              <div className="flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-xl px-3 py-2">
+                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide hidden sm:inline">Peran:</span>
+                <select
+                  value={role || ''}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v === 'testee') router.push('/testee/session');
+                    else if (v === 'tester') router.push('/superadmin/live-stream');
+                    else if (v === 'psikolog') router.push('/superadmin/reports');
+                    else router.push('/superadmin');
+                  }}
+                  className="bg-transparent text-[12px] font-bold text-teal-600 focus:outline-none cursor-pointer"
+                >
+                  <option value="superadmin">Superadmin</option>
+                  <option value="psikolog">Psikolog</option>
+                  <option value="tester">Tester</option>
+                  <option value="testee">Peserta Tes</option>
+                </select>
+              </div>
 
-          {/* Notif */}
-          <button className="relative p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
-            <Ico d={P.bell} size={17} />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full" />
-          </button>
+              {/* Notif */}
+              <button className="relative p-2 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
+                <Ico d={P.bell} size={17} />
+                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 rounded-full" />
+              </button>
 
-          {/* Avatar */}
-          <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer">
-            {initial}
-          </div>
+              {/* Avatar */}
+              <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-bold text-xs shrink-0 cursor-pointer">
+                {initial}
+              </div>
+            </>
+          )}
         </header>
 
         {/* Page heading */}
