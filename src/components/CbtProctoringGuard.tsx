@@ -24,6 +24,8 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
   const containerRef = useRef<HTMLDivElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
+  const webcamInitializing = useRef(false);
+  const screenInitializing = useRef(false);
 
   // Fetch participant ID
   useEffect(() => {
@@ -72,15 +74,20 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   // Initialize Webcam
   const setupWebcam = async () => {
+    if (webcamActive || webcamInitializing.current || streamRef.current) return;
+    webcamInitializing.current = true;
+
     if (typeof window !== 'undefined' && !window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
       setWebcamError('Browser memblokir kamera karena situs diakses via HTTP IP (bukan HTTPS). Akses via HTTPS Vercel atau http://localhost:3000.');
       setWebcamActive(false);
+      webcamInitializing.current = false;
       return;
     }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setWebcamError('Fitur kamera tidak didukung atau diblokir oleh browser pada perangkat ini.');
       setWebcamActive(false);
+      webcamInitializing.current = false;
       return;
     }
 
@@ -98,7 +105,11 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        try {
+          await videoRef.current.play();
+        } catch (e: any) {
+          console.warn('Webcam video play interrupted:', e);
+        }
       }
       setWebcamActive(true);
       setWebcamError(null);
@@ -112,15 +123,21 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         setWebcamError(`Kamera gagal diakses (${err.message || err.name}). Pastikan tidak ada aplikasi lain yang menggunakan kamera.`);
       }
       setWebcamActive(false);
+    } finally {
+      webcamInitializing.current = false;
     }
   };
 
   // Initialize Desktop/Mobile Screen Recording
   const setupScreenShare = async () => {
+    if (screenActive || screenInitializing.current || screenStreamRef.current) return;
+    screenInitializing.current = true;
+
     // 1. Mobile Smartphones (Android & iOS) Fallback: use High-Fidelity DOM Screen Capture
     if (isMobileDevice()) {
       setScreenActive(true);
       setScreenError(null);
+      screenInitializing.current = false;
       return;
     }
 
@@ -136,6 +153,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         }
         setScreenActive(true);
         setScreenError(null);
+        screenInitializing.current = false;
 
         existingStream.getVideoTracks()[0].onended = () => {
           setScreenActive(false);
@@ -148,6 +166,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       // Fallback for browsers without getDisplayMedia
       setScreenActive(true);
       setScreenError(null);
+      screenInitializing.current = false;
       return;
     }
 
@@ -166,7 +185,11 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
       if (screenVideoRef.current) {
         screenVideoRef.current.srcObject = screenStream;
-        await screenVideoRef.current.play();
+        try {
+          await screenVideoRef.current.play();
+        } catch (e: any) {
+          console.warn('Screen share video play interrupted:', e);
+        }
       }
       setScreenActive(true);
       setScreenError(null);
@@ -182,6 +205,8 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       // Fallback to DOM capture on error
       setScreenActive(true);
       setScreenError(null);
+    } finally {
+      screenInitializing.current = false;
     }
   };
 
@@ -192,6 +217,14 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => track.stop());
+        screenStreamRef.current = null;
+        if (typeof window !== 'undefined') {
+          (window as any).__cbtScreenStream = null;
+        }
       }
     };
   }, []);
