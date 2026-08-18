@@ -274,19 +274,19 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
           <div className="flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-xl px-3 py-2">
             <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide hidden sm:inline">Peran:</span>
             <select
-              value={role}
+              value={role || ''}
               onChange={e => {
                 const v = e.target.value;
-                if (v === 'client') router.push('/client');
-                else if (v === 'testee') router.push('/testee/session');
+                if (v === 'testee') router.push('/testee/session');
+                else if (v === 'tester') router.push('/superadmin/live-stream');
+                else if (v === 'psikolog') router.push('/superadmin/reports');
                 else router.push('/superadmin');
               }}
               className="bg-transparent text-[12px] font-bold text-teal-600 focus:outline-none cursor-pointer"
             >
               <option value="superadmin">Superadmin</option>
               <option value="psikolog">Psikolog</option>
-              <option value="admin">Admin</option>
-              <option value="client">Client</option>
+              <option value="tester">Tester</option>
               <option value="testee">Peserta Tes</option>
             </select>
           </div>
