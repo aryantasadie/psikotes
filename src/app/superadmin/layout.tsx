@@ -114,6 +114,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
         items: [
           { label: 'Daftar Peserta', path: '/superadmin/participants', icon: 'report' },
           { label: 'Live Stream CCTV', path: '/superadmin/live-stream', icon: 'proctor', badge: 'Live', live: true },
+          { label: 'Log Pengawasan', path: '/superadmin/proctor', icon: 'proctor' },
         ],
       },
     ];
