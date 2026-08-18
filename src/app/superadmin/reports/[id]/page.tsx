@@ -37,6 +37,40 @@ const discScoringKeys: Record<number, { most: Record<string, string>, least: Rec
   24: { most: { A: 'B', B: 'I', C: 'D', D: 'C' }, least: { A: 'S', B: 'I', C: 'B', D: 'B' } },
 };
 
+export const DEFAULT_PRESET_MAPPING = [
+  { category: "KEMAMPUAN KOGNITIF", aspects: [
+    { name: "IQ / Kapasitas Intelektual", checked: true, instruments: ["WPT"] },
+    { name: "Daya Analisa",              checked: true, instruments: ["IST Subtes 3"] },
+    { name: "Logika Berpikir",           checked: true, instruments: ["IST Subtes 2","IST Subtes 6"] },
+    { name: "Daya Abstraksi",            checked: true, instruments: ["IST Subtes 7"] },
+    { name: "Problem Solving",           checked: true, instruments: ["IST Subtes 7"] },
+  ]},
+  { category: "SISI AFEKTIF", aspects: [
+    { name: "Stabilitas Emosi",       checked: true, instruments: ["PAPI Skala E","PAPI Skala K"] },
+    { name: "Kepekaan Emosi / Sosial",checked: true, instruments: ["PAPI Skala X","PAPI Skala O"] },
+    { name: "Kepercayaan Diri",       checked: true, instruments: ["PAPI Skala X","PAPI Skala L","PAPI Skala S"] },
+  ]},
+  { category: "HUBUNGAN ANTAR MANUSIA", aspects: [
+    { name: "Sosiabilitas", checked: true, instruments: ["PAPI Skala O","PAPI Skala S","PAPI Skala B","PAPI Skala X"] },
+    { name: "Adaptasi",     checked: true, instruments: ["PAPI Skala S","PAPI Skala Z"] },
+    { name: "Komunikasi",   checked: true, instruments: ["PAPI Skala S"] },
+  ]},
+  { category: "SIKAP KERJA", aspects: [
+    { name: "Orientasi Berprestasi",  checked: true, instruments: ["PAPI Skala A","PAPI Skala G","PAPI Skala N"] },
+    { name: "Daya Juang",             checked: true, instruments: ["PAPI Skala G","PAPI Skala A","PAPI Skala T","PAPI Skala V"] },
+    { name: "Kedetailan",             checked: true, instruments: ["PAPI Skala D"] },
+    { name: "Sistematika Kerja",      checked: true, instruments: ["PAPI Skala C","PAPI Skala W"] },
+    { name: "Kecepatan Kerja",        checked: true, instruments: ["PAPI Skala T"] },
+    { name: "Ketelitian Kerja",       checked: true, instruments: ["PAPI Skala D"] },
+    { name: "Daya Tahan Stress",      checked: true, instruments: ["PAPI Skala E","PAPI Skala V"] },
+    { name: "Kepemimpinan",           checked: true, instruments: ["PAPI Skala L","PAPI Skala P","PAPI Skala I"] },
+    { name: "Inisiatif",              checked: true, instruments: ["PAPI Skala P","PAPI Skala I"] },
+    { name: "Tanggung Jawab",         checked: true, instruments: ["PAPI Skala N","PAPI Skala P"] },
+    { name: "Kerjasama",              checked: true, instruments: ["PAPI Skala B","PAPI Skala F"] },
+    { name: "Pengambilan Keputusan",  checked: true, instruments: ["PAPI Skala I"] },
+  ]},
+];
+
 const getTiki1Norm = (r: number) => [0,0,0,0,0,1,1,1,2,3,4,5,6,7,8,8,9,10,10,11,11,12,13,13,14,15,15,16,17,17,18,19,19,20,21,22,22,23,24,26,28][r] ?? 0;
 const getTiki2Norm = (r: number) => [4,4,5,5,5,6,7,8,9,9,11,12,13,14,15,16,17,18,19,21,22,24,25,27,29,30,30][r] ?? 4;
 const getTiki3Norm = (r: number) => [0,0,0,0,1,1,1,2,2,3,4,4,5,5,6,7,7,8,8,9,10,10,11,12,12,13,14,15,15,16,17,18,19,20,22,24,25,26,28,30,30][r] ?? 0;
@@ -559,6 +593,9 @@ export default function ReportDetailPage() {
         presetMapping = JSON.parse(jobPosition.psychographPreset.mapping);
       } catch (e) {}
     }
+    if (!Array.isArray(presetMapping) || presetMapping.length === 0) {
+      presetMapping = DEFAULT_PRESET_MAPPING;
+    }
 
     if (Array.isArray(presetMapping)) {
       presetMapping.forEach((cat: any) => {
@@ -806,11 +843,8 @@ export default function ReportDetailPage() {
                             try { mapping = JSON.parse(jobPosition.psychographPreset.mapping); } catch(e){}
                         }
                         
-                        if (mapping.length === 0) {
-                            mapping = [{
-                                category: "Aspek Psikologis",
-                                aspects: grayAreas.map((ga: any) => ({ name: ga.parameter, checked: true }))
-                            }];
+                        if (!Array.isArray(mapping) || mapping.length === 0) {
+                            mapping = DEFAULT_PRESET_MAPPING;
                         }
 
                         const grayAreasMap = grayAreas.reduce((acc: any, ga: any) => {
