@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/authOptions';
 
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -35,6 +37,29 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Participant not found' }, { status: 404 });
     }
 
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userRole = (session.user as any).role;
+    const assignedTestIdsStr = (session.user as any).assignedTestIds;
+
+    // Restrict tester and psikolog to their assigned batches
+    if (userRole === 'tester' || userRole === 'psikolog') {
+      if (!assignedTestIdsStr) {
+        return NextResponse.json({ error: 'Akses ditolak: Anda tidak ditugaskan ke batch ini.' }, { status: 403 });
+      }
+      try {
+        const testIds: number[] = JSON.parse(assignedTestIdsStr);
+        if (!Array.isArray(testIds) || !testIds.includes(participant.testId)) {
+          return NextResponse.json({ error: 'Akses ditolak: Anda tidak memiliki wewenang untuk batch ini.' }, { status: 403 });
+        }
+      } catch (e) {
+        return NextResponse.json({ error: 'Akses ditolak: Gagal memvalidasi wewenang batch.' }, { status: 403 });
+      }
+    }
+
     return NextResponse.json(participant);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -45,6 +70,39 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   try {
     const params = await context.params;
     const participantId = parseInt(params.id);
+
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userRole = (session.user as any).role;
+    if (userRole === 'tester') {
+      return NextResponse.json({ error: 'Forbidden: Tester tidak diperbolehkan menyimpan evaluasi.' }, { status: 403 });
+    }
+
+    if (userRole === 'psikolog') {
+      const participant = await prisma.testParticipant.findUnique({
+        where: { id: participantId },
+        select: { testId: true }
+      });
+      if (!participant) {
+        return NextResponse.json({ error: 'Participant not found' }, { status: 404 });
+      }
+      const assignedTestIdsStr = (session.user as any).assignedTestIds;
+      if (!assignedTestIdsStr) {
+        return NextResponse.json({ error: 'Forbidden: Anda tidak ditugaskan ke batch ini.' }, { status: 403 });
+      }
+      try {
+        const testIds: number[] = JSON.parse(assignedTestIdsStr);
+        if (!Array.isArray(testIds) || !testIds.includes(participant.testId)) {
+          return NextResponse.json({ error: 'Forbidden: Anda tidak memiliki akses ke batch ini.' }, { status: 403 });
+        }
+      } catch (e) {
+        return NextResponse.json({ error: 'Forbidden: Gagal memvalidasi wewenang batch.' }, { status: 403 });
+      }
+    }
+
     const body = await request.json();
 
     const {

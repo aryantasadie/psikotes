@@ -357,7 +357,7 @@ export default function ReportDetailPage() {
 
 
   if (loading) return <div style={{ padding: '3rem', textAlign: 'center' }}>Memuat data laporan...</div>;
-  if (!participant || participant.error) return <div style={{ padding: '3rem', textAlign: 'center' }}>Data tidak ditemukan atau terjadi kesalahan.</div>;
+  if (!participant || participant.error) return <div style={{ padding: '3rem', textAlign: 'center', color: '#B91C1C', fontWeight: 600 }}>{participant?.error || 'Data tidak ditemukan atau terjadi kesalahan.'}</div>;
 
   const sequence = participant.test?.sequence ? JSON.parse(participant.test.sequence) : [];
   const normalizedTestType = selectedTest === 'PAPI KOSTICK' ? 'PAPI_KOSTICK' : selectedTest;

@@ -72,6 +72,7 @@ const PAGE_META: Record<string, { title: string; crumb: string }> = {
   '/superadmin/proctor':       { title: 'Proctoring Center',           crumb: 'Proctoring' },
   '/superadmin/clients':       { title: 'Klien Perusahaan',            crumb: 'Klien' },
   '/superadmin/team':          { title: 'Manajemen Tim',               crumb: 'Tim' },
+  '/superadmin/participants':  { title: 'Daftar Peserta Ujian',        crumb: 'Peserta Ujian' },
 };
 
 /* ─── Component ────────────────────────────────────────────── */
@@ -111,7 +112,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
       {
         label: 'Hasil & Evaluasi',
         items: [
-          { label: 'Daftar Peserta', path: '/superadmin/reports', icon: 'report' },
+          { label: 'Daftar Peserta', path: '/superadmin/participants', icon: 'report' },
           { label: 'Live Stream CCTV', path: '/superadmin/live-stream', icon: 'proctor', badge: 'Live', live: true },
         ],
       },

@@ -92,7 +92,7 @@ export default function TesteeSession() {
     }
   }, [loading, sequence.length, nextTest, router, onboardingStage]);
 
-  const handleSubmitForm = (e: React.FormEvent) => {
+  const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !dob) return;
     
@@ -105,8 +105,18 @@ export default function TesteeSession() {
         age--;
     }
     
+    try {
+      await fetch('/api/testee/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() })
+      });
+    } catch (err) {
+      console.error('Failed to sync name to database:', err);
+    }
+    
     // Simpan ke session storage
-    sessionStorage.setItem('testee_name', name);
+    sessionStorage.setItem('testee_name', name.trim());
     sessionStorage.setItem('testee_dob', dob);
     sessionStorage.setItem('testee_age', age.toString());
     

@@ -14,14 +14,21 @@ export async function GET(req: Request) {
       const assignedTestIdsStr = (session.user as any).assignedTestIds;
 
       // If tester/admin has specific assigned Batch IDs, restrict results to those batches
-      if ((userRole === 'tester' || userRole === 'psikolog') && assignedTestIdsStr) {
-        try {
-          const testIds: number[] = JSON.parse(assignedTestIdsStr);
-          if (Array.isArray(testIds) && testIds.length > 0) {
-            whereClause.testId = { in: testIds };
+      if (userRole === 'tester' || userRole === 'psikolog') {
+        if (assignedTestIdsStr) {
+          try {
+            const testIds: number[] = JSON.parse(assignedTestIdsStr);
+            if (Array.isArray(testIds) && testIds.length > 0) {
+              whereClause.testId = { in: testIds };
+            } else {
+              whereClause.testId = -1; // Block access to everything
+            }
+          } catch (e) {
+            console.error('Failed to parse assignedTestIds:', e);
+            whereClause.testId = -1; // Block access on parse failure
           }
-        } catch (e) {
-          console.error('Failed to parse assignedTestIds:', e);
+        } else {
+          whereClause.testId = -1; // Block access if no test IDs are assigned
         }
       }
     }

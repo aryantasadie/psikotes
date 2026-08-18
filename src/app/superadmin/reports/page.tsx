@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 interface BatchSessionGroup {
   id: number;
@@ -16,9 +18,17 @@ interface BatchSessionGroup {
 }
 
 export default function ReportsPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    if (status === 'authenticated' && (session?.user as any)?.role === 'tester') {
+      router.replace('/superadmin/participants');
+    }
+  }, [session, status, router]);
 
   const fetchParticipants = () => {
     setLoading(true);
@@ -35,8 +45,14 @@ export default function ReportsPage() {
   };
 
   useEffect(() => {
-    fetchParticipants();
-  }, []);
+    if (status === 'authenticated' && (session?.user as any)?.role !== 'tester') {
+      fetchParticipants();
+    }
+  }, [status, session]);
+
+  if (status === 'loading' || (session?.user as any)?.role === 'tester') {
+    return <div style={{ padding: '3rem', textAlign: 'center' }}>Memuat...</div>;
+  }
 
   // Group participants by Batch Session (Test)
   const batchesMap = new Map<number, BatchSessionGroup>();
