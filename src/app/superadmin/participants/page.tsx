@@ -180,6 +180,7 @@ export default function ParticipantsPage() {
     });
 
   // Metrics
+  const totalParticipantsCount = participants.length;
   const totalCompleted = participants.filter((p) => p.status === 'completed').length;
   const totalInProgress = participants.filter((p) => p.status === 'in_progress').length;
   const totalPending = participants.filter((p) => p.status === 'pending').length;
@@ -188,7 +189,7 @@ export default function ParticipantsPage() {
     <div className="space-y-6">
       
       {/* ── KPI Cards (Always visible) ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
           <div className="w-9 h-9 rounded-xl border border-sky-100 bg-sky-50 text-sky-600 flex items-center justify-center mb-3 text-lg">📁</div>
           <p className="text-[26px] font-black leading-none text-sky-700">{batchesList.length}</p>
@@ -196,7 +197,13 @@ export default function ParticipantsPage() {
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="w-9 h-9 rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 text-lg">👥</div>
+          <div className="w-9 h-9 rounded-xl border border-violet-100 bg-violet-50 text-violet-600 flex items-center justify-center mb-3 text-lg">👥</div>
+          <p className="text-[26px] font-black leading-none text-violet-700">{totalParticipantsCount}</p>
+          <p className="text-[13px] font-semibold text-slate-700 mt-1">Total Peserta</p>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <div className="w-9 h-9 rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 text-lg">✅</div>
           <p className="text-[26px] font-black leading-none text-emerald-700">{totalCompleted}</p>
           <p className="text-[13px] font-semibold text-slate-700 mt-1">Selesai Ujian</p>
         </div>
