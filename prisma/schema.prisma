@@ -17,7 +17,7 @@ model User {
   phone           String?
   license         String?  // Lisensi SIPP / Spesialisasi / Catatan
   password        String
-  role            String   // "superadmin", "psikolog", "admin", "client", "user"
+  role            String   // "superadmin", "psikolog", "tester", "user"
   status          String   @default("active") // "active", "inactive"
   assignedTestIds String?  // JSON string array of assigned Test/Batch IDs e.g. "[1, 2]"
   createdAt       DateTime @default(now())

@@ -46,12 +46,19 @@ export default function LoginPage() {
         
         const role = sessionData?.user?.role;
 
-        if (role === 'superadmin' || role === 'admin') {
-          // Exit fullscreen for admins
+        if (role === 'superadmin') {
+          // Exit fullscreen for superadmin
           try {
             if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
           } catch {}
           router.push('/superadmin');
+          router.refresh();
+        } else if (role === 'tester') {
+          // Exit fullscreen for tester
+          try {
+            if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+          } catch {}
+          router.push('/superadmin/live-stream');
           router.refresh();
         } else if (role === 'psikolog') {
           // Exit fullscreen for psychologist

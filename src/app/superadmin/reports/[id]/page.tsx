@@ -559,7 +559,8 @@ export default function ReportDetailPage() {
                                                                     value={score}
                                                                     checked={finalScore === score}
                                                                     onChange={() => handleScoreOverride(aspectName, score)}
-                                                                    style={{ cursor: 'pointer', width: '16px', height: '16px', accentColor: '#3B82F6' }}
+                                                                    disabled={role === 'tester'}
+                                                                    style={{ cursor: role === 'tester' ? 'not-allowed' : 'pointer', width: '16px', height: '16px', accentColor: '#3B82F6' }}
                                                                 />
                                                             </div>
                                                         </td>
@@ -597,7 +598,8 @@ export default function ReportDetailPage() {
                         <textarea 
                             value={reviewDinamika.intelegensi}
                             onChange={(e) => setReviewDinamika({...reviewDinamika, intelegensi: e.target.value})}
-                            style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', resize: 'vertical' }}
+                            disabled={role === 'tester'}
+                            style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', resize: 'vertical', background: role === 'tester' ? '#F8FAFC' : 'white', cursor: role === 'tester' ? 'not-allowed' : 'auto' }}
                             placeholder="Uraian dinamika intelegensi..."
                         />
                     </div>
@@ -606,7 +608,8 @@ export default function ReportDetailPage() {
                         <textarea 
                             value={reviewDinamika.kepribadian}
                             onChange={(e) => setReviewDinamika({...reviewDinamika, kepribadian: e.target.value})}
-                            style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', resize: 'vertical' }}
+                            disabled={role === 'tester'}
+                            style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', resize: 'vertical', background: role === 'tester' ? '#F8FAFC' : 'white', cursor: role === 'tester' ? 'not-allowed' : 'auto' }}
                             placeholder="Uraian dinamika kepribadian..."
                         />
                     </div>
@@ -615,7 +618,8 @@ export default function ReportDetailPage() {
                         <textarea 
                             value={reviewDinamika.sikapKerja}
                             onChange={(e) => setReviewDinamika({...reviewDinamika, sikapKerja: e.target.value})}
-                            style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', resize: 'vertical' }}
+                            disabled={role === 'tester'}
+                            style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', resize: 'vertical', background: role === 'tester' ? '#F8FAFC' : 'white', cursor: role === 'tester' ? 'not-allowed' : 'auto' }}
                             placeholder="Uraian pola sikap kerja..."
                         />
                     </div>
@@ -624,7 +628,8 @@ export default function ReportDetailPage() {
                         <textarea 
                             value={reviewDinamika.kepemimpinan}
                             onChange={(e) => setReviewDinamika({...reviewDinamika, kepemimpinan: e.target.value})}
-                            style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', resize: 'vertical' }}
+                            disabled={role === 'tester'}
+                            style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', resize: 'vertical', background: role === 'tester' ? '#F8FAFC' : 'white', cursor: role === 'tester' ? 'not-allowed' : 'auto' }}
                             placeholder="Uraian potensi kepemimpinan..."
                         />
                     </div>
@@ -634,7 +639,8 @@ export default function ReportDetailPage() {
                     <textarea 
                         value={reviewDinamika.kesimpulan}
                         onChange={(e) => setReviewDinamika({...reviewDinamika, kesimpulan: e.target.value})}
-                        style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', resize: 'vertical' }}
+                        disabled={role === 'tester'}
+                        style={{ width: '100%', minHeight: '80px', padding: '12px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', resize: 'vertical', background: role === 'tester' ? '#F8FAFC' : 'white', cursor: role === 'tester' ? 'not-allowed' : 'auto' }}
                         placeholder="Kesimpulan keseluruhan..."
                     />
                 </div>
@@ -647,7 +653,8 @@ export default function ReportDetailPage() {
                     <textarea 
                         value={reviewKelebihan}
                         onChange={(e) => setReviewKelebihan(e.target.value)}
-                        style={{ width: '100%', minHeight: '120px', padding: '12px', borderRadius: '8px', border: '1px solid #A7F3D0', background: '#F0FDF4', fontSize: '14px', resize: 'vertical' }}
+                        disabled={role === 'tester'}
+                        style={{ width: '100%', minHeight: '120px', padding: '12px', borderRadius: '8px', border: '1px solid #A7F3D0', background: role === 'tester' ? '#F8FAFC' : '#F0FDF4', fontSize: '14px', resize: 'vertical', cursor: role === 'tester' ? 'not-allowed' : 'auto' }}
                         placeholder="+ Kelebihan 1&#10;+ Kelebihan 2"
                     />
                 </div>
@@ -656,7 +663,8 @@ export default function ReportDetailPage() {
                     <textarea 
                         value={reviewKelemahan}
                         onChange={(e) => setReviewKelemahan(e.target.value)}
-                        style={{ width: '100%', minHeight: '120px', padding: '12px', borderRadius: '8px', border: '1px solid #FECACA', background: '#FEF2F2', fontSize: '14px', resize: 'vertical' }}
+                        disabled={role === 'tester'}
+                        style={{ width: '100%', minHeight: '120px', padding: '12px', borderRadius: '8px', border: '1px solid #FECACA', background: role === 'tester' ? '#F8FAFC' : '#FEF2F2', fontSize: '14px', resize: 'vertical', cursor: role === 'tester' ? 'not-allowed' : 'auto' }}
                         placeholder="- Kelemahan 1&#10;- Kelemahan 2"
                     />
                 </div>
@@ -672,7 +680,8 @@ export default function ReportDetailPage() {
                     <select 
                         value={reviewRekomendasi}
                         onChange={(e) => setReviewRekomendasi(e.target.value)}
-                        style={{ padding: '12px 20px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', fontWeight: 700, minWidth: '250px', background: '#F8FAFC' }}
+                        disabled={role === 'tester'}
+                        style={{ padding: '12px 20px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', fontWeight: 700, minWidth: '250px', background: '#F8FAFC', cursor: role === 'tester' ? 'not-allowed' : 'pointer' }}
                     >
                         <option value="DISARANKAN">[✓] DISARANKAN</option>
                         <option value="DIPERTIMBANGKAN">[?] DIPERTIMBANGKAN</option>
@@ -697,36 +706,40 @@ export default function ReportDetailPage() {
                         <Link href={`/report-pdf/${id}`} target="_blank" style={{ background: '#F1F5F9', color: '#334155', padding: '10px 20px', borderRadius: '8px', textDecoration: 'none', fontWeight: 700, fontSize: '14px' }}>
                             Lihat Preview PDF
                         </Link>
+                        
+                        {role !== 'tester' && (
+                          <>
+                            <button 
+                                onClick={() => handleSaveReview('DRAFT')}
+                                disabled={savingReview}
+                                style={{ background: '#F8FAFC', color: '#334155', padding: '10px 20px', borderRadius: '8px', border: '1px solid #CBD5E1', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
+                                {savingReview ? '...' : 'Simpan Draft'}
+                            </button>
 
-                        <button 
-                            onClick={() => handleSaveReview('DRAFT')}
-                            disabled={savingReview}
-                            style={{ background: '#F8FAFC', color: '#334155', padding: '10px 20px', borderRadius: '8px', border: '1px solid #CBD5E1', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
-                            {savingReview ? '...' : 'Simpan Draft'}
-                        </button>
+                            <button 
+                                onClick={() => {
+                                    if (confirm('Kirim ke QC sekarang? Status akan berubah menjadi Waiting QC.')) {
+                                        handleSaveReview('WAITING_QC');
+                                    }
+                                }}
+                                disabled={savingReview || reviewStatus === 'WAITING_QC' || reviewStatus === 'RELEASED'}
+                                style={{ background: '#D97706', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: (reviewStatus === 'WAITING_QC' || reviewStatus === 'RELEASED') ? 'not-allowed' : 'pointer', fontSize: '14px', opacity: (reviewStatus === 'WAITING_QC' || reviewStatus === 'RELEASED') ? 0.5 : 1 }}>
+                                Kirim ke QC
+                            </button>
 
-                        <button 
-                            onClick={() => {
-                                if (confirm('Kirim ke QC sekarang? Status akan berubah menjadi Waiting QC.')) {
-                                    handleSaveReview('WAITING_QC');
-                                }
-                            }}
-                            disabled={savingReview || reviewStatus === 'WAITING_QC' || reviewStatus === 'RELEASED'}
-                            style={{ background: '#D97706', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: (reviewStatus === 'WAITING_QC' || reviewStatus === 'RELEASED') ? 'not-allowed' : 'pointer', fontSize: '14px', opacity: (reviewStatus === 'WAITING_QC' || reviewStatus === 'RELEASED') ? 0.5 : 1 }}>
-                            Kirim ke QC
-                        </button>
-
-                        {role !== 'psikolog' && (
-                          <button 
-                              onClick={() => {
-                                  if (confirm('Yakin ingin menandai laporan ini selesai dan siap rilis ke klien?')) {
-                                      handleSaveReview('RELEASED');
-                                  }
-                              }}
-                              disabled={savingReview}
-                              style={{ background: '#0D9488', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
-                              Setujui & Rilis (QC)
-                          </button>
+                            {role !== 'psikolog' && (
+                              <button 
+                                  onClick={() => {
+                                      if (confirm('Yakin ingin menandai laporan ini selesai dan siap rilis ke klien?')) {
+                                          handleSaveReview('RELEASED');
+                                      }
+                                  }}
+                                  disabled={savingReview}
+                                  style={{ background: '#0D9488', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
+                                  Setujui & Rilis (QC)
+                              </button>
+                            )}
+                          </>
                         )}
                     </div>
                 </div>

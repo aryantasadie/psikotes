@@ -28,7 +28,7 @@ export async function GET() {
     // Also get tester assignments for each batch
     const testers = await prisma.user.findMany({
       where: {
-        role: { in: ['admin', 'admin_tester', 'psikolog'] },
+        role: { in: ['tester', 'psikolog'] },
         assignedTestIds: { not: null }
       },
       select: { id: true, name: true, role: true, assignedTestIds: true }

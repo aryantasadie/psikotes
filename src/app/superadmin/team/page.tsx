@@ -37,7 +37,7 @@ export default function TeamManagementPage() {
   // Form State
   const [formData, setFormData] = useState({
     name: '',
-    role: 'admin',
+    role: 'tester',
     status: 'active',
     license: '',
     password: '',
@@ -71,7 +71,7 @@ export default function TeamManagementPage() {
     setEditingMember(null);
     setFormData({
       name: '',
-      role: 'admin',
+      role: 'tester',
       status: 'active',
       license: '',
       password: '',
@@ -205,7 +205,7 @@ export default function TeamManagementPage() {
         ? m.role === 'superadmin'
         : roleFilter === 'psikolog'
         ? m.role === 'psikolog'
-        : m.role === 'admin' || m.role === 'admin_tester';
+        : m.role === 'tester';
 
     return matchesSearch && matchesRole;
   });
@@ -213,7 +213,7 @@ export default function TeamManagementPage() {
   // Metrics
   const totalPersonnel = team.length;
   const psikologCount = team.filter((m) => m.role === 'psikolog').length;
-  const adminTesterCount = team.filter((m) => m.role === 'admin' || m.role === 'admin_tester').length;
+  const testerCount = team.filter((m) => m.role === 'tester').length;
   const superAdminCount = team.filter((m) => m.role === 'superadmin').length;
 
   const getRoleBadge = (role: string) => {
@@ -233,7 +233,7 @@ export default function TeamManagementPage() {
     }
     return (
       <span style={{ background: '#E0F2FE', color: '#0369A1', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 700, display: 'inline-block' }}>
-        Admin Tester
+        Tester
       </span>
     );
   };
@@ -360,13 +360,13 @@ export default function TeamManagementPage() {
           </div>
         </div>
 
-        {/* ADMIN TESTER */}
+        {/* TESTER */}
         <div style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '12px', padding: '1.25rem' }}>
           <div style={{ fontSize: '11px', fontWeight: 800, color: '#0369A1', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-            ADMIN TESTER
+            TESTER
           </div>
           <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0284C7' }}>
-            {adminTesterCount} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#0369A1' }}>Personel</span>
+            {testerCount} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#0369A1' }}>Personel</span>
           </div>
         </div>
 
@@ -427,7 +427,7 @@ export default function TeamManagementPage() {
             <option value="ALL" style={{ color: '#0F172A', background: '#FFFFFF' }}>Semua Peran (Role)</option>
             <option value="superadmin" style={{ color: '#0F172A', background: '#FFFFFF' }}>Super Administrator</option>
             <option value="psikolog" style={{ color: '#0F172A', background: '#FFFFFF' }}>Psikolog Assessor</option>
-            <option value="admin" style={{ color: '#0F172A', background: '#FFFFFF' }}>Admin Tester</option>
+            <option value="tester" style={{ color: '#0F172A', background: '#FFFFFF' }}>Tester</option>
           </select>
         </div>
 
@@ -652,7 +652,7 @@ export default function TeamManagementPage() {
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     style={selectStyle}
                   >
-                    <option value="admin" style={{ color: '#0F172A', background: '#FFFFFF' }}>Admin Tester</option>
+                    <option value="tester" style={{ color: '#0F172A', background: '#FFFFFF' }}>Tester</option>
                     <option value="psikolog" style={{ color: '#0F172A', background: '#FFFFFF' }}>Psikolog Assessor</option>
                     <option value="superadmin" style={{ color: '#0F172A', background: '#FFFFFF' }}>Super Administrator</option>
                   </select>

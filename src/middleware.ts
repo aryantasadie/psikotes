@@ -13,7 +13,7 @@ export default withAuth(
     const role = token.role as string;
 
     // Route protections based on role
-    if (path.startsWith("/superadmin") && !["superadmin", "admin", "admin_tester", "psikolog"].includes(role)) {
+    if (path.startsWith("/superadmin") && !["superadmin", "tester", "psikolog"].includes(role)) {
       return NextResponse.redirect(new URL('/', req.url));
     }
 

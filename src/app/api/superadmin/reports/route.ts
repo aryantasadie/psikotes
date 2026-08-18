@@ -14,7 +14,7 @@ export async function GET(req: Request) {
       const assignedTestIdsStr = (session.user as any).assignedTestIds;
 
       // If tester/admin has specific assigned Batch IDs, restrict results to those batches
-      if ((userRole === 'admin' || userRole === 'admin_tester' || userRole === 'psikolog') && assignedTestIdsStr) {
+      if ((userRole === 'tester' || userRole === 'psikolog') && assignedTestIdsStr) {
         try {
           const testIds: number[] = JSON.parse(assignedTestIdsStr);
           if (Array.isArray(testIds) && testIds.length > 0) {

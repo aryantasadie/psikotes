@@ -106,32 +106,13 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
         ],
       },
     ];
-  } else if (role === 'admin' || role === 'admin_tester') {
+  } else if (role === 'tester') {
     filteredSections = [
-      {
-        label: 'Pusat Kendali',
-        items: [
-          { label: 'Dashboard', path: '/superadmin', icon: 'home', exact: true },
-        ],
-      },
-      {
-        label: 'Manajemen Proyek',
-        items: [
-          { label: 'Sesi & Penjadwalan', path: '/superadmin/schedule', icon: 'schedule', badge: 'Aktif' },
-        ],
-      },
       {
         label: 'Hasil & Evaluasi',
         items: [
-          { label: 'Laporan & QC Review', path: '/superadmin/reports', icon: 'report' },
+          { label: 'Daftar Peserta', path: '/superadmin/reports', icon: 'report' },
           { label: 'Live Stream CCTV', path: '/superadmin/live-stream', icon: 'proctor', badge: 'Live', live: true },
-          { label: 'Proctoring Center', path: '/superadmin/proctor', icon: 'proctor' },
-        ],
-      },
-      {
-        label: 'Administrasi',
-        items: [
-          { label: 'Klien Perusahaan', path: '/superadmin/clients', icon: 'client' },
         ],
       },
     ];

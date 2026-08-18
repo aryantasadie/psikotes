@@ -10,7 +10,7 @@ export async function GET(req: Request) {
       prisma.user.findMany({
         where: {
           role: {
-            in: ['superadmin', 'psikolog', 'admin', 'admin_tester']
+            in: ['superadmin', 'psikolog', 'tester']
           }
         },
         orderBy: { createdAt: 'desc' }
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
         phone: phone || null,
         license: license || null,
         password: hashedPassword,
-        role: role || 'admin',
+        role: role || 'tester',
         status: status || 'active',
         assignedTestIds: formattedAssignedTests
       }
