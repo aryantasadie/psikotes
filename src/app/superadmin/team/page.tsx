@@ -252,19 +252,17 @@ export default function TeamManagementPage() {
         return <span style={{ color: '#94A3B8', fontSize: '12px', fontStyle: 'italic' }}>Belum ditugaskan ke Batch</span>;
       }
 
-      const assignedTitles = availableTests
-        .filter((t) => ids.includes(t.id))
-        .map((t) => t.title);
+      const assigned = availableTests.filter((t) => ids.includes(t.id));
 
-      if (assignedTitles.length === 0) {
+      if (assigned.length === 0) {
         return <span style={{ color: '#64748B', fontSize: '12px' }}>Batch #{ids.join(', #')}</span>;
       }
 
       return (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
-          {assignedTitles.map((t, idx) => (
+          {assigned.map((t, idx) => (
             <span key={idx} style={{ background: '#F1F5F9', color: '#334155', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, border: '1px solid #E2E8F0' }}>
-              📌 {t}
+              📌 {t.title} <span style={{ color: '#64748B', fontWeight: 500 }}>(ID: {t.id})</span>
             </span>
           ))}
         </div>
@@ -716,12 +714,11 @@ export default function TeamManagementPage() {
                               style={{ width: '16px', height: '16px', accentColor: '#0D9488', cursor: 'pointer' }}
                             />
                             <div style={{ flex: 1 }}>
-                              <div>{t.title}</div>
-                              {t.jobPosition?.name && (
-                                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 400 }}>
-                                  Jabatan: {t.jobPosition.name}
-                                </div>
-                              )}
+                              <div>{t.title} <span style={{ color: '#64748B', fontWeight: 500, fontSize: '11px' }}>(ID: {t.id})</span></div>
+                              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 400, marginTop: '2px' }}>
+                                {t.jobPosition?.name && `Jabatan: ${t.jobPosition.name}`}
+                                {t.startDate && ` | Mulai: ${new Date(t.startDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}`}
+                              </div>
                             </div>
                           </label>
                         );
