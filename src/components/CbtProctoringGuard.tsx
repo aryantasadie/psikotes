@@ -12,7 +12,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
   const [webcamError, setWebcamError] = useState<string | null>(null);
   const [screenActive, setScreenActive] = useState(false);
   const [screenError, setScreenError] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [violationCount, setViolationCount] = useState(0);
   const [showViolationModal, setShowViolationModal] = useState(false);
   const [violationMessage, setViolationMessage] = useState('');
@@ -666,7 +666,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     };
   }, [participantId]);
 
-  // Fullscreen Change Listener
+  // Fullscreen Change Listener & Initial Enforcement
   useEffect(() => {
     const handleFullscreenChange = () => {
       const isFS = !!document.fullscreenElement;
@@ -676,6 +676,15 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         sendSecurityLog('blur_fullscreen');
       }
     };
+
+    // Check on permission activation
+    if (webcamActive && screenActive) {
+      const isFS = !!document.fullscreenElement;
+      setIsFullscreen(isFS);
+      if (!isFS) {
+        setShowFullscreenModal(true);
+      }
+    }
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
