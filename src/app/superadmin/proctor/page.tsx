@@ -225,42 +225,9 @@ export default function ProctoringCenterPage() {
     return groups;
   })();
 
-  // Global metrics
-  const totalViolationsCount = participants.reduce((acc, p) => {
-    const pV = (p.logs || []).filter((l) => 
-      l.logType.includes('tab_switch') || 
-      l.logType.includes('fullscreen') || 
-      l.logType.includes('forbidden')
-    ).length;
-    return acc + pV;
-  }, 0);
-
-  const totalMonitoredCandidates = participants.length;
-
   return (
     <div className="space-y-6">
       
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="w-9 h-9 rounded-xl border border-sky-100 bg-sky-50 text-sky-600 flex items-center justify-center mb-3 text-lg">📁</div>
-          <p className="text-[26px] font-black leading-none text-sky-700">{batchesList.length}</p>
-          <p className="text-[13px] font-semibold text-slate-700 mt-1">Total Sesi Pengawasan</p>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="w-9 h-9 rounded-xl border border-violet-100 bg-violet-50 text-violet-600 flex items-center justify-center mb-3 text-lg">👥</div>
-          <p className="text-[26px] font-black leading-none text-violet-700">{totalMonitoredCandidates}</p>
-          <p className="text-[13px] font-semibold text-slate-700 mt-1">Total Peserta Diawasi</p>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="w-9 h-9 rounded-xl border border-rose-100 bg-rose-50 text-rose-600 flex items-center justify-center mb-3 text-lg">🚨</div>
-          <p className="text-[26px] font-black leading-none text-rose-700">{totalViolationsCount}</p>
-          <p className="text-[13px] font-semibold text-slate-700 mt-1">Total Pelanggaran Keamanan</p>
-        </div>
-      </div>
-
       {/* ── Main View Panel ── */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-5">
         
@@ -306,7 +273,7 @@ export default function ProctoringCenterPage() {
           ) : (
             /* Title for Level 1 (Batch overview) */
             <div>
-              <h3 className="font-extrabold text-slate-900 text-sm">Proctoring Center: Pengawasan Layar & Kamera</h3>
+              <h3 className="font-extrabold text-slate-900 text-sm">Log Pengawasan: Rekaman Layar & Kamera</h3>
               <p className="text-[11px] text-slate-400 mt-0.5">Tinjau rekaman kamera dan tangkapan layar desktop untuk mendeteksi kecurangan.</p>
             </div>
           )}
