@@ -304,16 +304,25 @@ export default function ReportDetailPage() {
       return 3;
     };
 
+    // Helper: Average of valid numbers rounded DOWN (floor) as requested
+    const avgFloor = (...items: (number | null | undefined)[]) => {
+      const valid = items.filter((n): n is number => typeof n === 'number' && !isNaN(n));
+      if (valid.length === 0) return 3;
+      const sum = valid.reduce((a, b) => a + b, 0);
+      return Math.max(1, Math.min(5, Math.floor(sum / valid.length)));
+    };
+
     // 4. PAPI Kostick 20 Traits Scoring (0-9 Raw -> 1-5 Normalization)
     const papiRaw: Record<string, number> = { N: 0, G: 0, A: 0, L: 0, P: 0, I: 0, T: 0, V: 0, X: 0, S: 0, B: 0, O: 0, R: 0, D: 0, C: 0, Z: 0, E: 0, K: 0, F: 0, W: 0 };
     let hasPapi = false;
-    const papiAnswers = participant.answers.filter((a: any) => 
+    const rawPapiAnswers = participant.answers.filter((a: any) => 
       a.question && (a.question.testType === 'PAPI' || a.question.testType === 'PAPI_KOSTICK' || a.question.testType === 'PAPI KOSTICK')
     );
-    if (papiAnswers.length > 0) {
+    if (rawPapiAnswers.length > 0) {
       hasPapi = true;
-      papiAnswers.forEach((ans: any) => {
-        const qNum = ans.question?.order || ans.questionId || 0;
+      const sortedPapi = [...rawPapiAnswers].sort((a: any, b: any) => (a.question?.id || a.questionId) - (b.question?.id || b.questionId));
+      sortedPapi.forEach((ans: any, idx: number) => {
+        const qNum = idx + 1;
         let choice = '';
         try {
           const parsed = JSON.parse(ans.selectedOption);
@@ -342,17 +351,18 @@ export default function ReportDetailPage() {
     // 5. DISC Scoring (D, I, S, C diff -> scale 1-8 -> 1-5 normalization)
     let discNorm = { D: 3, I: 3, S: 3, C: 3 };
     let hasDisc = false;
-    const discAnswers = participant.answers.filter((a: any) => 
+    const rawDiscAnswers = participant.answers.filter((a: any) => 
       a.question && a.question.testType === 'DISC'
     );
-    if (discAnswers.length > 0) {
+    if (rawDiscAnswers.length > 0) {
       hasDisc = true;
       let dM = 0, iM = 0, sM = 0, cM = 0;
       let dL = 0, iL = 0, sL = 0, cL = 0;
-      discAnswers.forEach((ans: any) => {
+      const sortedDisc = [...rawDiscAnswers].sort((a: any, b: any) => (a.question?.id || a.questionId) - (b.question?.id || b.questionId));
+      sortedDisc.forEach((ans: any, idx: number) => {
         try {
           const parsed = JSON.parse(ans.selectedOption);
-          const qNum = ans.question?.order || ans.questionId || 0;
+          const qNum = idx + 1;
           if (discScoringKeys[qNum]) {
             const mappedMost = discScoringKeys[qNum].most[parsed.most];
             if (mappedMost === 'D') dM++;
@@ -401,11 +411,11 @@ export default function ReportDetailPage() {
 
     // Cognitive synthesis
     const cogScale = wptVal ?? ist3Val ?? tiki6Val ?? 3;
-    const logicScale = ist3Val ?? ist6Val ?? wptVal ?? 3;
-    const verbalScale = ist2Val ?? tiki3Val ?? wptVal ?? 3;
-    const abstractScale = ist4Val ?? ist6Val ?? ist7Val ?? ist8Val ?? tiki6Val ?? wptVal ?? 3;
-    const numericScale = ist5Val ?? ist6Val ?? tiki1Val ?? wptVal ?? 3;
-    const catchScale = ist1Val ?? ist9Val ?? wptVal ?? 3;
+    const logicScale = avgFloor(ist3Val, ist6Val, wptVal);
+    const verbalScale = avgFloor(ist2Val, tiki3Val, wptVal);
+    const abstractScale = avgFloor(ist4Val, ist6Val, ist7Val, ist8Val, tiki6Val, wptVal);
+    const numericScale = avgFloor(ist5Val, ist6Val, tiki1Val, wptVal);
+    const catchScale = avgFloor(ist1Val, ist9Val, wptVal);
 
     // --- MAPPING TO PSYCHOGRAM DIMENSIONS ---
     
@@ -418,18 +428,18 @@ export default function ReportDetailPage() {
     scores['Daya Abstraksi'] = abstractScale;
     scores['Pemahaman Verbal'] = verbalScale;
     scores['Kemampuan Numerik'] = numericScale;
-    scores['Problem Solving'] = Math.round(((cogScale * 2) + logicScale) / 3);
+    scores['Problem Solving'] = avgFloor(cogScale, logicScale, wptVal);
     scores['Daya Tangkap'] = catchScale;
 
     // II. Sikap Kerja
     if (hasPapi) {
       scores['Orientasi Berprestasi'] = papiNorm(papiRaw.A);
-      scores['Daya Juang'] = Math.round((papiNorm(papiRaw.G) * 0.4 + papiNorm(papiRaw.N) * 0.4 + papiNorm(papiRaw.A) * 0.2));
+      scores['Daya Juang'] = avgFloor(papiNorm(papiRaw.G), papiNorm(papiRaw.N), papiNorm(papiRaw.A));
       scores['Kedetailan'] = papiNorm(papiRaw.D);
-      scores['Ketelitian Kerja'] = Math.round((papiNorm(papiRaw.D) * 0.6 + papiNorm(papiRaw.W) * 0.4));
-      scores['Sistematika Kerja'] = Math.round((papiNorm(papiRaw.C) * 0.6 + papiNorm(papiRaw.W) * 0.4));
+      scores['Ketelitian Kerja'] = avgFloor(papiNorm(papiRaw.D), papiNorm(papiRaw.W));
+      scores['Sistematika Kerja'] = avgFloor(papiNorm(papiRaw.C), papiNorm(papiRaw.W));
       scores['Kecepatan Kerja'] = papiNorm(papiRaw.T);
-      scores['Daya Tahan Stress'] = Math.round((papiNorm(papiRaw.E) * 0.5 + papiNorm(papiRaw.V) * 0.5));
+      scores['Daya Tahan Stress'] = avgFloor(papiNorm(papiRaw.E), papiNorm(papiRaw.V));
     } else if (hasDisc) {
       scores['Orientasi Berprestasi'] = discNorm.D >= 4 ? 4 : 3;
       scores['Daya Juang'] = discNorm.D >= 4 ? 4 : 3;
@@ -453,13 +463,13 @@ export default function ReportDetailPage() {
       scores['Stabilitas Emosi'] = papiNorm(papiRaw.E);
       scores['Kepekaan Emosi / Sosial'] = papiNorm(papiRaw.O);
       scores['Kepekaan'] = papiNorm(papiRaw.O);
-      scores['Kepercayaan Diri'] = Math.round((papiNorm(papiRaw.X) * 0.35 + papiNorm(papiRaw.K) * 0.35 + papiNorm(papiRaw.L) * 0.3));
+      scores['Kepercayaan Diri'] = avgFloor(papiNorm(papiRaw.X), papiNorm(papiRaw.K), papiNorm(papiRaw.L));
       scores['Sosiabilitas'] = papiNorm(papiRaw.S);
       scores['Adaptasi'] = papiNorm(papiRaw.Z);
-      scores['Komunikasi'] = Math.round((papiNorm(papiRaw.S) * 0.5 + papiNorm(papiRaw.X) * 0.5));
-      scores['Kerjasama'] = Math.round((papiNorm(papiRaw.B) * 0.4 + papiNorm(papiRaw.O) * 0.3 + papiNorm(papiRaw.F) * 0.3));
-      scores['Inisiatif'] = Math.round((papiNorm(papiRaw.I) * 0.4 + papiNorm(papiRaw.Z) * 0.3 + papiNorm(papiRaw.K) * 0.3));
-      scores['Tanggung Jawab'] = Math.round((papiNorm(papiRaw.N) * 0.6 + papiNorm(papiRaw.F) * 0.4));
+      scores['Komunikasi'] = avgFloor(papiNorm(papiRaw.S), papiNorm(papiRaw.X));
+      scores['Kerjasama'] = avgFloor(papiNorm(papiRaw.B), papiNorm(papiRaw.O), papiNorm(papiRaw.F));
+      scores['Inisiatif'] = avgFloor(papiNorm(papiRaw.I), papiNorm(papiRaw.Z), papiNorm(papiRaw.K));
+      scores['Tanggung Jawab'] = avgFloor(papiNorm(papiRaw.N), papiNorm(papiRaw.F));
     } else if (hasDisc) {
       scores['Stabilitas Emosi'] = discNorm.S;
       scores['Kepekaan Emosi / Sosial'] = discNorm.S;
@@ -468,9 +478,9 @@ export default function ReportDetailPage() {
       scores['Sosiabilitas'] = discNorm.I;
       scores['Adaptasi'] = discNorm.I;
       scores['Komunikasi'] = discNorm.I;
-      scores['Kerjasama'] = Math.round((discNorm.S + discNorm.I) / 2);
+      scores['Kerjasama'] = avgFloor(discNorm.S, discNorm.I);
       scores['Inisiatif'] = discNorm.D;
-      scores['Tanggung Jawab'] = Math.round((discNorm.C + discNorm.S) / 2);
+      scores['Tanggung Jawab'] = avgFloor(discNorm.C, discNorm.S);
     } else {
       scores['Stabilitas Emosi'] = 3;
       scores['Kepekaan Emosi / Sosial'] = 3;
@@ -486,10 +496,10 @@ export default function ReportDetailPage() {
 
     // IV. Kepemimpinan
     if (hasPapi) {
-      scores['Kepemimpinan'] = Math.round((papiNorm(papiRaw.L) * 0.4 + papiNorm(papiRaw.P) * 0.4 + papiNorm(papiRaw.I) * 0.2));
-      scores['Daya Pimpin'] = Math.round((papiNorm(papiRaw.L) * 0.5 + papiNorm(papiRaw.P) * 0.5));
-      scores['Pengambilan Keputusan'] = Math.round((papiNorm(papiRaw.I) * 0.6 + papiNorm(papiRaw.P) * 0.4));
-      scores['Motivasi Kerja'] = Math.round((papiNorm(papiRaw.A) * 0.5 + papiNorm(papiRaw.G) * 0.5));
+      scores['Kepemimpinan'] = avgFloor(papiNorm(papiRaw.L), papiNorm(papiRaw.P), papiNorm(papiRaw.I));
+      scores['Daya Pimpin'] = avgFloor(papiNorm(papiRaw.L), papiNorm(papiRaw.P));
+      scores['Pengambilan Keputusan'] = avgFloor(papiNorm(papiRaw.I), papiNorm(papiRaw.P));
+      scores['Motivasi Kerja'] = avgFloor(papiNorm(papiRaw.A), papiNorm(papiRaw.G));
     } else if (hasDisc) {
       scores['Kepemimpinan'] = discNorm.D;
       scores['Daya Pimpin'] = discNorm.D;
