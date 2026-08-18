@@ -46,12 +46,19 @@ export default function LoginPage() {
         
         const role = sessionData?.user?.role;
 
-        if (role === 'superadmin' || role === 'admin' || role === 'psikolog') {
+        if (role === 'superadmin' || role === 'admin') {
           // Exit fullscreen for admins
           try {
             if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
           } catch {}
           router.push('/superadmin');
+          router.refresh();
+        } else if (role === 'psikolog') {
+          // Exit fullscreen for psychologist
+          try {
+            if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+          } catch {}
+          router.push('/superadmin/reports');
           router.refresh();
         } else if (role === 'client') {
           // Exit fullscreen for clients

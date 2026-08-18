@@ -82,7 +82,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
   const [open, setOpen]   = useState(false);
   const [q,    setQ]      = useState('');
 
-  const role      = (session?.user as any)?.role ?? 'superadmin';
+  const role      = session?.user ? (session.user as any).role : null;
   const name      = session?.user?.name ?? 'Administrator';
   const initial   = name.charAt(0).toUpperCase();
 
@@ -94,8 +94,10 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
   }, [role, pathname, router]);
 
   // Dynamically filter sections based on role
-  let filteredSections = SECTIONS;
-  if (role === 'psikolog') {
+  let filteredSections: typeof SECTIONS = [];
+  if (role === 'superadmin') {
+    filteredSections = SECTIONS;
+  } else if (role === 'psikolog') {
     filteredSections = [
       {
         label: 'Hasil & Evaluasi',

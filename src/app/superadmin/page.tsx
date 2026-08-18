@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface Report { id: number; name: string; position: string; status: string; }
@@ -98,7 +100,7 @@ const WORKFLOW = [
   { n: 2, label: 'Master Kompetensi & Alat Tes',         path: '/superadmin/psychograph',   done: true  },
   { n: 3, label: 'Buat Sesi & Generate Token Peserta',   path: '/superadmin/schedule',      done: false },
   { n: 4, label: 'Pantau Proctoring & Ujian Berlangsung',path: '/superadmin/proctor',        done: false },
-  { n: 5, label: 'QC Review & Rilis Laporan Final',      path: '/superadmin/reports',       done: false },
+  { n: 5, label: 'Kirim Laporan Hasil ke QC Review',     path: '/superadmin/reports',       done: false },
 ];
 
 const AVATAR_COLORS = [
@@ -130,10 +132,18 @@ const SectionTitle = ({ children, action }: { children: React.ReactNode; action?
 
 /* ─── Page ────────────────────────────────────────────────── */
 export default function SuperadminDashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const [reports, setReports] = useState<Report[]>([]);
   const today = new Date().toLocaleDateString('id-ID', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
+
+  useEffect(() => {
+    if (status === 'authenticated' && (session?.user as any)?.role === 'psikolog') {
+      router.replace('/superadmin/reports');
+    }
+  }, [session, status, router]);
 
   useEffect(() => {
     fetch('/api/superadmin/reports')
@@ -141,6 +151,14 @@ export default function SuperadminDashboard() {
       .then(d => setReports(Array.isArray(d) ? d.slice(0, 5) : []))
       .catch(() => {});
   }, []);
+
+  if (status === 'loading' || (session?.user as any)?.role === 'psikolog') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[300px] text-slate-500">
+        <p className="text-sm font-medium animate-pulse">Memuat halaman...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
