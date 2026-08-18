@@ -417,7 +417,46 @@ export default function ReportDetailPage() {
     const numericScale = avgFloor(ist5Val, ist6Val, tiki1Val, wptVal);
     const catchScale = avgFloor(ist1Val, ist9Val, wptVal);
 
-    // --- MAPPING TO PSYCHOGRAM DIMENSIONS ---
+    // Helper to get normalized score for any instrument named in presets
+    const getInstrumentScore = (inst: string): number | null => {
+      const clean = inst.trim().toUpperCase();
+      if (clean === 'WPT') return wptVal;
+      if (clean.includes('TIKI 1')) return tiki1Val;
+      if (clean.includes('TIKI 2')) return tiki2Val;
+      if (clean.includes('TIKI 3')) return tiki3Val;
+      if (clean.includes('TIKI 4')) return tiki4Val;
+      if (clean.includes('TIKI 6')) return tiki6Val;
+      if (clean.includes('IST') && (clean.includes('1') || clean.includes('SUBTES 1'))) return ist1Val;
+      if (clean.includes('IST') && (clean.includes('2') || clean.includes('SUBTES 2'))) return ist2Val;
+      if (clean.includes('IST') && (clean.includes('3') || clean.includes('SUBTES 3'))) return ist3Val;
+      if (clean.includes('IST') && (clean.includes('4') || clean.includes('SUBTES 4'))) return ist4Val;
+      if (clean.includes('IST') && (clean.includes('5') || clean.includes('SUBTES 5'))) return ist5Val;
+      if (clean.includes('IST') && (clean.includes('6') || clean.includes('SUBTES 6'))) return ist6Val;
+      if (clean.includes('IST') && (clean.includes('7') || clean.includes('SUBTES 7'))) return ist7Val;
+      if (clean.includes('IST') && (clean.includes('8') || clean.includes('SUBTES 8'))) return ist8Val;
+      if (clean.includes('IST') && (clean.includes('9') || clean.includes('SUBTES 9'))) return ist9Val;
+      
+      // PAPI Scales
+      if (hasPapi && clean.includes('PAPI')) {
+        const match = clean.match(/SKALA\s*([A-Z])|PAPI\s*([A-Z])/i);
+        const trait = match ? (match[1] || match[2]).toUpperCase() : '';
+        if (trait && papiRaw[trait] !== undefined) {
+          return papiNorm(papiRaw[trait]);
+        }
+      }
+
+      // DISC Scales
+      if (hasDisc && clean.includes('DISC')) {
+        if (clean.includes('(D)') || clean.endsWith('D')) return discNorm.D;
+        if (clean.includes('(I)') || clean.endsWith('I')) return discNorm.I;
+        if (clean.includes('(S)') || clean.endsWith('S')) return discNorm.S;
+        if (clean.includes('(C)') || clean.endsWith('C')) return discNorm.C;
+      }
+
+      return null;
+    };
+
+    // --- MAPPING TO PSYCHOGRAM DIMENSIONS (UNIVERSAL FALLBACKS) ---
     
     // I. Intelegensi & Kognitif
     scores['IQ / Kapasitas Intelektual'] = cogScale;
@@ -510,6 +549,32 @@ export default function ReportDetailPage() {
       scores['Daya Pimpin'] = 3;
       scores['Pengambilan Keputusan'] = 3;
       scores['Motivasi Kerja'] = 3;
+    }
+
+    // V. Dynamic preset mapping evaluation for ALL configured categories & aspects (including custom presets)
+    const jobPosition = participant.jobPosition || participant.test?.jobPosition;
+    let presetMapping: any[] = [];
+    if (jobPosition?.psychographPreset?.mapping) {
+      try {
+        presetMapping = JSON.parse(jobPosition.psychographPreset.mapping);
+      } catch (e) {}
+    }
+
+    if (Array.isArray(presetMapping)) {
+      presetMapping.forEach((cat: any) => {
+        if (Array.isArray(cat.aspects)) {
+          cat.aspects.forEach((asp: any) => {
+            if (asp.name && Array.isArray(asp.instruments) && asp.instruments.length > 0) {
+              const instScores = asp.instruments
+                .map((inst: string) => getInstrumentScore(inst))
+                .filter((s: any): s is number => typeof s === 'number' && !isNaN(s));
+              if (instScores.length > 0) {
+                scores[asp.name] = avgFloor(...instScores);
+              }
+            }
+          });
+        }
+      });
     }
 
     // Combine with normResults from DB if present
