@@ -58,6 +58,8 @@ interface BatchGroup {
   clientName: string;
   jobPositionName: string;
   totalParticipants: number;
+  completedCount: number;
+  inProgressCount: number;
   violationCount: number;
 }
 
@@ -122,6 +124,8 @@ export default function ProctoringCenterPage() {
       clientName,
       jobPositionName,
       totalParticipants: 0,
+      completedCount: 0,
+      inProgressCount: 0,
       violationCount: 0
     });
   });
@@ -151,12 +155,19 @@ export default function ProctoringCenterPage() {
         clientName,
         jobPositionName,
         totalParticipants: 0,
+        completedCount: 0,
+        inProgressCount: 0,
         violationCount: 0
       };
       batchesMap.set(testId, b);
     }
 
     b.totalParticipants += 1;
+    if (p.status === 'completed') {
+      b.completedCount += 1;
+    } else if (p.status === 'in_progress') {
+      b.inProgressCount += 1;
+    }
     
     // Count safety violations in logs
     const candidateViolations = (p.logs || []).filter((l) => 
@@ -248,7 +259,22 @@ export default function ProctoringCenterPage() {
               </button>
               <div className="border-l border-slate-200 h-6 hidden sm:block"></div>
               <div>
-                <h3 className="font-extrabold text-slate-900 text-sm">Log Keamanan: {currentParticipant?.user.name}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-extrabold text-slate-900 text-sm">Log Keamanan: {currentParticipant?.user.name}</h3>
+                  {currentParticipant?.status === 'completed' ? (
+                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                      ✓ Selesai Ujian
+                    </span>
+                  ) : currentParticipant?.status === 'in_progress' ? (
+                    <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                      • Sedang Mengerjakan
+                    </span>
+                  ) : (
+                    <span className="bg-slate-100 text-slate-500 border border-slate-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                      Belum Mulai
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-slate-400 mt-0.5">Username: {currentParticipant?.user.username}</p>
               </div>
             </div>
@@ -399,14 +425,15 @@ export default function ProctoringCenterPage() {
                   <th className="pb-3 pl-2">NO</th>
                   <th className="pb-3">NAMA PESERTA & AKUN</th>
                   <th className="pb-3">POSISI / JABATAN</th>
-                  <th className="pb-3">JUMLAH PELANGGARAN</th>
+                  <th className="pb-3">STATUS PENGERJAAN</th>
+                  <th className="pb-3">STATUS PELANGGARAN</th>
                   <th className="pb-3 text-right pr-2">AKSI</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredParticipants.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-400 text-sm">
+                    <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
                       Tidak ada peserta terdaftar di batch ini yang sesuai dengan kriteria.
                     </td>
                   </tr>
@@ -429,6 +456,21 @@ export default function ProctoringCenterPage() {
                         </td>
                         <td className="py-4 font-semibold text-slate-800">
                           {p.test.jobPosition?.name || p.test.title || '-'}
+                        </td>
+                        <td className="py-4">
+                          {p.status === 'completed' ? (
+                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Selesai Ujian
+                            </span>
+                          ) : p.status === 'in_progress' ? (
+                            <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Sedang Mengerjakan
+                            </span>
+                          ) : (
+                            <span className="bg-slate-100 text-slate-500 border border-slate-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-block">
+                              Belum Mulai
+                            </span>
+                          )}
                         </td>
                         <td className="py-4">
                           {candidateViolations > 0 ? (
@@ -470,20 +512,21 @@ export default function ProctoringCenterPage() {
                   <th className="pb-3 pl-2">NAMA BATCH & TANGGAL</th>
                   <th className="pb-3">KLIEN PERUSAHAAN</th>
                   <th className="pb-3">TESTER PJ</th>
-                  <th className="pb-3">STATUS PELANGGARAN BATCH</th>
+                  <th className="pb-3">JUMLAH PESERTA & STATUS</th>
+                  <th className="pb-3">STATUS KEAMANAN</th>
                   <th className="pb-3 text-right pr-2">AKSI</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-400 text-sm">
+                    <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
                       Memuat data pengawasan...
                     </td>
                   </tr>
                 ) : filteredBatches.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-400 text-sm">
+                    <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
                       Tidak ada batch sesi ujian yang ditemukan.
                     </td>
                   </tr>
@@ -505,20 +548,27 @@ export default function ProctoringCenterPage() {
                         </span>
                       </td>
                       <td className="py-4">
+                        <div className="font-bold text-slate-800">{b.totalParticipants} Peserta</div>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                            {b.completedCount} Selesai
+                          </span>
+                          {b.inProgressCount > 0 && (
+                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                              {b.inProgressCount} Mengerjakan
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4">
                         {b.violationCount > 0 ? (
-                          <div>
-                            <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full text-[11px] font-black inline-block">
-                              🚨 {b.violationCount}x Pelanggaran
-                            </span>
-                            <div className="text-[10px] text-slate-400 mt-1">{b.totalParticipants} Peserta diawasi</div>
-                          </div>
+                          <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full text-[11px] font-black inline-block">
+                            🚨 {b.violationCount}x Pelanggaran
+                          </span>
                         ) : (
-                          <div>
-                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-block">
-                              ✓ Aman (Bersih)
-                            </span>
-                            <div className="text-[10px] text-slate-400 mt-1">{b.totalParticipants} Peserta diawasi</div>
-                          </div>
+                          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-block">
+                            ✓ Aman (Bersih)
+                          </span>
                         )}
                       </td>
                       <td className="py-4 text-right pr-2">
