@@ -179,6 +179,127 @@ const getISTClassification = (testType: string, r: number) => {
   return sm;
 };
 
+export const getPapiNorm = (trait: string, score: number): string => {
+  if (trait === 'L' || trait === 'P') return score <= 4 ? '2-' : score <= 7 ? '3' : score === 8 ? '4' : '5';
+  if (trait === 'I') return score <= 2 ? '2-' : score <= 5 ? '3' : score === 6 ? '4' : score === 7 ? '5' : '2+';
+  if (trait === 'C') return score <= 2 ? '2-' : score === 3 ? '3' : score === 4 ? '4' : score === 5 ? '5' : '2+';
+  if (trait === 'D') return score <= 3 ? '2-' : score <= 6 ? '3' : score <= 8 ? '4' : '5';
+  if (trait === 'R') return score <= 4 ? 'P' : 'T';
+  if (trait === 'N' || trait === 'A') return score <= 2 ? '2-' : score <= 5 ? '3' : score <= 8 ? '4' : '5';
+  if (trait === 'G') return score <= 2 ? '2-' : score <= 5 ? '3' : score === 6 ? '4' : score === 7 ? '5' : '2+';
+  if (trait === 'F') return score <= 1 ? '2-' : score <= 3 ? '3' : score === 4 ? '4' : score === 5 ? '5' : '2+';
+  if (trait === 'W') return score <= 4 ? '2-' : score <= 7 ? '3' : score === 8 ? '4' : '5';
+  if (trait === 'T') return score <= 3 ? '2-' : score === 4 ? '3' : score === 5 ? '4' : score === 6 ? '5' : '2+';
+  if (trait === 'V') return score <= 4 ? '2-' : score <= 7 ? '3' : score === 8 ? '4' : '5';
+  if (trait === 'Z') return score <= 2 ? '2-' : score <= 5 ? '3' : score === 6 ? '4' : score === 7 ? '5' : '2+';
+  if (trait === 'E') return score <= 1 ? '2-' : score <= 4 ? '3' : score === 5 ? '4' : score === 6 ? '5' : '2+';
+  if (trait === 'K') return score <= 2 ? '2-' : score === 3 ? '5' : score === 4 ? '4' : score <= 7 ? '3' : '2+';
+  if (trait === 'X') return score <= 1 ? '2-' : score <= 3 ? '3' : score === 4 ? '4' : score === 5 ? '5' : '2+';
+  if (trait === 'S') return score <= 5 ? '2-' : score <= 7 ? '3' : score === 8 ? '4' : '5';
+  if (trait === 'B' || trait === 'O') return score <= 2 ? '2-' : score === 3 ? '3' : score === 4 ? '4' : score === 5 ? '5' : '2+';
+  return '-';
+};
+
+export const getPapiNumericNorm = (trait: string, score: number): number => {
+  const normStr = getPapiNorm(trait, score);
+  if (normStr === '2-' || normStr === '2+' || normStr === '2') return 2;
+  if (normStr === '1') return 1;
+  if (normStr === '3' || normStr === 'P') return 3;
+  if (normStr === '4' || normStr === 'T') return 4;
+  if (normStr === '5') return 5;
+  return 3;
+};
+
+export const checkAnswerMatch = (userAns: any, correctKey: any, testType?: string): boolean => {
+  if (userAns === undefined || userAns === null || correctKey === undefined || correctKey === null) return false;
+
+  const strUser = String(userAns).trim();
+  const strKey = String(correctKey).trim();
+
+  // 1. JSON array check
+  if (strUser.startsWith('[') && strKey.startsWith('[')) {
+    try {
+      const uArr = JSON.parse(strUser).map((x: any) => String(x).trim().toLowerCase()).sort();
+      const kArr = JSON.parse(strKey).map((x: any) => String(x).trim().toLowerCase()).sort();
+      if (JSON.stringify(uArr) === JSON.stringify(kArr)) return true;
+    } catch (e) {}
+  }
+
+  // 2. Direct string equality (case-insensitive)
+  const cleanU = strUser.toLowerCase().replace(/\s+/g, ' ');
+  const cleanK = strKey.toLowerCase().replace(/\s+/g, ' ');
+  if (cleanU === cleanK) return true;
+
+  // 3. Multi-answer match: "2.4" vs "24", "2,4", "4,2", "2 dan 4"
+  if (cleanK.includes('.') || cleanK.includes(',') || cleanK.includes(' ')) {
+    const keyParts = cleanK.split(/[\.,\s]+/).filter(Boolean).sort();
+    const userParts = cleanU.split(/[\.,\s]+/).filter(Boolean).sort();
+    if (keyParts.length > 1 && keyParts.length === userParts.length) {
+      if (JSON.stringify(keyParts) === JSON.stringify(userParts)) return true;
+    }
+  }
+
+  // 4. Fractions, decimals, and thousand separators
+  const parseNumOrFraction = (val: string): number | null => {
+    let s = val.trim().toLowerCase();
+    
+    // Thousand separator removal e.g. "1.000" or "25.000" or "1,000"
+    if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+      s = s.replace(/\./g, '');
+    } else if (/^\d{1,3}(,\d{3})+$/.test(s)) {
+      s = s.replace(/,/g, '');
+    }
+
+    // Mixed fraction e.g. "1 1/2" -> 1.5, "2 3/4" -> 2.75
+    const mixedMatch = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+    if (mixedMatch) {
+      const whole = parseFloat(mixedMatch[1]);
+      const num = parseFloat(mixedMatch[2]);
+      const den = parseFloat(mixedMatch[3]);
+      if (den !== 0) return whole + (num / den);
+    }
+
+    // Simple fraction e.g. "1/2" -> 0.5, "3/4" -> 0.75, "1/4" -> 0.25
+    const fracMatch = s.match(/^(\d+(?:[.,]\d+)?)\/(\d+(?:[.,]\d+)?)$/);
+    if (fracMatch) {
+      const num = parseFloat(fracMatch[1].replace(',', '.'));
+      const den = parseFloat(fracMatch[2].replace(',', '.'));
+      if (den !== 0) return num / den;
+    }
+
+    // Standard decimal with dot or comma
+    const dec = s.replace(',', '.');
+    const parsed = parseFloat(dec);
+    if (!isNaN(parsed) && String(parsed) === dec || (!isNaN(parsed) && !isNaN(Number(dec)))) {
+      return parsed;
+    }
+    return null;
+  };
+
+  const numUser = parseNumOrFraction(cleanU);
+  const numKey = parseNumOrFraction(cleanK);
+  if (numUser !== null && numKey !== null) {
+    if (Math.abs(numUser - numKey) < 0.0001) return true;
+  }
+
+  // 5. Inverted / reversed input check (e.g. 42 vs 24 in IST 6 or series numbers)
+  const revU = cleanU.split('').reverse().join('');
+  if (revU === cleanK) return true;
+
+  const digitsU = cleanU.replace(/\D/g, '');
+  const digitsK = cleanK.replace(/\D/g, '');
+  if (digitsU.length > 0 && digitsU.length === digitsK.length) {
+    if (digitsU.split('').reverse().join('') === digitsK) return true;
+  }
+
+  // 6. Option prefix matching: e.g. "1" matches "1. JANUARI"
+  if (cleanK.startsWith(cleanU + '.') || cleanK.startsWith(cleanU + ' ') || cleanK.startsWith(cleanU + ')')) {
+    return true;
+  }
+
+  return false;
+};
+
 export default function ReportDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -259,9 +380,7 @@ export default function ReportDetailPage() {
       let wptCorrect = 0;
       wptAnswers.forEach((ans: any) => {
         if (!ans.question || !ans.question.correct) return;
-        const normAns = String(ans.selectedOption || '').trim().replace(/,/g, '.').toLowerCase();
-        const normKey = String(ans.question.correct || '').trim().replace(/,/g, '.').toLowerCase();
-        if (normAns === normKey) wptCorrect++;
+        if (checkAnswerMatch(ans.selectedOption, ans.question.correct, 'WPT')) wptCorrect++;
       });
 
       const ageRaw = participant.rawResults?.find((r: any) => r.testType === 'WPT_AGE');
@@ -293,9 +412,7 @@ export default function ReportDetailPage() {
       let correct = 0;
       istAnswers.forEach((ans: any) => {
         if (!ans.question || !ans.question.correct) return;
-        const normAns = String(ans.selectedOption || '').trim().toLowerCase();
-        const normKey = String(ans.question.correct || '').trim().toLowerCase();
-        if (normAns === normKey) correct++;
+        if (checkAnswerMatch(ans.selectedOption, ans.question.correct, subtest)) correct++;
       });
 
       const cls = getISTClassification(subtest, correct);
@@ -317,9 +434,7 @@ export default function ReportDetailPage() {
       let correct = 0;
       tikiAnswers.forEach((ans: any) => {
         if (!ans.question || !ans.question.correct) return;
-        const normAns = String(ans.selectedOption || '').trim().toLowerCase();
-        const normKey = String(ans.question.correct || '').trim().toLowerCase();
-        if (normAns === normKey) correct++;
+        if (checkAnswerMatch(ans.selectedOption, ans.question.correct, subtest)) correct++;
       });
 
       let stdScore = correct;
@@ -374,12 +489,8 @@ export default function ReportDetailPage() {
       });
     }
 
-    const papiNorm = (raw: number) => {
-      if (raw <= 2) return 1;
-      if (raw <= 4) return 2;
-      if (raw <= 6) return 3;
-      if (raw <= 8) return 4;
-      return 5;
+    const papiNorm = (trait: string, raw: number) => {
+      return getPapiNumericNorm(trait, raw);
     };
 
     // 5. DISC Scoring (D, I, S, C diff -> scale 1-8 -> 1-5 normalization)
@@ -475,7 +586,7 @@ export default function ReportDetailPage() {
         const match = clean.match(/SKALA\s*([A-Z])|PAPI\s*([A-Z])/i);
         const trait = match ? (match[1] || match[2]).toUpperCase() : '';
         if (trait && papiRaw[trait] !== undefined) {
-          return papiNorm(papiRaw[trait]);
+          return getPapiNumericNorm(trait, papiRaw[trait]);
         }
       }
 
@@ -506,13 +617,13 @@ export default function ReportDetailPage() {
 
     // II. Sikap Kerja
     if (hasPapi) {
-      scores['Orientasi Berprestasi'] = papiNorm(papiRaw.A);
-      scores['Daya Juang'] = avgFloor(papiNorm(papiRaw.G), papiNorm(papiRaw.N), papiNorm(papiRaw.A));
-      scores['Kedetailan'] = papiNorm(papiRaw.D);
-      scores['Ketelitian Kerja'] = avgFloor(papiNorm(papiRaw.D), papiNorm(papiRaw.W));
-      scores['Sistematika Kerja'] = avgFloor(papiNorm(papiRaw.C), papiNorm(papiRaw.W));
-      scores['Kecepatan Kerja'] = papiNorm(papiRaw.T);
-      scores['Daya Tahan Stress'] = avgFloor(papiNorm(papiRaw.E), papiNorm(papiRaw.V));
+      scores['Orientasi Berprestasi'] = papiNorm('A', papiRaw.A);
+      scores['Daya Juang'] = avgFloor(papiNorm('G', papiRaw.G), papiNorm('N', papiRaw.N), papiNorm('A', papiRaw.A));
+      scores['Kedetailan'] = papiNorm('D', papiRaw.D);
+      scores['Ketelitian Kerja'] = avgFloor(papiNorm('D', papiRaw.D), papiNorm('W', papiRaw.W));
+      scores['Sistematika Kerja'] = avgFloor(papiNorm('C', papiRaw.C), papiNorm('W', papiRaw.W));
+      scores['Kecepatan Kerja'] = papiNorm('T', papiRaw.T);
+      scores['Daya Tahan Stress'] = avgFloor(papiNorm('E', papiRaw.E), papiNorm('V', papiRaw.V));
     } else if (hasDisc) {
       scores['Orientasi Berprestasi'] = discNorm.D >= 4 ? 4 : 3;
       scores['Daya Juang'] = discNorm.D >= 4 ? 4 : 3;
@@ -533,16 +644,16 @@ export default function ReportDetailPage() {
 
     // III. Kepribadian & Sosial
     if (hasPapi) {
-      scores['Stabilitas Emosi'] = papiNorm(papiRaw.E);
-      scores['Kepekaan Emosi / Sosial'] = papiNorm(papiRaw.O);
-      scores['Kepekaan'] = papiNorm(papiRaw.O);
-      scores['Kepercayaan Diri'] = avgFloor(papiNorm(papiRaw.X), papiNorm(papiRaw.K), papiNorm(papiRaw.L));
-      scores['Sosiabilitas'] = papiNorm(papiRaw.S);
-      scores['Adaptasi'] = papiNorm(papiRaw.Z);
-      scores['Komunikasi'] = avgFloor(papiNorm(papiRaw.S), papiNorm(papiRaw.X));
-      scores['Kerjasama'] = avgFloor(papiNorm(papiRaw.B), papiNorm(papiRaw.O), papiNorm(papiRaw.F));
-      scores['Inisiatif'] = avgFloor(papiNorm(papiRaw.I), papiNorm(papiRaw.Z), papiNorm(papiRaw.K));
-      scores['Tanggung Jawab'] = avgFloor(papiNorm(papiRaw.N), papiNorm(papiRaw.F));
+      scores['Stabilitas Emosi'] = papiNorm('E', papiRaw.E);
+      scores['Kepekaan Emosi / Sosial'] = papiNorm('O', papiRaw.O);
+      scores['Kepekaan'] = papiNorm('O', papiRaw.O);
+      scores['Kepercayaan Diri'] = avgFloor(papiNorm('X', papiRaw.X), papiNorm('K', papiRaw.K), papiNorm('L', papiRaw.L));
+      scores['Sosiabilitas'] = papiNorm('S', papiRaw.S);
+      scores['Adaptasi'] = papiNorm('Z', papiRaw.Z);
+      scores['Komunikasi'] = avgFloor(papiNorm('S', papiRaw.S), papiNorm('X', papiRaw.X));
+      scores['Kerjasama'] = avgFloor(papiNorm('B', papiRaw.B), papiNorm('O', papiRaw.O), papiNorm('F', papiRaw.F));
+      scores['Inisiatif'] = avgFloor(papiNorm('I', papiRaw.I), papiNorm('Z', papiRaw.Z), papiNorm('K', papiRaw.K));
+      scores['Tanggung Jawab'] = avgFloor(papiNorm('N', papiRaw.N), papiNorm('F', papiRaw.F));
     } else if (hasDisc) {
       scores['Stabilitas Emosi'] = discNorm.S;
       scores['Kepekaan Emosi / Sosial'] = discNorm.S;
@@ -569,10 +680,10 @@ export default function ReportDetailPage() {
 
     // IV. Kepemimpinan
     if (hasPapi) {
-      scores['Kepemimpinan'] = avgFloor(papiNorm(papiRaw.L), papiNorm(papiRaw.P), papiNorm(papiRaw.I));
-      scores['Daya Pimpin'] = avgFloor(papiNorm(papiRaw.L), papiNorm(papiRaw.P));
-      scores['Pengambilan Keputusan'] = avgFloor(papiNorm(papiRaw.I), papiNorm(papiRaw.P));
-      scores['Motivasi Kerja'] = avgFloor(papiNorm(papiRaw.A), papiNorm(papiRaw.G));
+      scores['Kepemimpinan'] = avgFloor(papiNorm('L', papiRaw.L), papiNorm('P', papiRaw.P), papiNorm('I', papiRaw.I));
+      scores['Daya Pimpin'] = avgFloor(papiNorm('L', papiRaw.L), papiNorm('P', papiRaw.P));
+      scores['Pengambilan Keputusan'] = avgFloor(papiNorm('I', papiRaw.I), papiNorm('P', papiRaw.P));
+      scores['Motivasi Kerja'] = avgFloor(papiNorm('A', papiRaw.A), papiNorm('G', papiRaw.G));
     } else if (hasDisc) {
       scores['Kepemimpinan'] = discNorm.D;
       scores['Daya Pimpin'] = discNorm.D;
@@ -1426,30 +1537,7 @@ export default function ReportDetailPage() {
 
               let isCorrect = false;
               if (ans.question.correct) {
-                if (selectedTest === 'WPT' && ans.question.correct === '2.4') {
-                  const userAns = String(ans.selectedOption).trim().replace(/,/g, '.');
-                  if (userAns === '2.4' || userAns === '24') {
-                    isCorrect = true;
-                  } else {
-                    isCorrect = false;
-                  }
-                } else {
-                  try {
-                    if (ans.selectedOption.startsWith('[') && ans.question.correct.startsWith('[')) {
-                      const ansArr = JSON.parse(ans.selectedOption).sort();
-                      const corrArr = JSON.parse(ans.question.correct).sort();
-                      isCorrect = JSON.stringify(ansArr) === JSON.stringify(corrArr);
-                    } else {
-                      const normAns = String(ans.selectedOption).trim().replace(/,/g, '.');
-                      const normKey = String(ans.question.correct).trim().replace(/,/g, '.');
-                      isCorrect = normAns.toLowerCase() === normKey.toLowerCase();
-                    }
-                  } catch {
-                    const normAns = String(ans.selectedOption).trim().replace(/,/g, '.');
-                    const normKey = String(ans.question.correct).trim().replace(/,/g, '.');
-                    isCorrect = normAns.toLowerCase() === normKey.toLowerCase();
-                  }
-                }
+                isCorrect = checkAnswerMatch(ans.selectedOption, ans.question.correct, selectedTest);
               }
               const hasKey = !!ans.question.correct;
               
@@ -1581,30 +1669,7 @@ export default function ReportDetailPage() {
                           displayKey = ans.question.correct;
                         }
 
-                        if (selectedTest === 'WPT' && displayKey === '2.4') {
-                          const userAns = String(ans.selectedOption).trim().replace(/,/g, '.');
-                          if (userAns === '2.4' || userAns === '24') {
-                            isCorrect = true;
-                          } else {
-                            isCorrect = false;
-                          }
-                        } else {
-                          try {
-                            if (ans.selectedOption.startsWith('[') && ans.question.correct.startsWith('[')) {
-                              const ansArr = JSON.parse(ans.selectedOption).sort();
-                              const corrArr = JSON.parse(ans.question.correct).sort();
-                              isCorrect = JSON.stringify(ansArr) === JSON.stringify(corrArr);
-                            } else {
-                              const normAns = String(ans.selectedOption).trim().replace(/,/g, '.');
-                              const normKey = String(ans.question.correct).trim().replace(/,/g, '.');
-                              isCorrect = normAns.toLowerCase() === normKey.toLowerCase();
-                            }
-                          } catch {
-                            const normAns = String(ans.selectedOption).trim().replace(/,/g, '.');
-                            const normKey = String(ans.question.correct).trim().replace(/,/g, '.');
-                            isCorrect = normAns.toLowerCase() === normKey.toLowerCase();
-                          }
-                        }
+                        isCorrect = checkAnswerMatch(ans.selectedOption, ans.question.correct, selectedTest);
                       }
                     }
                     
