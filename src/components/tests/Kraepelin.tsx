@@ -73,10 +73,10 @@ export default function KraepelinTest() {
   // User answers matrix: userAnswers[col][pairIdx]
   const [userAnswers, setUserAnswers] = useState<(number | null)[][]>([]);
 
-  // Refs for auto-scrolling
+  // Inner scroll container & item refs
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const activeColRef = useRef<HTMLDivElement | null>(null);
   const activePairRef = useRef<HTMLDivElement | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Web Audio Synth for feedback sounds
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -137,19 +137,29 @@ export default function KraepelinTest() {
     return () => clearInterval(interval);
   }, [testStarted, testFinished, currentCol]);
 
-  // Center active column horizontally
+  // Center active column horizontally & active pair vertically — INNER CONTAINER ONLY
   useEffect(() => {
-    if (activeColRef.current) {
-      activeColRef.current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    }
-  }, [currentCol, testStarted]);
+    const container = scrollContainerRef.current;
+    if (!container || !testStarted) return;
 
-  // Keep active pair in view vertically
-  useEffect(() => {
-    if (activePairRef.current) {
-      activePairRef.current.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    // Horizontal centering of active column
+    if (activeColRef.current) {
+      const colLeft = activeColRef.current.offsetLeft;
+      const colWidth = activeColRef.current.offsetWidth;
+      const containerWidth = container.clientWidth;
+      const targetLeft = colLeft - (containerWidth / 2) + (colWidth / 2);
+      container.scrollTo({ left: targetLeft, behavior: 'smooth' });
     }
-  }, [currentPairIdx, currentCol, testStarted]);
+
+    // Vertical centering of active pair
+    if (activePairRef.current) {
+      const pairTop = activePairRef.current.offsetTop;
+      const pairHeight = activePairRef.current.offsetHeight;
+      const containerHeight = container.clientHeight;
+      const targetTop = pairTop - (containerHeight / 2) + (pairHeight / 2);
+      container.scrollTo({ top: targetTop, behavior: 'smooth' });
+    }
+  }, [currentCol, currentPairIdx, testStarted]);
 
   const triggerPindah = () => {
     if (isTransitioning) return;
@@ -384,23 +394,33 @@ export default function KraepelinTest() {
   const rowIndices = Array.from({ length: DIGITS_PER_COLUMN }, (_, i) => DIGITS_PER_COLUMN - 1 - i);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F6F9', color: '#0F172A', display: 'flex', flexDirection: 'column', fontFamily: '"Inter", system-ui, sans-serif', userSelect: 'none', overflow: 'hidden' }}>
+    <div style={{ 
+      position: 'fixed', 
+      inset: 0, 
+      background: '#FFFFFF', 
+      color: '#0F172A', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      fontFamily: '"Inter", system-ui, sans-serif', 
+      userSelect: 'none', 
+      overflow: 'hidden' 
+    }}>
       
       {/* Pindah Overlay Alert */}
       {showPindah && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(239,68,68,0.25)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, pointerEvents: 'none' }}>
-          <div style={{ fontSize: '3.5rem', fontWeight: 900, color: '#DC2626', textShadow: '0 4px 20px rgba(0,0,0,0.3)', letterSpacing: '3px', background: '#FFFFFF', padding: '16px 48px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(239,68,68,0.2)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, pointerEvents: 'none' }}>
+          <div style={{ fontSize: '3.5rem', fontWeight: 900, color: '#DC2626', textShadow: '0 4px 20px rgba(0,0,0,0.25)', letterSpacing: '3px', background: '#FFFFFF', padding: '16px 48px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}>
             PINDAH!
           </div>
         </div>
       )}
 
       {/* Top Header / Status Bar */}
-      <div style={{ padding: '16px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ padding: '14px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9' }}>
         {/* Subtle pill indicator on top center/left */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }}></div>
-          <div style={{ width: '120px', height: '6px', background: '#E2E8F0', borderRadius: '10px', overflow: 'hidden' }}>
+          <div style={{ width: '140px', height: '6px', background: '#E2E8F0', borderRadius: '10px', overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${((currentCol + 1) / TOTAL_COLUMNS) * 100}%`, background: '#2563EB', transition: 'width 0.3s' }}></div>
           </div>
         </div>
@@ -423,27 +443,41 @@ export default function KraepelinTest() {
         </div>
       </div>
 
-      {/* Main Workspace Card Container */}
-      <div style={{ flex: 1, padding: '0 36px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      {/* Main Workspace Card Container (Fixed Outer, Scrollable Inner ONLY) */}
+      <div style={{ 
+        flex: 1, 
+        padding: '12px 30px', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        overflow: 'hidden' 
+      }}>
         <div 
           ref={scrollContainerRef}
           style={{ 
-            maxWidth: '1200px', 
+            maxWidth: '1100px', 
             width: '100%', 
+            height: '100%',
+            maxHeight: '480px',
             background: '#FFFFFF', 
             borderRadius: '24px', 
-            boxShadow: '0 10px 30px rgba(0,0,0,0.04)', 
+            boxShadow: '0 4px 20px rgba(0,0,0,0.03)', 
             border: '1px solid #E2E8F0', 
             padding: '20px 24px', 
             overflowX: 'auto', 
             overflowY: 'auto',
-            maxHeight: 'calc(100vh - 180px)',
-            display: 'flex',
-            justifyContent: 'center'
+            scrollBehavior: 'smooth'
           }}
         >
           {/* Multi-Column Display (Horizontal layout of all 50 columns) */}
-          <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', margin: '0 auto', padding: '10px 30px' }}>
+          <div style={{ 
+            display: 'inline-flex', 
+            gap: '24px', 
+            alignItems: 'flex-start', 
+            padding: '10px 40px',
+            minWidth: '100%',
+            justifyContent: 'flex-start'
+          }}>
             {matrix.map((colDigits, colIdx) => {
               const isActiveCol = colIdx === currentCol;
               const isPastCol = colIdx < currentCol;
@@ -457,12 +491,11 @@ export default function KraepelinTest() {
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    minWidth: '58px',
-                    padding: '14px 10px',
+                    minWidth: '56px',
+                    padding: '12px 10px',
                     borderRadius: '16px',
-                    background: isActiveCol ? '#EFF6FF' : 'transparent',
-                    border: isActiveCol ? '2px solid #3B82F6' : '2px solid transparent',
-                    boxShadow: isActiveCol ? '0 4px 20px rgba(59, 130, 246, 0.15)' : 'none',
+                    background: isActiveCol ? '#F0F6FF' : 'transparent',
+                    border: isActiveCol ? '1.5px solid #BFDBFE' : '1.5px solid transparent',
                     transition: 'all 0.2s ease',
                     opacity: isActiveCol ? 1 : isPastCol ? 0.35 : 0.25
                   }}
@@ -486,7 +519,7 @@ export default function KraepelinTest() {
                             fontSize: isActiveCol ? '22px' : '18px',
                             fontWeight: isActiveCol ? 900 : 600,
                             color: isActiveCol ? '#0F172A' : '#94A3B8',
-                            height: '30px',
+                            height: '28px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -509,23 +542,23 @@ export default function KraepelinTest() {
                               alignItems: 'center',
                               justifyContent: 'center',
                               fontSize: isSlotActive ? '15px' : '13px',
-                              fontWeight: 900,
+                              fontWeight: 800,
                               background: isSlotActive
-                                ? '#2563EB'
-                                : userAnsForSlot !== null && userAnsForSlot !== undefined
                                 ? '#EFF6FF'
+                                : userAnsForSlot !== null && userAnsForSlot !== undefined
+                                ? '#FFFFFF'
                                 : '#F8FAFC',
                               color: isSlotActive
-                                ? '#FFFFFF'
+                                ? '#1D4ED8'
                                 : userAnsForSlot !== null && userAnsForSlot !== undefined
-                                ? '#2563EB'
+                                ? '#0F172A'
                                 : '#CBD5E1',
                               border: isSlotActive
-                                ? '2px solid #1D4ED8'
-                                : userAnsForSlot !== null && userAnsForSlot !== undefined
                                 ? '1.5px solid #93C5FD'
+                                : userAnsForSlot !== null && userAnsForSlot !== undefined
+                                ? '1.5px solid #CBD5E1'
                                 : '1px solid #E2E8F0',
-                              boxShadow: isSlotActive ? '0 0 14px rgba(37, 99, 235, 0.55)' : 'none',
+                              boxShadow: isSlotActive ? '0 0 10px rgba(147, 197, 253, 0.5)' : 'none',
                               transition: 'all 0.15s ease'
                             }}
                           >
@@ -545,16 +578,16 @@ export default function KraepelinTest() {
       </div>
 
       {/* Bottom Horizontal Keypad Bar */}
-      <div style={{ padding: '0 0 20px', display: 'flex', justifyContent: 'center' }}>
+      <div style={{ padding: '0 0 18px', display: 'flex', justifyContent: 'center' }}>
         <div
           style={{
             background: '#FFFFFF',
             borderRadius: '20px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+            boxShadow: '0 6px 20px rgba(0,0,0,0.05)',
             border: '1px solid #E2E8F0',
-            padding: '10px 16px',
+            padding: '8px 14px',
             display: 'flex',
-            gap: '10px',
+            gap: '8px',
             alignItems: 'center'
           }}
         >
@@ -565,12 +598,12 @@ export default function KraepelinTest() {
               disabled={isTransitioning || showPindah}
               onClick={() => handleInputDigit(digit)}
               style={{
-                width: '50px',
-                height: '46px',
+                width: '46px',
+                height: '42px',
                 background: isTransitioning || showPindah ? '#F1F5F9' : '#FFFFFF',
                 border: '1.5px solid #E2E8F0',
                 borderRadius: '12px',
-                fontSize: '18px',
+                fontSize: '17px',
                 fontWeight: 800,
                 color: isTransitioning || showPindah ? '#94A3B8' : '#0F172A',
                 cursor: isTransitioning || showPindah ? 'not-allowed' : 'pointer',
