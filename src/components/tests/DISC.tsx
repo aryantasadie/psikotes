@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TestTimer from './TestTimer';
+import UnansweredModal from './UnansweredModal';
 
 type Question = {
   id: string;
@@ -17,6 +18,8 @@ export default function DISC() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showInstruction, setShowInstruction] = useState(true);
+  const [unansweredList, setUnansweredList] = useState<number[]>([]);
+  const [showUnansweredModal, setShowUnansweredModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -70,10 +73,16 @@ export default function DISC() {
   };
 
   const handleSubmit = async () => {
-    const unanswered = questions.filter(q => !answers[`${q.id}_most`] || !answers[`${q.id}_least`]);
+    const unansweredNums: number[] = [];
+    questions.forEach((q, idx) => {
+      if (!answers[`${q.id}_most`] || !answers[`${q.id}_least`]) {
+        unansweredNums.push(idx + 1);
+      }
+    });
     
-    if (unanswered.length > 0) {
-      alert(`Wajib menyelesaikan semua soal! Terdapat ${unanswered.length} soal yang belum diisi (MOST & LEAST).`);
+    if (unansweredNums.length > 0) {
+      setUnansweredList(unansweredNums);
+      setShowUnansweredModal(true);
       return;
     }
 
@@ -135,17 +144,33 @@ export default function DISC() {
 
   const progress = calculateProgress();
 
+  const scrollToQuestion = (num: number) => {
+    const el = document.getElementById(`question-${num}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   return (
     <div style={{ padding: '40px 20px', fontFamily: '"Inter", sans-serif', background: '#f0f2f5', minHeight: '100vh', position: 'relative' }}>
       {/* Top Left Floating Timer (15 Min, Mandatory Completion) */}
       <TestTimer durationSeconds={15 * 60} autoSubmit={false} isActive={!showInstruction} testName="DISC" />
+
+      {/* In-App Unanswered Modal */}
+      <UnansweredModal
+        isOpen={showUnansweredModal}
+        unansweredList={unansweredList}
+        testTitle="DISC"
+        onSelectQuestion={scrollToQuestion}
+        onClose={() => setShowUnansweredModal(false)}
+      />
 
       <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', borderRadius: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         
         {/* Questions List */}
         <div style={{ padding: '40px' }}>
           {questions.map((q, qIndex) => (
-            <div key={q.id} style={{ marginBottom: '50px', paddingBottom: '40px', borderBottom: qIndex === questions.length - 1 ? 'none' : '1px solid #edf2f7' }}>
+            <div id={`question-${q.number}`} key={q.id} style={{ marginBottom: '50px', paddingBottom: '40px', borderBottom: qIndex === questions.length - 1 ? 'none' : '1px solid #edf2f7' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
                 <div style={{ background: '#2c3e50', color: 'white', padding: '5px 15px', borderRadius: '20px', fontWeight: 'bold', fontSize: '16px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
                   Soal No. {q.number}
@@ -215,6 +240,7 @@ export default function DISC() {
           {/* Submit Button */}
           <div style={{ textAlign: 'center', marginTop: '40px' }}>
             <button
+              type="button"
               onClick={handleSubmit}
               disabled={submitting}
               style={{

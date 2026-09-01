@@ -591,10 +591,28 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     return () => clearInterval(streamInterval);
   }, [participantId, webcamActive, violationCount]);
 
+  // Audio beep on violation
+  const playAlertTone = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.5);
+      }
+    } catch (e) {}
+  };
+
   // Event Listener: Tab Switch & Window Blur Detection
   useEffect(() => {
-    if (!participantId) return;
-
     const handleVisibilityChange = () => {
       if (document.hidden) {
         handleViolation('Anda terdeteksi meninggalkan tab/halaman ujian (Alt+Tab / Pindah Tab)!');
@@ -603,11 +621,8 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     };
 
     const handleWindowBlur = () => {
-      // Only trigger if document is actually hidden (switching tab/window)
-      if (document.hidden) {
-        handleViolation('Jendela browser Anda kehilangan fokus (pindah window/tab)!');
-        sendSecurityLog('tab_switch');
-      }
+      handleViolation('Jendela browser Anda kehilangan fokus (Alt+Tab / Pindah Jendela Aplikasi)!');
+      sendSecurityLog('tab_switch');
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -621,8 +636,6 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   // Event Listener: Anti-Cheat Shortcuts, Right Click, Copy-Paste, DevTools
   useEffect(() => {
-    if (!participantId) return;
-
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       handleViolation('Klik kanan (Context Menu) dilarang selama ujian.');
@@ -671,35 +684,34 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     const handleFullscreenChange = () => {
       const isFS = !!document.fullscreenElement;
       setIsFullscreen(isFS);
-      if (!isFS && participantId && webcamActive && screenActive) {
+      if (!isFS) {
         setShowFullscreenModal(true);
         sendSecurityLog('blur_fullscreen');
       }
     };
 
-    // Check on permission activation
-    if (webcamActive && screenActive) {
-      const isFS = !!document.fullscreenElement;
-      setIsFullscreen(isFS);
-      if (!isFS) {
-        setShowFullscreenModal(true);
-      }
-    }
-
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, [participantId, webcamActive, screenActive]);
+  }, [participantId]);
 
   const handleViolation = (reason: string) => {
+    playAlertTone();
     setViolationCount(prev => prev + 1);
     setViolationMessage(reason);
     setShowViolationModal(true);
   };
 
-  const handleAcknowledgeAndFullscreen = () => {
+  const handleAcknowledgeAndFullscreen = async () => {
     setShowViolationModal(false);
     setShowFullscreenModal(false);
-    requestFullscreen();
+    try {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) {
+        await elem.requestFullscreen();
+      } else if ((elem as any).webkitRequestFullscreen) {
+        await (elem as any).webkitRequestFullscreen();
+      }
+    } catch (e) {}
   };
 
   const isPermissionGranted = webcamActive && screenActive;
@@ -889,11 +901,11 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       )}
 
       {/* FULLSCREEN EXIT WARNING MODAL */}
-      {showFullscreenModal && isPermissionGranted && (
+      {showFullscreenModal && (
         <div style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 99999,
+          zIndex: 999999,
           background: 'rgba(15, 23, 42, 0.85)',
           backdropFilter: 'blur(8px)',
           display: 'flex',
@@ -956,11 +968,11 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       )}
 
       {/* SECURITY VIOLATION ALERT MODAL (ALT+TAB / TAB SWITCH / FORBIDDEN KEYS) */}
-      {showViolationModal && isPermissionGranted && (
+      {showViolationModal && (
         <div style={{
           position: 'fixed',
           inset: 0,
-          zIndex: 99999,
+          zIndex: 999999,
           background: 'rgba(15, 23, 42, 0.85)',
           backdropFilter: 'blur(8px)',
           display: 'flex',

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TestTimer from './TestTimer';
+import UnansweredModal from './UnansweredModal';
 
 interface Question {
   id: number;
@@ -17,6 +18,8 @@ export default function TIKI6() {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [showInstruction, setShowInstruction] = useState(true);
+  const [unansweredList, setUnansweredList] = useState<number[]>([]);
+  const [showUnansweredModal, setShowUnansweredModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -42,13 +45,36 @@ export default function TIKI6() {
     router.push('/testee/session');
   };
 
+  const handleManualSubmit = () => {
+    const emptyNums: number[] = [];
+    questions.forEach((qItem, idx) => {
+      if (!answers[qItem.id]) {
+        emptyNums.push(idx + 1);
+      }
+    });
+
+    if (emptyNums.length > 0) {
+      setUnansweredList(emptyNums);
+      setShowUnansweredModal(true);
+      return;
+    }
+
+    handleFinish();
+  };
+
   if (loading) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Memuat soal TIKI6...</div>;
   if (questions.length === 0) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Tidak ada soal TIKI6 yang tersedia.</div>;
 
-  const handleNext = () => setCurrentIndex(prev => prev + 1);
-  const handlePrev = () => setCurrentIndex(prev => prev - 1);
+  const handleNext = () => setCurrentIndex(prev => Math.min(prev + 1, questions.length - 1));
+  const handlePrev = () => setCurrentIndex(prev => Math.max(prev - 1, 0));
+  const goToQuestion = (idx: number) => setCurrentIndex(idx);
 
-  const handleAnswer = (val: string) => setAnswers({ ...answers, [questions[currentIndex].id]: val });
+  const handleAnswer = (val: string) => {
+    const qItem = questions[currentIndex];
+    if (qItem) {
+      setAnswers({ ...answers, [qItem.id]: val });
+    }
+  };
 
   if (showInstruction) {
     return (
@@ -59,14 +85,15 @@ export default function TIKI6() {
             <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 4 Menit (Otomatis berpindah jika waktu habis)</p>
             <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #ddd', marginTop: '20px' }}>
               <h4 style={{ margin: '0 0 15px 0', color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>CONTOH SOAL</h4>
-              <p style={{ margin: '0 0 10px 0', fontSize: '16px' }}>Di bawah ini terdapat tulisan atau angka yang berada di kiri dan kanan. Tentukan apakah tulisan/angka tersebut <strong>SAMA (S)</strong> atau <strong>TIDAK SAMA (T)</strong>.</p>
+              <p style={{ margin: '0 0 10px 0' }}>Tentukan apakah pasangan kata atau angka di bawah ini <strong>SAMA (S)</strong> atau <strong>BERBEDA (B)</strong>.</p>
               <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '10px' }}>
-                <p style={{ margin: '0 0 5px 0' }}><strong>1. PT Indofood  ---  PT Indofood</strong> &rarr; <span style={{ color: '#27ae60', fontWeight: 'bold' }}>S (SAMA)</span></p>
-                <p style={{ margin: '0' }}><strong>2. 8945201  ---  8945210</strong> &rarr; <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>T (TIDAK SAMA)</span></p>
+                <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>1. PT Astra Honda — PT Astra Honda &rarr; <span style={{ color: '#27ae60' }}>S (Sama)</span></p>
+                <p style={{ margin: 0, fontWeight: 'bold' }}>2. 984521 — 984512 &rarr; <span style={{ color: '#e74c3c' }}>B (Berbeda)</span></p>
               </div>
             </div>
           </div>
           <button 
+            type="button"
             onClick={() => setShowInstruction(false)}
             style={{ padding: '18px 45px', fontSize: '18px', background: 'linear-gradient(to right, #3498db, #2980b9)', color: 'white', border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 10px 20px rgba(52, 152, 219, 0.3)', transition: 'transform 0.2s' }}
             onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
@@ -86,6 +113,15 @@ export default function TIKI6() {
       {/* Top Left Floating Timer (4 Min, Auto Submit) */}
       <TestTimer durationSeconds={4 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="TIKI 6" />
 
+      {/* In-App Unanswered Modal */}
+      <UnansweredModal
+        isOpen={showUnansweredModal}
+        unansweredList={unansweredList}
+        testTitle="TIKI 6 (Ketelitian)"
+        onSelectQuestion={(num) => goToQuestion(num - 1)}
+        onClose={() => setShowUnansweredModal(false)}
+      />
+
       <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', gap: '30px', alignItems: 'flex-start', flexWrap: 'wrap', width: '100%' }}>
         {/* Main Test Card */}
         <div style={{ flex: '1 1 600px', background: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>
@@ -97,19 +133,16 @@ export default function TIKI6() {
           </div>
 
           <div style={{ marginBottom: '40px', minHeight: '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <h3 
-              style={{ fontSize: '24px', textAlign: 'center', lineHeight: '1.5', margin: 0, color: '#333', whiteSpace: 'pre-wrap' }}
-              dangerouslySetInnerHTML={{ __html: q.content }}
-            />
+            <h3 style={{ margin: 0, fontSize: '24px', textAlign: 'center', lineHeight: '1.5' }}>{q.content}</h3>
           </div>
 
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: (q.options && q.options.length > 0 && q.options.every(o => /^[A-Z]$/.test(o)) || q.testType === 'TIKI 6' || q.testType === 'TIKI 3') ? '1fr 1fr' : '1fr', 
+            gridTemplateColumns: '1fr 1fr', 
             gap: '15px', 
             marginBottom: '40px', 
             maxWidth: '500px', 
-            margin: '0 auto' 
+            margin: '0 auto 40px' 
           }}>
             {q.options.map((opt, idx) => {
               const letter = opt.charAt(0);
@@ -117,6 +150,7 @@ export default function TIKI6() {
               return (
                 <button 
                   key={idx}
+                  type="button"
                   onClick={() => handleAnswer(letter)}
                   style={{
                     display: 'flex',
@@ -142,6 +176,7 @@ export default function TIKI6() {
           {/* Navigation Controls */}
           <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #eaeaea', paddingTop: '20px' }}>
             <button 
+              type="button"
               disabled={currentIndex === 0}
               onClick={handlePrev}
               style={{ padding: '12px 24px', background: currentIndex === 0 ? '#f5f5f5' : '#fff', color: currentIndex === 0 ? '#aaa' : '#333', border: '1px solid #ccc', borderRadius: '6px', cursor: currentIndex === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
@@ -151,13 +186,15 @@ export default function TIKI6() {
 
             {currentIndex === questions.length - 1 ? (
               <button 
-                onClick={handleFinish}
+                type="button"
+                onClick={handleManualSubmit}
                 style={{ padding: '12px 24px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(46, 204, 113, 0.3)' }}
               >
-                Selesai & Kumpulkan
+                Selesai &amp; Kumpulkan
               </button>
             ) : (
               <button 
+                type="button"
                 onClick={handleNext}
                 style={{ padding: '12px 24px', background: '#34495e', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(52, 73, 94, 0.3)' }}
               >
@@ -177,7 +214,8 @@ export default function TIKI6() {
               return (
                 <button
                   key={idx}
-                  onClick={() => setCurrentIndex(idx)}
+                  type="button"
+                  onClick={() => goToQuestion(idx)}
                   style={{
                     height: '40px',
                     borderRadius: '8px',

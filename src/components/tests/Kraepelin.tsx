@@ -66,6 +66,7 @@ export default function KraepelinTest() {
   const [currentPairIdx, setCurrentPairIdx] = useState(0); // 0 to DIGITS_PER_COLUMN - 2
   const [timeLeft, setTimeLeft] = useState(COLUMN_DURATION);
   const [showPindah, setShowPindah] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Matrix data: 20 columns, each has array of random digits [0..9]
@@ -133,9 +134,14 @@ export default function KraepelinTest() {
   }, [testStarted, testFinished, currentCol]);
 
   const triggerPindah = () => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
     playTone(880, 0.25, 'triangle'); // Pindah tone
     setShowPindah(true);
-    setTimeout(() => setShowPindah(false), 500);
+    setTimeout(() => {
+      setShowPindah(false);
+      setIsTransitioning(false);
+    }, 800);
 
     if (currentCol + 1 < TOTAL_COLUMNS) {
       setCurrentCol(prev => prev + 1);
@@ -147,7 +153,7 @@ export default function KraepelinTest() {
   };
 
   const handleInputDigit = (digit: number) => {
-    if (!testStarted || testFinished || matrix.length === 0) return;
+    if (!testStarted || testFinished || matrix.length === 0 || showPindah || isTransitioning) return;
 
     const colDigits = matrix[currentCol];
     // In Kraepelin, addition is from BOTTOM to TOP:
@@ -185,7 +191,7 @@ export default function KraepelinTest() {
   // Keyboard Event Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!testStarted || testFinished) return;
+      if (!testStarted || testFinished || isTransitioning || showPindah) return;
       if (e.key >= '0' && e.key <= '9') {
         e.preventDefault();
         handleInputDigit(parseInt(e.key, 10));
@@ -193,7 +199,7 @@ export default function KraepelinTest() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [testStarted, testFinished, currentCol, currentPairIdx, matrix]);
+  }, [testStarted, testFinished, currentCol, currentPairIdx, matrix, isTransitioning, showPindah]);
 
   const finishTest = async () => {
     setTestStarted(false);
@@ -502,16 +508,18 @@ export default function KraepelinTest() {
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(digit => (
             <button
               key={digit}
+              type="button"
+              disabled={isTransitioning || showPindah}
               onClick={() => handleInputDigit(digit)}
               style={{
                 height: '52px',
-                background: '#F1F5F9',
+                background: isTransitioning || showPindah ? '#E2E8F0' : '#F1F5F9',
                 border: '1px solid #CBD5E1',
                 borderRadius: '12px',
                 fontSize: '20px',
                 fontWeight: 800,
-                color: '#0F172A',
-                cursor: 'pointer',
+                color: isTransitioning || showPindah ? '#94A3B8' : '#0F172A',
+                cursor: isTransitioning || showPindah ? 'not-allowed' : 'pointer',
                 boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                 transition: 'all 0.1s'
               }}

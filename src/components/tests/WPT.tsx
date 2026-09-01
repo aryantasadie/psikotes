@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TestTimer from './TestTimer';
+import UnansweredModal from './UnansweredModal';
 
 interface Question {
   id: number;
@@ -17,6 +18,8 @@ export default function WPT() {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [showInstruction, setShowInstruction] = useState(true);
+  const [unansweredList, setUnansweredList] = useState<number[]>([]);
+  const [showUnansweredModal, setShowUnansweredModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -47,11 +50,30 @@ export default function WPT() {
     router.push('/testee/session');
   };
 
+  const handleManualSubmit = () => {
+    const emptyNums: number[] = [];
+    questions.forEach((qItem, idx) => {
+      const val = answers[qItem.id];
+      if (val === undefined || val === null || String(val).trim() === '') {
+        emptyNums.push(idx + 1);
+      }
+    });
+
+    if (emptyNums.length > 0) {
+      setUnansweredList(emptyNums);
+      setShowUnansweredModal(true);
+      return;
+    }
+
+    handleFinish();
+  };
+
   if (loading) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Memuat soal WPT...</div>;
   if (questions.length === 0) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Tidak ada soal WPT yang tersedia.</div>;
 
-  const handleNext = () => setCurrentIndex(prev => prev + 1);
-  const handlePrev = () => setCurrentIndex(prev => prev - 1);
+  const handleNext = () => setCurrentIndex(prev => Math.min(prev + 1, questions.length - 1));
+  const handlePrev = () => setCurrentIndex(prev => Math.max(prev - 1, 0));
+  const goToQuestion = (idx: number) => setCurrentIndex(idx);
 
   const isMultiSelectQuestion = (q: Question) => {
     if (!q) return false;
@@ -66,6 +88,7 @@ export default function WPT() {
 
   const handleAnswer = (val: string) => {
     const q = questions[currentIndex];
+    if (!q) return;
     const optKey = val.charAt(0);
     
     if (isMultiSelectQuestion(q)) {
@@ -108,6 +131,7 @@ export default function WPT() {
             </div>
           </div>
           <button 
+            type="button"
             onClick={() => setShowInstruction(false)}
             style={{ padding: '18px 45px', fontSize: '18px', background: 'linear-gradient(to right, #3498db, #2980b9)', color: 'white', border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 10px 20px rgba(52, 152, 219, 0.3)', transition: 'transform 0.2s' }}
             onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
@@ -126,6 +150,15 @@ export default function WPT() {
     <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', color: '#333', display: 'flex', alignItems: 'center', position: 'relative' }}>
       {/* Top Left Floating Timer (13 Min, Auto Submit) */}
       <TestTimer durationSeconds={13 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="WPT" />
+
+      {/* In-App Unanswered Modal */}
+      <UnansweredModal
+        isOpen={showUnansweredModal}
+        unansweredList={unansweredList}
+        testTitle="WPT (Wonderlic)"
+        onSelectQuestion={(num) => goToQuestion(num - 1)}
+        onClose={() => setShowUnansweredModal(false)}
+      />
 
       <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', gap: '30px', alignItems: 'flex-start', flexWrap: 'wrap', width: '100%' }}>
         {/* Main Test Card */}
@@ -156,7 +189,7 @@ export default function WPT() {
             gap: '15px', 
             marginBottom: '40px', 
             maxWidth: '500px', 
-            margin: '0 auto' 
+            margin: '0 auto 40px' 
           }}>
             {isMultiSelectQuestion(q) && (
               <div style={{ gridColumn: '1 / -1', marginBottom: '15px', padding: '10px 16px', background: '#F0FDFA', border: '1px solid #0D9488', borderRadius: '8px', color: '#0F766E', fontSize: '13px', fontWeight: 'bold', textAlign: 'center' }}>
@@ -184,6 +217,7 @@ export default function WPT() {
               return (
                 <button 
                   key={idx}
+                  type="button"
                   onClick={() => handleAnswer(opt)}
                   style={{
                     display: 'flex',
@@ -221,6 +255,7 @@ export default function WPT() {
           {/* Navigation Controls */}
           <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #eaeaea', paddingTop: '20px' }}>
             <button 
+              type="button"
               disabled={currentIndex === 0}
               onClick={handlePrev}
               style={{ padding: '12px 24px', background: currentIndex === 0 ? '#f5f5f5' : '#fff', color: currentIndex === 0 ? '#aaa' : '#333', border: '1px solid #ccc', borderRadius: '6px', cursor: currentIndex === 0 ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
@@ -230,13 +265,15 @@ export default function WPT() {
 
             {currentIndex === questions.length - 1 ? (
               <button 
-                onClick={handleFinish}
+                type="button"
+                onClick={handleManualSubmit}
                 style={{ padding: '12px 24px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(46, 204, 113, 0.3)' }}
               >
-                Selesai & Kumpulkan
+                Selesai &amp; Kumpulkan
               </button>
             ) : (
               <button 
+                type="button"
                 onClick={handleNext}
                 style={{ padding: '12px 24px', background: '#34495e', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(52, 73, 94, 0.3)' }}
               >
@@ -251,12 +288,14 @@ export default function WPT() {
           <h3 style={{ margin: '0 0 15px 0', fontSize: '18px', borderBottom: '2px solid #eaeaea', paddingBottom: '10px' }}>Daftar Soal</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
             {questions.map((qItem, idx) => {
-              const isAnswered = !!answers[qItem.id];
+              const val = answers[qItem.id];
+              const isAnswered = val !== undefined && val !== null && String(val).trim() !== '';
               const isCurrent = currentIndex === idx;
               return (
                 <button
                   key={idx}
-                  onClick={() => setCurrentIndex(idx)}
+                  type="button"
+                  onClick={() => goToQuestion(idx)}
                   style={{
                     height: '40px',
                     borderRadius: '8px',
@@ -281,11 +320,11 @@ export default function WPT() {
           <div style={{ marginTop: '25px', fontSize: '14px', color: '#666', borderTop: '2px solid #eaeaea', paddingTop: '15px' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
               <div style={{ width: '16px', height: '16px', background: '#2ecc71', borderRadius: '4px', marginRight: '10px' }}></div> 
-              <span>Sudah Dijawab ({Object.keys(answers).length})</span>
+              <span>Sudah Dijawab ({Object.values(answers).filter(v => v !== undefined && v !== null && String(v).trim() !== '').length})</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <div style={{ width: '16px', height: '16px', background: '#fff', border: '1px solid #ccc', borderRadius: '4px', marginRight: '10px' }}></div> 
-              <span>Belum Dijawab ({questions.length - Object.keys(answers).length})</span>
+              <span>Belum Dijawab ({questions.length - Object.values(answers).filter(v => v !== undefined && v !== null && String(v).trim() !== '').length})</span>
             </div>
           </div>
         </div>

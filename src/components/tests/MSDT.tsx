@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TestTimer from './TestTimer';
+import UnansweredModal from './UnansweredModal';
 
 type Question = {
   id: string;
@@ -17,6 +18,8 @@ export default function MSDT() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showInstruction, setShowInstruction] = useState(true);
+  const [unansweredList, setUnansweredList] = useState<number[]>([]);
+  const [showUnansweredModal, setShowUnansweredModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -51,10 +54,16 @@ export default function MSDT() {
   };
 
   const handleSubmit = async () => {
-    const unanswered = questions.filter(q => !answers[q.id]);
+    const unansweredNums: number[] = [];
+    questions.forEach((q, idx) => {
+      if (!answers[q.id]) {
+        unansweredNums.push(idx + 1);
+      }
+    });
     
-    if (unanswered.length > 0) {
-      alert(`Wajib menyelesaikan semua soal! Terdapat ${unanswered.length} soal yang belum diisi.`);
+    if (unansweredNums.length > 0) {
+      setUnansweredList(unansweredNums);
+      setShowUnansweredModal(true);
       return;
     }
 
@@ -113,14 +122,30 @@ export default function MSDT() {
 
   const progress = calculateProgress();
 
+  const scrollToQuestion = (num: number) => {
+    const el = document.getElementById(`question-${num}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   return (
     <div style={{ padding: '40px 20px', fontFamily: '"Inter", sans-serif', background: '#f0f2f5', minHeight: '100vh', position: 'relative' }}>
       {/* Top Left Floating Timer (20 Min, Mandatory Completion) */}
       <TestTimer durationSeconds={20 * 60} autoSubmit={false} isActive={!showInstruction} testName="MSDT" />
 
+      {/* In-App Unanswered Modal */}
+      <UnansweredModal
+        isOpen={showUnansweredModal}
+        unansweredList={unansweredList}
+        testTitle="MSDT"
+        onSelectQuestion={scrollToQuestion}
+        onClose={() => setShowUnansweredModal(false)}
+      />
+
       <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', borderRadius: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         
-        {/* Progress (optional: user asked to remove for DISC, but for 64 questions a subtle progress tracker is nice. I'll make it minimal like PAPI) */}
+        {/* Progress */}
         <div style={{ padding: '30px 40px', background: '#fff', borderBottom: '1px solid #edf2f7', position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#4a5568' }}>Tingkat Penyelesaian</div>
@@ -134,7 +159,7 @@ export default function MSDT() {
         {/* Questions List */}
         <div style={{ padding: '40px' }}>
           {questions.map((q, qIndex) => (
-            <div key={q.id} style={{ marginBottom: '40px', paddingBottom: '30px', borderBottom: qIndex === questions.length - 1 ? 'none' : '1px solid #edf2f7' }}>
+            <div id={`question-${q.number}`} key={q.id} style={{ marginBottom: '40px', paddingBottom: '30px', borderBottom: qIndex === questions.length - 1 ? 'none' : '1px solid #edf2f7' }}>
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
                 <div style={{ background: '#2c3e50', color: 'white', padding: '6px 16px', borderRadius: '20px', fontWeight: 'bold', fontSize: '16px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
                   Soal No. {q.number}
@@ -181,6 +206,7 @@ export default function MSDT() {
           {/* Submit Button */}
           <div style={{ textAlign: 'center', marginTop: '50px' }}>
             <button
+              type="button"
               onClick={handleSubmit}
               disabled={submitting}
               style={{

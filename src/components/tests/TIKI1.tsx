@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TestTimer from './TestTimer';
+import UnansweredModal from './UnansweredModal';
 
 interface Question {
   id: number;
@@ -17,6 +18,8 @@ export default function TIKI1() {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [showInstruction, setShowInstruction] = useState(true);
+  const [unansweredList, setUnansweredList] = useState<number[]>([]);
+  const [showUnansweredModal, setShowUnansweredModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -42,13 +45,36 @@ export default function TIKI1() {
     router.push('/testee/session');
   };
 
+  const handleManualSubmit = () => {
+    const emptyNums: number[] = [];
+    questions.forEach((q, idx) => {
+      if (!answers[q.id]) {
+        emptyNums.push(idx + 1);
+      }
+    });
+
+    if (emptyNums.length > 0) {
+      setUnansweredList(emptyNums);
+      setShowUnansweredModal(true);
+      return;
+    }
+
+    handleFinish();
+  };
+
   if (loading) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Memuat soal TIKI1...</div>;
   if (questions.length === 0) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Tidak ada soal TIKI1 yang tersedia.</div>;
 
-  const handleNext = () => setCurrentIndex(prev => prev + 1);
-  const handlePrev = () => setCurrentIndex(prev => prev - 1);
+  const handleNext = () => setCurrentIndex(prev => Math.min(prev + 1, questions.length - 1));
+  const handlePrev = () => setCurrentIndex(prev => Math.max(prev - 1, 0));
+  const goToQuestion = (idx: number) => setCurrentIndex(idx);
 
-  const handleAnswer = (val: string) => setAnswers({ ...answers, [questions[currentIndex].id]: val });
+  const handleAnswer = (val: string) => {
+    const q = questions[currentIndex];
+    if (q) {
+      setAnswers({ ...answers, [q.id]: val });
+    }
+  };
 
   if (showInstruction) {
     return (
@@ -63,14 +89,15 @@ export default function TIKI1() {
                 <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>18 + 7 = .....</p>
                 <p style={{ margin: '0 0 5px 0' }}>A) 25 &nbsp; B) 26 &nbsp; C) 24 &nbsp; D) 23</p>
               </div>
-              <p style={{ margin: '0', fontSize: '15px', color: '#e74c3c', fontWeight: 'bold' }}>Jawaban: A (25)</p>
+              <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : A (25)</p>
             </div>
           </div>
           <button 
+            type="button"
             onClick={() => setShowInstruction(false)}
             style={{ padding: '18px 45px', fontSize: '18px', background: 'linear-gradient(to right, #3498db, #2980b9)', color: 'white', border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 10px 20px rgba(52, 152, 219, 0.3)', transition: 'transform 0.2s' }}
-            onMouseOver={(e) => e.currentTarget.style.transform = "translateY(-2px)"}
-            onMouseOut={(e) => e.currentTarget.style.transform = "translateY(0)"}
+            onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
           >
             Mulai Ujian
           </button>
@@ -86,6 +113,15 @@ export default function TIKI1() {
       {/* Top Left Floating Timer (7 Min, Auto Submit) */}
       <TestTimer durationSeconds={7 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="TIKI 1" />
 
+      {/* In-App Unanswered Modal */}
+      <UnansweredModal
+        isOpen={showUnansweredModal}
+        unansweredList={unansweredList}
+        testTitle="TIKI 1 (Berhitung)"
+        onSelectQuestion={(num) => goToQuestion(num - 1)}
+        onClose={() => setShowUnansweredModal(false)}
+      />
+
       <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', gap: '30px', alignItems: 'flex-start', flexWrap: 'wrap', width: '100%' }}>
         {/* Main Test Card */}
         <div style={{ flex: '1 1 600px', background: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>
@@ -97,73 +133,60 @@ export default function TIKI1() {
           </div>
 
           <div style={{ marginBottom: '40px', minHeight: '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <h3 
-              style={{ fontSize: '24px', textAlign: 'center', lineHeight: '1.5', margin: 0, color: '#333', whiteSpace: 'pre-wrap' }}
-              dangerouslySetInnerHTML={{ __html: q.content }}
-            />
+            {q.content.includes('|||') ? (
+              <>
+                <h3 style={{ margin: '0 0 20px 0', fontSize: '28px', textAlign: 'center', whiteSpace: 'pre-wrap' }}>{q.content.split('|||')[0]}</h3>
+                <img src={q.content.split('|||')[1]} alt="Soal" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: '1px solid #ddd' }} />
+              </>
+            ) : (
+              <h3 style={{ margin: 0, fontSize: '28px', textAlign: 'center', whiteSpace: 'pre-wrap' }}>{q.content}</h3>
+            )}
           </div>
 
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: (q.options && q.options.length > 0 && q.options.every(o => /^[A-Z]$/.test(o)) || q.testType === 'TIKI 6' || q.testType === 'TIKI 3' || q.testType === 'TIKI 1') ? '1fr 1fr' : '1fr', 
+            gridTemplateColumns: (q.options && q.options.length > 0 && q.options.every(o => /^[A-Z]$/.test(o)) || q.testType === 'TIKI 6' || q.testType === 'TIKI 3') ? '1fr 1fr' : '1fr', 
             gap: '15px', 
             marginBottom: '40px', 
             maxWidth: '500px', 
             margin: '0 auto' 
           }}>
-            {q.options && q.options.length > 0 ? q.options.map((opt, idx) => {
-              const letter = String.fromCharCode(65 + idx);
-              const isSelected = answers[q.id] === letter;
-              const isSingleLetter = /^[A-Z]$/.test(opt);
-              const isTiki6 = q.testType === 'TIKI 6';
-              const isTiki3 = q.testType === 'TIKI 3';
-              const isTiki1 = q.testType === 'TIKI 1';
-              const isGrid = q.options.every(o => /^[A-Z]$/.test(o)) || isTiki6 || isTiki3 || isTiki1;
-              const isLastOdd = isGrid && q.options.length % 2 !== 0 && idx === q.options.length - 1;
-              
-              let labelContent;
-              if (isTiki6 || isSingleLetter) {
-                  labelContent = <span style={{ fontWeight: 'bold' }} dangerouslySetInnerHTML={{ __html: opt }} />;
-              } else {
-                  labelContent = (
-                    <>
-                      <span style={{ marginRight: '15px', fontWeight: 'bold', color: isSelected ? 'white' : '#888' }}>{letter})</span>
-                      <span dangerouslySetInnerHTML={{ __html: opt }} />
-                    </>
-                  );
-              }
-
-              return (
-                <button 
-                  key={idx}
-                  onClick={() => handleAnswer(letter)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: (isTiki6 || isSingleLetter) ? 'center' : 'flex-start',
-                    gridColumn: isLastOdd ? '1 / -1' : 'auto',
-                    padding: '15px 25px',
-                    fontSize: '18px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    background: isSelected ? '#3498db' : '#f9f9f9',
-                    color: isSelected ? 'white' : '#333',
-                    border: isSelected ? '2px solid #2980b9' : '2px solid #ddd',
-                    borderRadius: '12px',
-                    transition: 'all 0.2s',
-                    textAlign: 'left'
-                  }}
-                >
-                  {labelContent}
-                </button>
-              )
-            }) : (
+            {q.options && q.options.length > 0 ? (
+              q.options.map((opt, idx) => {
+                const letter = String.fromCharCode(65 + idx);
+                const isSelected = answers[q.id] === letter;
+                return (
+                  <button 
+                    key={idx}
+                    type="button"
+                    onClick={() => handleAnswer(letter)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '15px 25px',
+                      fontSize: '18px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      background: isSelected ? '#3498db' : '#f9f9f9',
+                      color: isSelected ? 'white' : '#333',
+                      border: isSelected ? '2px solid #2980b9' : '2px solid #ddd',
+                      borderRadius: '12px',
+                      transition: 'all 0.2s',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <span style={{ marginRight: '15px', fontWeight: 'bold', color: isSelected ? 'white' : '#888' }}>{letter})</span>
+                    {opt}
+                  </button>
+                );
+              })
+            ) : (
               <div style={{ gridColumn: '1 / -1', maxWidth: '300px', margin: '0 auto', width: '100%' }}>
                 <input 
                   type="text" 
                   placeholder="Ketik jawaban di sini..."
-                  value={(answers[q.id] as any) || ''}
-                  onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value as any })}
+                  value={answers[q.id] || ''}
+                  onChange={(e) => handleAnswer(e.target.value)}
                   style={{ width: '100%', padding: '15px', fontSize: '20px', textAlign: 'center', borderRadius: '12px', border: '2px solid #3498db', outline: 'none' }}
                 />
               </div>
@@ -173,6 +196,7 @@ export default function TIKI1() {
           {/* Navigation Controls */}
           <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #eaeaea', paddingTop: '20px' }}>
             <button 
+              type="button"
               onClick={handlePrev} 
               disabled={currentIndex === 0}
               style={{ 
@@ -189,13 +213,15 @@ export default function TIKI1() {
             </button>
             {currentIndex === questions.length - 1 ? (
               <button 
-                onClick={handleFinish}
+                type="button"
+                onClick={handleManualSubmit}
                 style={{ padding: '12px 24px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(46, 204, 113, 0.3)' }}
               >
                 Selesai & Kumpulkan
               </button>
             ) : (
               <button 
+                type="button"
                 onClick={handleNext}
                 style={{ padding: '12px 24px', background: '#34495e', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(52, 73, 94, 0.3)' }}
               >
@@ -206,11 +232,11 @@ export default function TIKI1() {
         </div>
 
         {/* Sidebar Navigation */}
-        <div style={{ flex: '1 1 300px', background: 'white', padding: '30px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', alignSelf: 'flex-start' }}>
+        <div style={{ width: '300px', flexShrink: 0, background: 'white', padding: '30px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', alignSelf: 'flex-start', position: 'sticky', top: '30px' }}>
           <h3 style={{ margin: '0 0 20px 0', color: '#2c3e50', fontSize: '20px' }}>Daftar Soal</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
-            {questions.map((q, idx) => {
-              const isAnswered = answers[q.id] !== undefined && answers[q.id] !== '';
+            {questions.map((qItem, idx) => {
+              const isAnswered = answers[qItem.id] !== undefined && answers[qItem.id] !== '';
               const isCurrent = currentIndex === idx;
               
               let bg = '#fff';
@@ -230,7 +256,8 @@ export default function TIKI1() {
               return (
                 <button
                   key={idx}
-                  onClick={() => setCurrentIndex(idx)}
+                  type="button"
+                  onClick={() => goToQuestion(idx)}
                   style={{
                     padding: '12px 0',
                     fontSize: '14px',
@@ -246,7 +273,7 @@ export default function TIKI1() {
                 >
                   {idx + 1}
                 </button>
-              )
+              );
             })}
           </div>
 
