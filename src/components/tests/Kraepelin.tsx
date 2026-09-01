@@ -415,8 +415,8 @@ export default function KraepelinTest() {
         </div>
       )}
 
-      {/* Top Header / Status Bar */}
-      <div style={{ padding: '14px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9' }}>
+      {/* Top Header / Status Bar (Given top margin/padding to sit cleanly below the proctoring bar) */}
+      <div style={{ padding: '52px 40px 14px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9' }}>
         {/* Subtle pill indicator on top center/left */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }}></div>
@@ -428,15 +428,15 @@ export default function KraepelinTest() {
         {/* Right Info: Kolom Aktif & Sisa Waktu */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>KOLOM AKTIF</div>
-            <div style={{ fontSize: '18px', fontWeight: 900, color: '#0F172A' }}>Kolom {currentCol + 1}</div>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>KOLOM AKTIF</div>
+            <div style={{ fontSize: '20px', fontWeight: 900, color: '#0F172A' }}>Kolom {currentCol + 1}</div>
           </div>
           
-          <div style={{ width: '1px', height: '32px', background: '#E2E8F0' }}></div>
+          <div style={{ width: '1px', height: '34px', background: '#E2E8F0' }}></div>
 
           <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: '10px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SISA WAKTU KOLOM</div>
-            <div style={{ fontSize: '18px', fontWeight: 900, color: timeLeft <= 4 ? '#EF4444' : '#0F172A' }}>
+            <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SISA WAKTU KOLOM</div>
+            <div style={{ fontSize: '20px', fontWeight: 900, color: timeLeft <= 4 ? '#EF4444' : '#0F172A' }}>
               {timeLeft}s
             </div>
           </div>
