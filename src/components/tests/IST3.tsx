@@ -60,16 +60,21 @@ export default function IST3() {
     return (
       <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ maxWidth: '700px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>IST 3 - Persamaan Kata</h2>
+          <h2 style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>
+            IST 3 - Hubungan Kata / Analogi Verbal (Analogien)
+          </h2>
           <div style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
             <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 7 Menit (Otomatis berpindah jika waktu habis)</p>
+            <p style={{ margin: '0 0 15px 0' }}>
+              <strong>Petunjuk:</strong> Ditentukan tiga kata. Antara kata pertama dan kata kedua terdapat suatu hubungan tertentu. Pilihlah dari 5 pilihan kata (A, B, C, D, E) kata yang memiliki hubungan yang sama dengan kata ketiga.
+            </p>
             <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #ddd', marginTop: '20px' }}>
               <h4 style={{ margin: '0 0 15px 0', color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>CONTOH SOAL</h4>
-              <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>Tentukan kesamaan sifat/konsep antara dua kata berikut:</p>
               <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '10px' }}>
-                <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>mata : telinga = ?</p>
-                <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Keduanya adalah alat indra</p>
+                <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>Hutan : Pohon = Laut : ?</p>
+                <p style={{ margin: '0 0 5px 0' }}>A) Pasir &nbsp; B) Air &nbsp; C) Kapal &nbsp; D) Ombak &nbsp; E) Ikan</p>
               </div>
+              <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : B (Air)</p>
             </div>
           </div>
           <button 
@@ -79,7 +84,7 @@ export default function IST3() {
             onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
             onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
           >
-            Mulai Ujian
+            Mulai Ujian IST 3
           </button>
         </div>
       </div>
@@ -103,33 +108,68 @@ export default function IST3() {
             </div>
           </div>
 
-          <div style={{ marginBottom: '40px', minHeight: '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <h3 style={{ margin: 0, fontSize: '28px', textAlign: 'center', lineHeight: '1.5' }}>{q.content}</h3>
+          <div style={{ marginBottom: '36px', minHeight: '80px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: '22px', textAlign: 'center', lineHeight: '1.6', color: '#0F172A', fontWeight: 800 }}>
+              {q.content}
+            </h3>
           </div>
 
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: '1fr', 
-            gap: '15px', 
+            gap: '12px', 
             marginBottom: '40px', 
-            maxWidth: '500px', 
+            maxWidth: '520px', 
             margin: '0 auto 40px' 
           }}>
-            <input 
-              type="text"
-              value={answers[q.id] || ''}
-              onChange={(e) => handleAnswer(e.target.value)}
-              placeholder="Ketik kata yang menjadi persamaan..."
-              style={{
-                width: '100%',
-                padding: '16px 20px',
-                fontSize: '18px',
-                borderRadius: '12px',
-                border: '2px solid #3498db',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
+            {q.options && q.options.length > 0 ? (
+              q.options.map((opt, idx) => {
+                const letter = String.fromCharCode(65 + idx); // A, B, C, D, E
+                const isSelected = answers[q.id] === letter;
+                return (
+                  <button 
+                    key={idx}
+                    type="button"
+                    onClick={() => handleAnswer(letter)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '16px 24px',
+                      fontSize: '17px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      background: isSelected ? '#3498db' : '#f9f9f9',
+                      color: isSelected ? 'white' : '#1e293b',
+                      border: isSelected ? '2px solid #2980b9' : '1.5px solid #e2e8f0',
+                      borderRadius: '12px',
+                      transition: 'all 0.15s ease',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <span style={{ marginRight: '16px', fontWeight: 800, color: isSelected ? 'white' : '#3498db', fontSize: '18px' }}>
+                      {letter}.
+                    </span>
+                    {opt}
+                  </button>
+                );
+              })
+            ) : (
+              <input 
+                type="text"
+                value={answers[q.id] || ''}
+                onChange={(e) => handleAnswer(e.target.value)}
+                placeholder="Ketik kata jawaban..."
+                style={{
+                  width: '100%',
+                  padding: '16px 20px',
+                  fontSize: '18px',
+                  borderRadius: '12px',
+                  border: '2px solid #3498db',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            )}
           </div>
 
           {/* Navigation Controls */}
@@ -199,11 +239,11 @@ export default function IST3() {
           <div style={{ marginTop: '25px', fontSize: '14px', color: '#666', borderTop: '2px solid #eaeaea', paddingTop: '15px' }}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
               <div style={{ width: '16px', height: '16px', background: '#2ecc71', borderRadius: '4px', marginRight: '10px' }}></div> 
-              <span>Sudah Dijawab ({Object.keys(answers).filter(k => answers[parseInt(k)] !== '').length})</span>
+              <span>Sudah Dijawab ({Object.keys(answers).length})</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <div style={{ width: '16px', height: '16px', background: '#fff', border: '1px solid #ccc', borderRadius: '4px', marginRight: '10px' }}></div> 
-              <span>Belum Dijawab ({questions.length - Object.keys(answers).filter(k => answers[parseInt(k)] !== '').length})</span>
+              <span>Belum Dijawab ({questions.length - Object.keys(answers).length})</span>
             </div>
           </div>
         </div>

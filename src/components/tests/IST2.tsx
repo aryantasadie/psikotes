@@ -60,17 +60,20 @@ export default function IST2() {
     return (
       <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ maxWidth: '700px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>IST 2 - Hubungan Kata</h2>
+          <h2 style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>
+            IST 2 - Pencarian Kata yang Berbeda (Wortauswahl)
+          </h2>
           <div style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
             <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 6 Menit (Otomatis berpindah jika waktu habis)</p>
+            <p style={{ margin: '0 0 15px 0' }}>
+              <strong>Petunjuk:</strong> Ditentukan 5 buah kata. Dari kelima kata tersebut, 4 kata mempunyai suatu kesamaan / masuk dalam satu kelompok. Pilihlah <strong>1 KATA yang TIDAK MEMPUNYAI KESAMAAN</strong> dengan keempat kata lainnya.
+            </p>
             <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #ddd', marginTop: '20px' }}>
               <h4 style={{ margin: '0 0 15px 0', color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>CONTOH SOAL</h4>
-              <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>Tentukan hubungan antar kata berikut:</p>
               <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '10px' }}>
-                <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>menemukan : menghilangkan = mengingat : ?</p>
-                <p style={{ margin: '0 0 5px 0' }}>a) menghafal &nbsp; b) mengenai &nbsp; c) melupakan &nbsp; d) berpikir &nbsp; e) memimpikan</p>
+                <p style={{ margin: '0 0 5px 0', fontWeight: 'bold' }}>A) Meja &nbsp; B) Kursi &nbsp; C) Burung &nbsp; D) Lemari &nbsp; E) Tempat Tidur</p>
               </div>
-              <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : c (melupakan)</p>
+              <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : C (Burung) karena bukan perabot rumah tangga.</p>
             </div>
           </div>
           <button 
@@ -80,7 +83,7 @@ export default function IST2() {
             onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
             onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
           >
-            Mulai Ujian
+            Mulai Ujian IST 2
           </button>
         </div>
       </div>
@@ -104,20 +107,22 @@ export default function IST2() {
             </div>
           </div>
 
-          <div style={{ marginBottom: '40px', minHeight: '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <h3 style={{ margin: 0, fontSize: '24px', textAlign: 'center', lineHeight: '1.5' }}>{q.content}</h3>
-          </div>
+          {q.content && q.content.trim() !== '' && (
+            <div style={{ marginBottom: '30px', textAlign: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '24px', color: '#0F172A' }}>{q.content}</h3>
+            </div>
+          )}
 
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: '1fr', 
-            gap: '15px', 
+            gap: '12px', 
             marginBottom: '40px', 
-            maxWidth: '500px', 
+            maxWidth: '520px', 
             margin: '0 auto 40px' 
           }}>
             {q.options.map((opt, idx) => {
-              const letter = String.fromCharCode(97 + idx); // a, b, c, d, e
+              const letter = String.fromCharCode(65 + idx); // A, B, C, D, E
               const isSelected = answers[q.id] === letter;
               return (
                 <button 
@@ -127,19 +132,21 @@ export default function IST2() {
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    padding: '15px 25px',
-                    fontSize: '18px',
-                    fontWeight: '600',
+                    padding: '16px 24px',
+                    fontSize: '17px',
+                    fontWeight: '700',
                     cursor: 'pointer',
                     background: isSelected ? '#3498db' : '#f9f9f9',
-                    color: isSelected ? 'white' : '#333',
-                    border: isSelected ? '2px solid #2980b9' : '2px solid #ddd',
+                    color: isSelected ? 'white' : '#1e293b',
+                    border: isSelected ? '2px solid #2980b9' : '1.5px solid #e2e8f0',
                     borderRadius: '12px',
-                    transition: 'all 0.2s',
+                    transition: 'all 0.15s ease',
                     textAlign: 'left'
                   }}
                 >
-                  <span style={{ marginRight: '15px', fontWeight: 'bold', color: isSelected ? 'white' : '#888' }}>{letter})</span>
+                  <span style={{ marginRight: '16px', fontWeight: 800, color: isSelected ? 'white' : '#3498db', fontSize: '18px' }}>
+                    {letter}.
+                  </span>
                   {opt}
                 </button>
               );
