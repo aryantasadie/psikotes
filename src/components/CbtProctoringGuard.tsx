@@ -752,68 +752,8 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-      {/* Top Proctoring Status Indicator Bar */}
-      <div
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 9999,
-          background: '#0F172A',
-          color: '#F8FAFC',
-          padding: '8px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          fontSize: '13px',
-          fontWeight: 600,
-          boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
-          flexWrap: 'wrap',
-          gap: '10px'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: webcamActive ? '#10B981' : '#EF4444' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: webcamActive ? '#10B981' : '#EF4444' }}></span>
-            {webcamActive ? '📷 Kamera (ACC)' : '📷 Kamera (Nonaktif)'}
-          </span>
-          <span style={{ color: '#64748B' }}>|</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: screenActive ? '#10B981' : '#EF4444' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: screenActive ? '#10B981' : '#EF4444' }}></span>
-            {screenActive ? '🖥️ Rekam Layar (ACC)' : '🖥️ Rekam Layar (Nonaktif)'}
-          </span>
-          <span style={{ color: '#64748B' }}>|</span>
-          <span style={{ color: '#CBD5E1' }}>🔒 Keamanan CBT Aktif</span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {violationCount > 0 && (
-            <span style={{ background: '#7F1D1D', color: '#FCA5A5', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', border: '1px solid #991B1B' }}>
-              ⚠️ Pelanggaran: {violationCount}x
-            </span>
-          )}
-
-          {!isFullscreen && isPermissionGranted && (
-            <button
-              onClick={requestFullscreen}
-              style={{
-                background: '#2563EB',
-                color: 'white',
-                border: 'none',
-                padding: '5px 12px',
-                borderRadius: '6px',
-                fontSize: '12px',
-                fontWeight: 700,
-                cursor: 'pointer'
-              }}
-            >
-              🖥️ Mode Fullscreen
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <main style={{ minHeight: 'calc(100vh - 40px)', overflowY: 'auto' }}>
+      {/* Main Content (Plain distraction-free testee view) */}
+      <main style={{ minHeight: '100vh' }}>
         {children}
       </main>
 

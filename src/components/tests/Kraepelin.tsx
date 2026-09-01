@@ -478,8 +478,8 @@ export default function KraepelinTest() {
         </div>
       )}
 
-      {/* Top Header / Status Bar (Padding top 52px ensures clearance under proctoring bar) */}
-      <div style={{ padding: '52px 40px 14px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9' }}>
+      {/* Top Header / Status Bar */}
+      <div style={{ padding: '16px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9' }}>
         {/* Subtle pill indicator on top center/left */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }}></div>
