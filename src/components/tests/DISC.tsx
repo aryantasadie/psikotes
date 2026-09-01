@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import TestTimer from './TestTimer';
 
 type Question = {
   id: string;
@@ -65,14 +66,15 @@ export default function DISC() {
         answered++;
       }
     });
-    return Math.round((answered / questions.length) * 100);
+    return Math.round((answered / (questions.length || 1)) * 100);
   };
 
   const handleSubmit = async () => {
     const unanswered = questions.filter(q => !answers[`${q.id}_most`] || !answers[`${q.id}_least`]);
     
     if (unanswered.length > 0) {
-            return;
+      alert(`Wajib menyelesaikan semua soal! Terdapat ${unanswered.length} soal yang belum diisi (MOST & LEAST).`);
+      return;
     }
 
     setSubmitting(true);
@@ -114,7 +116,7 @@ export default function DISC() {
               <li>Setiap soal terdiri dari dua bagian. Bagian MOST ( Cenderung paling sesuai dengan diri ) dan LEAST ( cenderung paling tidak sesuai )</li>
               <li>Pilih SATU JAWABAN pada masing masing MOST &amp; LEAST</li>
               <li>Jawaban Most dan Least pada setiap no TIDAK BOLEH SAMA.</li>
-              <li>Waktu pengerjaan 15 menit</li>
+              <li>Waktu pengerjaan 15 menit (Wajib menyelesaikan seluruh soal)</li>
               <li>Satu account hanya untuk satu kali kesempatan pengisian</li>
             </ol>
           </div>
@@ -134,7 +136,10 @@ export default function DISC() {
   const progress = calculateProgress();
 
   return (
-    <div style={{ padding: '40px 20px', fontFamily: '"Inter", sans-serif', background: '#f0f2f5', minHeight: '100vh' }}>
+    <div style={{ padding: '40px 20px', fontFamily: '"Inter", sans-serif', background: '#f0f2f5', minHeight: '100vh', position: 'relative' }}>
+      {/* Top Left Floating Timer (15 Min, Mandatory Completion) */}
+      <TestTimer durationSeconds={15 * 60} autoSubmit={false} isActive={!showInstruction} testName="DISC" />
+
       <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', borderRadius: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         
         {/* Questions List */}

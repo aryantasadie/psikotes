@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import TestTimer from './TestTimer';
 
 type Question = {
   id: string;
@@ -53,7 +54,8 @@ export default function MSDT() {
     const unanswered = questions.filter(q => !answers[q.id]);
     
     if (unanswered.length > 0) {
-            return;
+      alert(`Wajib menyelesaikan semua soal! Terdapat ${unanswered.length} soal yang belum diisi.`);
+      return;
     }
 
     setSubmitting(true);
@@ -93,7 +95,7 @@ export default function MSDT() {
               <li>Tes ini terdiri dari <strong>64 pasang pernyataan</strong>.</li>
               <li>Tentukan pernyataan mana yang <strong>paling menggambarkan</strong> apa yang biasanya Anda lakukan dalam pekerjaan sehari-hari.</li>
               <li>Mungkin ada pernyataan yang membingungkan atau terasa cocok dua-duanya/tidak ada yang cocok sama sekali. Anda tetap diminta menentukan <strong>satu pilihan (A atau B)</strong> secara instingtif.</li>
-              <li>Waktu tidak dibatasi, namun kerjakanlah secara spontan.</li>
+              <li>Waktu pengerjaan <strong>20 menit</strong> (Wajib menyelesaikan seluruh 64 soal).</li>
             </ul>
           </div>
           <button 
@@ -112,7 +114,10 @@ export default function MSDT() {
   const progress = calculateProgress();
 
   return (
-    <div style={{ padding: '40px 20px', fontFamily: '"Inter", sans-serif', background: '#f0f2f5', minHeight: '100vh' }}>
+    <div style={{ padding: '40px 20px', fontFamily: '"Inter", sans-serif', background: '#f0f2f5', minHeight: '100vh', position: 'relative' }}>
+      {/* Top Left Floating Timer (20 Min, Mandatory Completion) */}
+      <TestTimer durationSeconds={20 * 60} autoSubmit={false} isActive={!showInstruction} testName="MSDT" />
+
       <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', borderRadius: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         
         {/* Progress (optional: user asked to remove for DISC, but for 64 questions a subtle progress tracker is nice. I'll make it minimal like PAPI) */}

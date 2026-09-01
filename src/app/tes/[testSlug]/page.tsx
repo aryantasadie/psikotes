@@ -16,6 +16,7 @@ import PAPI_KOSTICK from '@/components/tests/PAPI_KOSTICK';
 import DISC from '@/components/tests/DISC';
 import MSDT from '@/components/tests/MSDT';
 import POWER from '@/components/tests/POWER';
+import Kraepelin from '@/components/tests/Kraepelin';
 
 export default async function TestPage({ params }: { params: Promise<{ testSlug: string }> }) {
   const resolvedParams = await params;
@@ -39,6 +40,7 @@ export default async function TestPage({ params }: { params: Promise<{ testSlug:
   if (testSlug.includes('disc')) return <DISC />;
   if (testSlug.includes('msdt')) return <MSDT />;
   if (testSlug.includes('power')) return <POWER />;
+  if (testSlug.includes('kraepelin') || testSlug.includes('kreapelin')) return <Kraepelin />;
 
   // Jika tidak ditemukan
   return (

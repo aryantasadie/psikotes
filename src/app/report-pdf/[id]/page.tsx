@@ -339,27 +339,32 @@ export default function ReportPdfPage() {
     // PAPI Raw
     const papiRaw: Record<string, number> = { N: 0, G: 0, A: 0, L: 0, P: 0, I: 0, T: 0, V: 0, X: 0, S: 0, B: 0, O: 0, R: 0, D: 0, C: 0, Z: 0, E: 0, K: 0, F: 0, W: 0 };
     let hasPapi = false;
-    const rawPapiAnswers = participant.answers.filter((a: any) => 
-      a.question && (a.question.testType === 'PAPI' || a.question.testType === 'PAPI_KOSTICK' || a.question.testType === 'PAPI KOSTICK')
-    );
-    if (rawPapiAnswers.length > 0) {
+    const papiQuestions = participant.answers
+      .filter((a: any) => a.question && (a.question.testType === 'PAPI' || a.question.testType === 'PAPI_KOSTICK' || a.question.testType === 'PAPI KOSTICK'))
+      .map((a: any) => a.question)
+      .filter((q: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.id === q.id) === i)
+      .sort((a: any, b: any) => a.id - b.id);
+
+    if (papiQuestions.length > 0) {
       hasPapi = true;
-      const sortedPapi = [...rawPapiAnswers].sort((a: any, b: any) => (a.question?.id || a.questionId) - (b.question?.id || b.questionId));
-      sortedPapi.forEach((ans: any, idx: number) => {
-        const qNum = idx + 1;
-        let choice = '';
-        try {
-          const parsed = JSON.parse(ans.selectedOption);
-          if (parsed === 'A' || parsed === 'B') choice = parsed;
-          else if (parsed.answer) choice = parsed.answer;
-          else if (parsed.selectedOption) choice = parsed.selectedOption;
-          else if (typeof parsed === 'string') choice = parsed;
-        } catch (e) {
-          choice = ans.selectedOption;
-        }
-        if (papiScoringKeys[qNum]) {
-          if (choice === 'A' && papiScoringKeys[qNum].A) papiRaw[papiScoringKeys[qNum].A]++;
-          else if (choice === 'B' && papiScoringKeys[qNum].B) papiRaw[papiScoringKeys[qNum].B]++;
+      papiQuestions.forEach((q: any, idx: number) => {
+        const ans = participant.answers.find((a: any) => a.questionId === q.id);
+        if (ans) {
+          const qNum = idx + 1;
+          let choice = '';
+          try {
+            const parsed = JSON.parse(ans.selectedOption);
+            if (parsed === 'A' || parsed === 'B') choice = parsed;
+            else if (parsed.answer) choice = parsed.answer;
+            else if (parsed.selectedOption) choice = parsed.selectedOption;
+            else if (typeof parsed === 'string') choice = parsed;
+          } catch (e) {
+            choice = ans.selectedOption;
+          }
+          if (papiScoringKeys[qNum]) {
+            if (choice === 'A' && papiScoringKeys[qNum].A) papiRaw[papiScoringKeys[qNum].A]++;
+            else if (choice === 'B' && papiScoringKeys[qNum].B) papiRaw[papiScoringKeys[qNum].B]++;
+          }
         }
       });
     }
@@ -422,6 +427,19 @@ export default function ReportPdfPage() {
       scores['Motivasi Kerja'] = avgFloor(getPapiNumericNorm('A', papiRaw.A), getPapiNumericNorm('G', papiRaw.G));
     }
 
+    // Kraepelin Scale Parsing
+    const kraepelinRawObj = participant.rawResults?.find((r: any) => r.testType === 'KRAEPELIN' || r.testType === 'KREAPELIN');
+    let kraepelinNorms: { pankerNorm?: number; tinkerNorm?: number; jankerNorm?: number; hankerNorm?: number } = {};
+    if (kraepelinRawObj && kraepelinRawObj.rawData) {
+      try {
+        const parsed = JSON.parse(kraepelinRawObj.rawData);
+        if (parsed.pankerNorm) kraepelinNorms.pankerNorm = parsed.pankerNorm;
+        if (parsed.tinkerNorm) kraepelinNorms.tinkerNorm = parsed.tinkerNorm;
+        if (parsed.jankerNorm) kraepelinNorms.jankerNorm = parsed.jankerNorm;
+        if (parsed.hankerNorm) kraepelinNorms.hankerNorm = parsed.hankerNorm;
+      } catch (e) {}
+    }
+
     const getInstrumentScore = (inst: string): number | null => {
       const clean = inst.trim().toUpperCase();
       if (clean === 'WPT') return wptVal;
@@ -440,9 +458,19 @@ export default function ReportPdfPage() {
       if (clean.includes('IST') && (clean.includes('8') || clean.includes('SUBTES 8'))) return ist8Val;
       if (clean.includes('IST') && (clean.includes('9') || clean.includes('SUBTES 9'))) return ist9Val;
       
+      // Kraepelin Scales
+      if (clean.includes('KRAEPELIN') || clean.includes('KREAPELIN') || clean.includes('PANKER') || clean.includes('TINKER') || clean.includes('JANKER') || clean.includes('HANKER')) {
+        if (clean.includes('PANKER') || clean.includes('KECEPATAN')) return kraepelinNorms.pankerNorm ?? 3;
+        if (clean.includes('TINKER') || clean.includes('KETELITIAN')) return kraepelinNorms.tinkerNorm ?? 3;
+        if (clean.includes('JANKER') || clean.includes('KEAJEGAN') || clean.includes('STABILITAS')) return kraepelinNorms.jankerNorm ?? 3;
+        if (clean.includes('HANKER') || clean.includes('KETAHANAN')) return kraepelinNorms.hankerNorm ?? 3;
+        return kraepelinNorms.pankerNorm ?? 3;
+      }
+
       if (hasPapi && clean.includes('PAPI')) {
-        const match = clean.match(/SKALA\s*([A-Z])|PAPI\s*([A-Z])/i);
-        const trait = match ? (match[1] || match[2]).toUpperCase() : '';
+        const papiTraitsList = ['N','G','A','L','P','I','T','V','X','S','B','O','R','D','C','Z','E','K','F','W'];
+        const words = clean.split(/\s+/);
+        const trait = words.reverse().find(w => papiTraitsList.includes(w)) || '';
         if (trait && papiRaw[trait] !== undefined) {
           return getPapiNumericNorm(trait, papiRaw[trait]);
         }

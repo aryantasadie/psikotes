@@ -52,7 +52,8 @@ export default function TesteeSession() {
           if (
             localStorage.getItem(`test_completed_${slug}`) ||
             (slug.includes('power') && (localStorage.getItem('test_completed_power') || localStorage.getItem('test_completed_powerleader'))) ||
-            (slug.includes('papi') && (localStorage.getItem('test_completed_papi') || localStorage.getItem('test_completed_papikostick')))
+            (slug.includes('papi') && (localStorage.getItem('test_completed_papi') || localStorage.getItem('test_completed_papikostick'))) ||
+            ((slug.includes('kraepelin') || slug.includes('kreapelin')) && (localStorage.getItem('test_completed_kraepelin') || localStorage.getItem('test_completed_kreapelin')))
           ) {
             completed.push(testName);
           }
@@ -88,6 +89,7 @@ export default function TesteeSession() {
       let slug = nextTest.toLowerCase().replace(/[\s\-_]+/g, '');
       if (slug.includes('power')) slug = 'power';
       else if (slug.includes('papi')) slug = 'papikostick';
+      else if (slug.includes('kraepelin') || slug.includes('kreapelin')) slug = 'kraepelin';
       router.replace(`/tes/${slug}`);
     }
   }, [loading, sequence.length, nextTest, router, onboardingStage]);

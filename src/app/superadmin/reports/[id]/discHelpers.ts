@@ -22,102 +22,106 @@ export const getDiscScale = (type: 'D' | 'I' | 'S' | 'C', diff: number) => {
   return 4;
 };
 
-export const mapScoreToYPercent = (metric: string, score: number) => {
-  const getRow = () => {
-    switch (metric) {
-      case 'DM':
-        if (score >= 21) return 12; if (score === 16) return 13; if (score === 15) return 14;
-        if (score === 14) return 17; if (score === 13) return 18; if (score === 12) return 21;
-        if (score === 11) return 22; if (score === 10) return 23; if (score === 9) return 25;
-        if (score === 8) return 27; if (score === 7) return 28; if (score === 6) return 30;
-        if (score === 5) return 32; if (score === 4) return 33; if (score === 3) return 35;
-        if (score === 2) return 38; if (score === 1) return 41; if (score === 0) return 43;
-        return 44;
-      case 'IM':
-        if (score >= 19) return 12; if (score === 11) return 13; if (score === 10) return 14;
-        if (score === 9) return 15; if (score === 8) return 16; if (score === 7) return 17;
-        if (score === 6) return 22; if (score === 5) return 23; if (score === 4) return 27;
-        if (score === 3) return 32; if (score === 2) return 35; if (score === 1) return 40;
-        return 44;
-      case 'SM':
-        if (score >= 20) return 12; if (score === 15) return 13; if (score === 14) return 14;
-        if (score === 13) return 15; if (score === 12) return 16; if (score === 11) return 17;
-        if (score === 10) return 18; if (score === 9) return 21; if (score === 8) return 23;
-        if (score === 7) return 24; if (score === 6) return 27; if (score === 5) return 28;
-        if (score === 4) return 31; if (score === 3) return 33; if (score === 2) return 37;
-        if (score === 1) return 39; if (score === 0) return 42; return 44;
-      case 'CM':
-        if (score >= 12) return 12; if (score === 11) return 13; if (score === 10) return 14;
-        if (score === 9) return 15; if (score === 8) return 16; if (score === 7) return 17;
-        if (score === 6) return 23; if (score === 5) return 25; if (score === 4) return 28;
-        if (score === 3) return 33; if (score === 2) return 37; if (score === 1) return 40;
-        if (score === 0) return 43; return 44;
-      case 'DL':
-        if (score <= 0) return 12; if (score === 1) return 14; if (score === 2) return 19;
-        if (score === 3) return 24; if (score === 4) return 26; if (score === 5) return 28;
-        if (score === 6) return 30; if (score === 7) return 32; if (score === 8) return 33;
-        if (score === 9) return 35; if (score === 10) return 36; if (score === 11) return 37;
-        if (score === 12) return 39; if (score === 13) return 41; if (score === 14) return 42;
-        if (score === 15) return 43; return 44;
-      case 'IL':
-        if (score <= 0) return 13; if (score === 1) return 15; if (score === 2) return 20;
-        if (score === 3) return 24; if (score === 4) return 28; if (score === 5) return 30;
-        if (score === 6) return 34; if (score === 7) return 37; if (score === 8) return 39;
-        if (score === 9) return 41; if (score === 10) return 43; return 44;
-      case 'SL':
-        if (score <= 0) return 12; if (score === 1) return 13; if (score === 2) return 15;
-        if (score === 3) return 20; if (score === 4) return 24; if (score === 5) return 26;
-        if (score === 6) return 28; if (score === 7) return 32; if (score === 8) return 34;
-        if (score === 9) return 36; if (score === 10) return 39; if (score === 11) return 41;
-        if (score === 12) return 43; return 44;
-      case 'CL':
-        if (score <= 0) return 12; if (score === 1) return 13; if (score === 2) return 16;
-        if (score === 3) return 20; if (score === 4) return 24; if (score === 5) return 26;
-        if (score === 6) return 28; if (score === 7) return 30; if (score === 8) return 32;
-        if (score === 9) return 35; if (score === 10) return 37; if (score === 11) return 41;
-        if (score === 12) return 42; if (score === 13) return 43; return 44;
-      case 'DC':
-        if (score >= 21) return 12; if (score === 16) return 13; if (score === 15) return 14;
-        if (score === 14) return 15; if (score === 13) return 16; if (score === 12) return 17;
-        if (score === 10) return 18; if (score === 9) return 21; if (score === 8) return 22;
-        if (score === 7) return 24; if (score === 6) return 25; if (score === 5) return 26;
-        if (score === 4) return 27; if (score === 1) return 28; if (score === 0) return 29;
-        if (score === -1) return 30; if (score === -2) return 31; if (score === -3) return 32;
-        if (score === -4) return 33; if (score === -5) return 34; if (score === -6) return 35;
-        if (score === -7) return 36; if (score === -9) return 37; if (score === -10) return 39;
-        if (score === -11) return 41; if (score === -12) return 42; if (score === -13) return 43;
-        return 44;
-      case 'IC':
-        if (score >= 10) return 12; if (score === 9) return 13; if (score === 8) return 14;
-        if (score === 7) return 16; if (score === 6) return 17; if (score === 5) return 19;
-        if (score === 4) return 21; if (score === 3) return 23; if (score === 2) return 26;
-        if (score === 1) return 27; if (score === 0) return 28; if (score === -1) return 30;
-        if (score === -2) return 33; if (score === -3) return 34; if (score === -4) return 36;
-        if (score === -5) return 37; if (score === -6) return 39; if (score === -7) return 40;
-        if (score === -8) return 42; if (score === -9) return 43; return 44;
-      case 'SC':
-        if (score >= 13) return 12; if (score === 12) return 13; if (score === 11) return 14;
-        if (score === 10) return 15; if (score === 9) return 16; if (score === 8) return 17;
-        if (score === 7) return 18; if (score === 6) return 20; if (score === 5) return 21;
-        if (score === 4) return 22; if (score === 3) return 23; if (score === 1) return 26;
-        if (score === 0) return 27; if (score === -1) return 30; if (score === -2) return 31;
-        if (score === -3) return 32; if (score === -4) return 33; if (score === -5) return 34;
-        if (score === -6) return 36; if (score === -7) return 37; if (score === -8) return 39;
-        if (score === -9) return 40; if (score === -10) return 43; return 44;
-      case 'CC':
-        if (score >= 17) return 12; if (score === 7) return 13; if (score === 6) return 14;
-        if (score === 5) return 15; if (score === 4) return 16; if (score === 3) return 19;
-        if (score === 2) return 21; if (score === 1) return 23; if (score === 0) return 26;
-        if (score === -1) return 27; if (score === -2) return 28; if (score === -3) return 30;
-        if (score === -4) return 31; if (score === -5) return 35; if (score === -6) return 36;
-        if (score === -7) return 37; if (score === -8) return 39; if (score === -9) return 40;
-        if (score === -10) return 42; if (score === -11) return 43; return 44;
+export const DISC_GRIDS: Record<string, [number, number][]> = {
+  // Graph 1: MOST (sorted descending by score)
+  DM: [
+    [21, 2.5], [16, 6.5], [15, 10.0], [14, 17.0], [13, 21.0], [12, 25.0], [11, 29.0], [10, 33.0],
+    [9, 37.5], [8, 44.0], [7, 47.5], [6, 50.0], [5, 55.0], [4, 58.5], [3, 68.0], [2, 75.0],
+    [1, 82.0], [0, 94.0]
+  ],
+  IM: [
+    [19, 2.5], [11, 6.5], [9, 12.5], [8, 17.0], [7, 21.0], [6, 29.0], [5, 33.0],
+    [4, 44.0], [3, 55.0], [2, 68.0], [1, 80.0], [0, 95.0]
+  ],
+  SM: [
+    [20, 2.5], [14, 9.0], [12, 12.5], [10, 20.0], [9, 25.0], [8, 31.0], [7, 35.0],
+    [6, 44.0], [5, 47.5], [4, 52.0], [3, 58.5], [2, 70.0], [1, 78.0], [0, 87.5]
+  ],
+  CM: [
+    [17, 2.5], [13, 5.5], [11, 8.5], [9, 15.0], [8, 18.0], [7, 21.0], [6, 32.0],
+    [5, 37.5], [4, 47.0], [3, 58.5], [2, 70.0], [1, 80.0], [0, 87.5]
+  ],
+
+  // Graph 2: LEAST (sorted ascending by score)
+  DL: [
+    [0, 2.5], [1, 8.0], [2, 28.0], [3, 37.5], [4, 43.0], [5, 48.0], [6, 50.0], [7, 55.0],
+    [8, 59.0], [9, 68.0], [10, 72.0], [11, 76.0], [12, 80.0], [13, 84.0], [14, 87.0],
+    [15, 90.0], [16, 93.0], [20, 97.0]
+  ],
+  IL: [
+    [0, 6.0], [1, 12.5], [2, 25.0], [3, 37.5], [4, 50.0], [5, 52.0], [6, 62.5], [7, 76.0],
+    [8, 80.0], [9, 84.0], [10, 89.0], [11, 92.0], [12, 95.0], [19, 98.0]
+  ],
+  SL: [
+    [0, 2.5], [1, 6.0], [2, 12.5], [3, 25.0], [4, 37.5], [5, 43.0], [6, 50.0], [7, 55.0],
+    [8, 62.5], [9, 70.0], [10, 80.0], [11, 84.0], [12, 88.0], [13, 91.0], [16, 95.0], [19, 98.0]
+  ],
+  CL: [
+    [0, 2.5], [1, 6.0], [2, 15.0], [3, 25.0], [4, 37.5], [5, 43.0], [6, 48.0], [7, 52.0],
+    [8, 56.0], [9, 62.5], [10, 70.0], [11, 84.0], [12, 87.0], [13, 90.0], [14, 93.0],
+    [15, 95.5], [17, 98.0]
+  ],
+
+  // Graph 3: CHANGE (sorted descending by score)
+  DC: [
+    [21, 2.0], [18, 4.5], [15, 7.5], [14, 10.0], [13, 12.5], [12, 15.0], [10, 18.0],
+    [9, 25.0], [8, 29.0], [7, 37.5], [5, 43.0], [3, 46.0], [1, 48.5], [0, 50.0],
+    [-2, 55.0], [-3, 58.5], [-4, 62.0], [-6, 68.0], [-7, 71.0], [-9, 75.0],
+    [-10, 80.0], [-11, 83.5], [-12, 86.5], [-16, 92.0], [-20, 96.0]
+  ],
+  IC: [
+    [18, 2.0], [10, 8.0], [8, 12.5], [7, 15.0], [6, 18.0], [5, 22.0], [4, 25.0],
+    [3, 32.0], [2, 43.0], [1, 46.5], [0, 50.0], [-1, 55.0], [-2, 65.0], [-3, 68.0],
+    [-4, 75.0], [-5, 78.5], [-6, 82.0], [-7, 85.0], [-8, 88.0], [-9, 92.0],
+    [-10, 94.5], [-18, 97.0]
+  ],
+  SC: [
+    [20, 2.0], [15, 5.5], [11, 8.5], [10, 11.0], [9, 12.5], [8, 16.0], [7, 19.0],
+    [5, 25.0], [4, 29.0], [3, 32.0], [2, 37.5], [1, 44.0], [0, 47.5],
+    [-1, 53.0], [-2, 56.5], [-3, 60.0], [-4, 62.5], [-6, 71.0], [-7, 75.0],
+    [-8, 80.0], [-9, 83.5], [-10, 89.0], [-15, 94.0], [-18, 97.0]
+  ],
+  CC: [
+    [17, 2.0], [10, 5.0], [6, 8.0], [5, 10.5], [4, 12.5], [3, 20.0],
+    [2, 25.0], [1, 33.0], [0, 43.0], [-1, 46.0], [-2, 49.0], [-3, 53.0],
+    [-4, 56.5], [-5, 68.0], [-6, 71.0], [-7, 75.0], [-8, 80.0], [-9, 83.0],
+    [-10, 86.0], [-13, 89.0], [-15, 92.0], [-19, 95.0], [-22, 97.5]
+  ]
+};
+
+export const mapScoreToYPercent = (metric: string, score: number): number => {
+  const points = DISC_GRIDS[metric];
+  if (!points || points.length === 0) return 50;
+
+  const first = points[0];
+  const last = points[points.length - 1];
+  const isDesc = first[0] > last[0];
+
+  if (isDesc) {
+    if (score >= first[0]) return first[1];
+    if (score <= last[0]) return last[1];
+    for (let i = 0; i < points.length - 1; i++) {
+      const [s1, y1] = points[i];
+      const [s2, y2] = points[i + 1];
+      if (score <= s1 && score >= s2) {
+        if (s1 === s2) return y1;
+        const ratio = (score - s2) / (s1 - s2);
+        return y2 + ratio * (y1 - y2);
+      }
     }
-    return 44;
-  };
-  
-  const row = getRow();
-  // 44 -> 0%, 12 -> 100%
-  // (44 - row) / 32 * 100
-  return ((44 - row) / 32) * 100;
+  } else {
+    if (score <= first[0]) return first[1];
+    if (score >= last[0]) return last[1];
+    for (let i = 0; i < points.length - 1; i++) {
+      const [s1, y1] = points[i];
+      const [s2, y2] = points[i + 1];
+      if (score >= s1 && score <= s2) {
+        if (s1 === s2) return y1;
+        const ratio = (score - s1) / (s2 - s1);
+        return y1 + ratio * (y2 - y1);
+      }
+    }
+  }
+
+  return 50;
 };

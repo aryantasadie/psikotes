@@ -349,7 +349,7 @@ export default function PsychographBuilder() {
       ))}
 
       {/* Sticky save bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-4 flex justify-end gap-3 z-50">
+      <div className="sticky bottom-4 bg-white/95 backdrop-blur-md border border-slate-200 px-6 py-4 rounded-2xl flex justify-end gap-3 z-40 shadow-xl">
         <Link href="/superadmin/psychograph"
           className="text-[13px] font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2.5 rounded-xl transition-colors">
           Batal

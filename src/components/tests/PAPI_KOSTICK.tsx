@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import TestTimer from './TestTimer';
 
 type Question = {
   id: string;
@@ -52,11 +53,10 @@ export default function PAPI() {
   const handleSubmit = async () => {
     const unanswered = questions.filter(q => !answers[q.id]);
     
-    // COMMENTED OUT FOR TESTING
-    // if (unanswered.length > 0) {
-    //   alert(`Harap selesaikan semua soal! Terdapat ${unanswered.length} soal yang belum terisi.`);
-    //   return;
-    // }
+    if (unanswered.length > 0) {
+      alert(`Wajib menyelesaikan semua soal! Terdapat ${unanswered.length} soal yang belum diisi.`);
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -97,7 +97,7 @@ export default function PAPI() {
               <li>Tes ini terdiri dari <strong>90 pasang pernyataan</strong>.</li>
               <li>Pilihlah salah satu dari dua pernyataan (A atau B) yang <strong>paling menggambarkan diri Anda</strong>.</li>
               <li>Terkadang, Anda mungkin merasa kedua pernyataan sangat cocok dengan Anda, atau sebaliknya, tidak ada yang cocok sama sekali. Anda tetap diwajibkan untuk memilih salah satu yang <em>relatif lebih mendekati</em>.</li>
-              <li>Tidak ada jawaban benar atau salah dalam tes ini. Jawablah secara spontan dan jujur.</li>
+              <li>Waktu pengerjaan <strong>20 menit</strong> (Wajib menyelesaikan seluruh 90 soal).</li>
             </ul>
           </div>
           <button 
@@ -116,7 +116,10 @@ export default function PAPI() {
   const progress = calculateProgress();
 
   return (
-    <div style={{ padding: '40px 20px', fontFamily: '"Inter", sans-serif', background: '#f0f2f5', minHeight: '100vh' }}>
+    <div style={{ padding: '40px 20px', fontFamily: '"Inter", sans-serif', background: '#f0f2f5', minHeight: '100vh', position: 'relative' }}>
+      {/* Top Left Floating Timer (20 Min, Mandatory Completion) */}
+      <TestTimer durationSeconds={20 * 60} autoSubmit={false} isActive={!showInstruction} testName="PAPI Kostick" />
+
       <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', borderRadius: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         
         {/* Progress */}

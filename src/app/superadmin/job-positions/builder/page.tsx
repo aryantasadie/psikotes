@@ -256,18 +256,14 @@ export default function JobPositionBuilder() {
                           </td>
                           {SCORE_LABELS.map(s => (
                             <td key={s.value} className={`px-4 py-4 text-center ${s.value >= 3 ? 'bg-teal-50/40' : ''}`}>
-                              <label className="flex items-center justify-center cursor-pointer group">
-                                <input
-                                  type="radio"
-                                  name={`aspect-${gi}-${ai}`}
-                                  value={s.value}
-                                  checked={selected === s.value}
-                                  onChange={() => setGrayAreas(prev => ({
-                                    ...prev,
-                                    [aspect]: { ...prev[aspect], targetScore: s.value },
-                                  }))}
-                                  className="sr-only"
-                                />
+                              <button
+                                type="button"
+                                onClick={() => setGrayAreas(prev => ({
+                                  ...prev,
+                                  [aspect]: { ...prev[aspect], targetScore: s.value },
+                                }))}
+                                className="flex items-center justify-center cursor-pointer group mx-auto focus:outline-none"
+                              >
                                 <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
                                   selected === s.value
                                     ? 'border-teal-500 bg-teal-500'
@@ -277,7 +273,7 @@ export default function JobPositionBuilder() {
                                     <span className="w-2 h-2 rounded-full bg-white" />
                                   )}
                                 </span>
-                              </label>
+                              </button>
                             </td>
                           ))}
                         </tr>
@@ -292,7 +288,7 @@ export default function JobPositionBuilder() {
       )}
 
       {/* ── Sticky save bar ── */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 py-4 flex justify-end gap-3 z-50">
+      <div className="sticky bottom-4 bg-white/95 backdrop-blur-md border border-slate-200 px-6 py-4 rounded-2xl flex justify-end gap-3 z-40 shadow-xl">
         <Link href="/superadmin/job-positions"
           className="text-[13px] font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2.5 rounded-xl transition-colors">
           Batal

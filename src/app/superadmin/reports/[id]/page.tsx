@@ -9,6 +9,7 @@ import { ASPECT_DESCRIPTIONS } from '../../job-positions/builder/page';
 
 import { getDiscScale, mapScoreToYPercent } from './discHelpers';
 import { papiScoringKeys } from './papiHelpers';
+import { OFFICIAL_KRAEPELIN_MATRIX } from '@/lib/kraepelinMatrix';
 
 const discScoringKeys: Record<number, { most: Record<string, string>, least: Record<string, string> }> = {
   1: { most: { A: 'S', B: 'I', C: 'B', D: 'C' }, least: { A: 'S', B: 'I', C: 'D', D: 'C' } },
@@ -312,6 +313,7 @@ export default function ReportDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedTest, setSelectedTest] = useState<string>('');
   const [questions, setQuestions] = useState<any[]>([]);
+  const [selectedKraepelinCol, setSelectedKraepelinCol] = useState<number>(0);
 
   useEffect(() => {
     fetch(`/api/superadmin/reports/${id}`)
@@ -464,27 +466,32 @@ export default function ReportDetailPage() {
     // 4. PAPI Kostick 20 Traits Scoring (0-9 Raw -> 1-5 Normalization)
     const papiRaw: Record<string, number> = { N: 0, G: 0, A: 0, L: 0, P: 0, I: 0, T: 0, V: 0, X: 0, S: 0, B: 0, O: 0, R: 0, D: 0, C: 0, Z: 0, E: 0, K: 0, F: 0, W: 0 };
     let hasPapi = false;
-    const rawPapiAnswers = participant.answers.filter((a: any) => 
-      a.question && (a.question.testType === 'PAPI' || a.question.testType === 'PAPI_KOSTICK' || a.question.testType === 'PAPI KOSTICK')
-    );
-    if (rawPapiAnswers.length > 0) {
+    const papiQuestions = participant.answers
+      .filter((a: any) => a.question && (a.question.testType === 'PAPI' || a.question.testType === 'PAPI_KOSTICK' || a.question.testType === 'PAPI KOSTICK'))
+      .map((a: any) => a.question)
+      .filter((q: any, i: number, arr: any[]) => arr.findIndex((x: any) => x.id === q.id) === i)
+      .sort((a: any, b: any) => a.id - b.id);
+
+    if (papiQuestions.length > 0) {
       hasPapi = true;
-      const sortedPapi = [...rawPapiAnswers].sort((a: any, b: any) => (a.question?.id || a.questionId) - (b.question?.id || b.questionId));
-      sortedPapi.forEach((ans: any, idx: number) => {
-        const qNum = idx + 1;
-        let choice = '';
-        try {
-          const parsed = JSON.parse(ans.selectedOption);
-          if (parsed === 'A' || parsed === 'B') choice = parsed;
-          else if (parsed.answer) choice = parsed.answer;
-          else if (parsed.selectedOption) choice = parsed.selectedOption;
-          else if (typeof parsed === 'string') choice = parsed;
-        } catch (e) {
-          choice = ans.selectedOption;
-        }
-        if (papiScoringKeys[qNum]) {
-          if (choice === 'A' && papiScoringKeys[qNum].A) papiRaw[papiScoringKeys[qNum].A]++;
-          else if (choice === 'B' && papiScoringKeys[qNum].B) papiRaw[papiScoringKeys[qNum].B]++;
+      papiQuestions.forEach((q: any, idx: number) => {
+        const ans = participant.answers.find((a: any) => a.questionId === q.id);
+        if (ans) {
+          const qNum = idx + 1;
+          let choice = '';
+          try {
+            const parsed = JSON.parse(ans.selectedOption);
+            if (parsed === 'A' || parsed === 'B') choice = parsed;
+            else if (parsed.answer) choice = parsed.answer;
+            else if (parsed.selectedOption) choice = parsed.selectedOption;
+            else if (typeof parsed === 'string') choice = parsed;
+          } catch (e) {
+            choice = ans.selectedOption;
+          }
+          if (papiScoringKeys[qNum]) {
+            if (choice === 'A' && papiScoringKeys[qNum].A) papiRaw[papiScoringKeys[qNum].A]++;
+            else if (choice === 'B' && papiScoringKeys[qNum].B) papiRaw[papiScoringKeys[qNum].B]++;
+          }
         }
       });
     }
@@ -562,6 +569,19 @@ export default function ReportDetailPage() {
     const numericScale = avgFloor(ist5Val, ist6Val, tiki1Val, wptVal);
     const catchScale = avgFloor(ist1Val, ist9Val, wptVal);
 
+    // Kraepelin Scale Parsing
+    const kraepelinRawObj = participant.rawResults?.find((r: any) => r.testType === 'KRAEPELIN' || r.testType === 'KREAPELIN');
+    let kraepelinNorms: { pankerNorm?: number; tinkerNorm?: number; jankerNorm?: number; hankerNorm?: number } = {};
+    if (kraepelinRawObj && kraepelinRawObj.rawData) {
+      try {
+        const parsed = JSON.parse(kraepelinRawObj.rawData);
+        if (parsed.pankerNorm) kraepelinNorms.pankerNorm = parsed.pankerNorm;
+        if (parsed.tinkerNorm) kraepelinNorms.tinkerNorm = parsed.tinkerNorm;
+        if (parsed.jankerNorm) kraepelinNorms.jankerNorm = parsed.jankerNorm;
+        if (parsed.hankerNorm) kraepelinNorms.hankerNorm = parsed.hankerNorm;
+      } catch (e) {}
+    }
+
     // Helper to get normalized score for any instrument named in presets
     const getInstrumentScore = (inst: string): number | null => {
       const clean = inst.trim().toUpperCase();
@@ -581,10 +601,20 @@ export default function ReportDetailPage() {
       if (clean.includes('IST') && (clean.includes('8') || clean.includes('SUBTES 8'))) return ist8Val;
       if (clean.includes('IST') && (clean.includes('9') || clean.includes('SUBTES 9'))) return ist9Val;
       
+      // Kraepelin Scales
+      if (clean.includes('KRAEPELIN') || clean.includes('KREAPELIN') || clean.includes('PANKER') || clean.includes('TINKER') || clean.includes('JANKER') || clean.includes('HANKER')) {
+        if (clean.includes('PANKER') || clean.includes('KECEPATAN')) return kraepelinNorms.pankerNorm ?? 3;
+        if (clean.includes('TINKER') || clean.includes('KETELITIAN')) return kraepelinNorms.tinkerNorm ?? 3;
+        if (clean.includes('JANKER') || clean.includes('KEAJEGAN') || clean.includes('STABILITAS')) return kraepelinNorms.jankerNorm ?? 3;
+        if (clean.includes('HANKER') || clean.includes('KETAHANAN')) return kraepelinNorms.hankerNorm ?? 3;
+        return kraepelinNorms.pankerNorm ?? 3;
+      }
+
       // PAPI Scales
       if (hasPapi && clean.includes('PAPI')) {
-        const match = clean.match(/SKALA\s*([A-Z])|PAPI\s*([A-Z])/i);
-        const trait = match ? (match[1] || match[2]).toUpperCase() : '';
+        const papiTraitsList = ['N','G','A','L','P','I','T','V','X','S','B','O','R','D','C','Z','E','K','F','W'];
+        const words = clean.split(/\s+/);
+        const trait = words.reverse().find(w => papiTraitsList.includes(w)) || '';
         if (trait && papiRaw[trait] !== undefined) {
           return getPapiNumericNorm(trait, papiRaw[trait]);
         }
@@ -920,10 +950,35 @@ export default function ReportDetailPage() {
 
           {/* Psychograph Table */}
             <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-              <div style={{ padding: '16px 24px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ padding: '16px 24px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                 <h3 style={{ margin: 0, fontSize: '15px', color: '#0F172A', fontWeight: 700 }}>
                   1. Profil Aspek Psikologis & Plotting Grey Area
                 </h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModifiedScores({});
+                    alert('Berhasil menghitung ulang & melakukan sinkronisasi psikogram secara akurat dari preset dan jawaban peserta!');
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#2563EB',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 4px rgba(37,99,235,0.2)',
+                    transition: 'all 0.2s'
+                  }}
+                  title="Hitung ulang otomatis skor psikogram dari jawaban peserta & preset terbaru"
+                >
+                  <span>🔄 Hitung Ulang & Sync Psikogram</span>
+                </button>
               </div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
@@ -1308,7 +1363,341 @@ export default function ReportDetailPage() {
           Jawaban Ujian {selectedTest}
         </h3>
         
-        {questions.length === 0 ? (
+        {selectedTest.toUpperCase().includes('KRAEPELIN') || selectedTest.toUpperCase().includes('KREAPELIN') ? (
+          (() => {
+            const rawObj = participant.rawResults?.find((r: any) => r.testType === 'KRAEPELIN' || r.testType === 'KREAPELIN');
+            let data: any = null;
+            if (rawObj && rawObj.rawData) {
+              try { data = JSON.parse(rawObj.rawData); } catch(e){}
+            }
+
+            if (!data) {
+              return (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B', background: '#F8FAFC', borderRadius: '8px' }}>
+                  Peserta belum memiliki rekam jawaban untuk modul ini.
+                </div>
+              );
+            }
+
+            const pankerRaw = data?.pankerRaw ?? 0;
+            const tinkerRaw = data?.tinkerRaw ?? 0;
+            const jankerRaw = data?.jankerRaw ?? 0;
+            const pankerNorm = data?.pankerNorm ?? 1;
+            const tinkerNorm = data?.tinkerNorm ?? 1;
+            const jankerNorm = data?.jankerNorm ?? 1;
+            const hankerNorm = data?.hankerNorm ?? 1;
+            const columnScores: number[] = new Array(50).fill(0).map((_, i) => data?.columnScores?.[i] ?? 0);
+
+            const getKraepelinCatLabel = (norm: number) => {
+              if (norm === 5) return { label: 'TS', text: 'Tinggi Sekali', color: '#047857', bg: '#D1FAE5' };
+              if (norm === 4) return { label: 'T', text: 'Tinggi / Cukup Tinggi', color: '#0284C7', bg: '#E0F2FE' };
+              if (norm === 3) return { label: 'S', text: 'Sedang / Cukup', color: '#D97706', bg: '#FEF3C7' };
+              if (norm === 2) return { label: 'R', text: 'Agak Rendah / Rendah', color: '#DC2626', bg: '#FEE2E2' };
+              return { label: 'RS', text: 'Rendah Sekali', color: '#991B1B', bg: '#FEE2E2' };
+            };
+
+            return (
+              <div style={{ animation: 'fadeIn 0.3s ease-in-out', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                
+                {/* Summary Cards: PANKER, TINKER, JANKER, HANKER */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                  {[
+                    { title: 'PANKER (Kecepatan Kerja)', raw: pankerRaw, norm: pankerNorm },
+                    { title: 'TINKER (Ketelitian Error)', raw: `${tinkerRaw} Error`, norm: tinkerNorm },
+                    { title: 'JANKER (Keajegan Selisih)', raw: `Selisih ${jankerRaw}`, norm: jankerNorm },
+                    { title: 'HANKER (Ketahanan Kerja)', raw: `Skala ${hankerNorm}`, norm: hankerNorm }
+                  ].map((item, idx) => {
+                    const cat = getKraepelinCatLabel(item.norm);
+                    return (
+                      <div key={idx} style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '1.5rem', textAlign: 'center', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>{item.title}</div>
+                        <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0F172A', marginBottom: '0.5rem' }}>{item.raw}</div>
+                        <div style={{ display: 'inline-block', background: cat.bg, color: cat.color, padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 800 }}>
+                          Skala {item.norm} &bull; {cat.label} ({cat.text})
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ background: '#FFFFFF', padding: '2rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '12px' }}>
+                    <div>
+                      <h3 style={{ margin: 0, color: '#0F172A', fontSize: '1.25rem', fontWeight: 800 }}>
+                        📊 Lembar Hasil Jawaban Kraepelin & Kurva Kerja (50 Kolom)
+                      </h3>
+                      <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+                        Penjumlahan dari bawah ke atas. Bulatan <span style={{ color: '#10B981', fontWeight: 700 }}>🟢 Hijau</span> = Benar, <span style={{ color: '#EF4444', fontWeight: 700 }}>🔴 Merah</span> = Salah. Garis <span style={{ color: '#0284C7', fontWeight: 700 }}>⚡ Biru</span> = Kurva Puncak.
+                      </p>
+                    </div>
+                    
+                    {/* Legend badges */}
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', fontSize: '12px', fontWeight: 700 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }} /> Benar
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }} /> Salah
+                      </span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '20px', height: '2px', background: '#0284C7', borderRadius: '1px', display: 'inline-block' }} /> Kurva Puncak
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ width: '100%', overflowX: 'auto', border: '1px solid #CBD5E1', borderRadius: '12px', background: '#FAFAFA' }}>
+                    {(() => {
+                      const totalCols = 50; // Always render all 50 columns
+                      const numRows = 27; // All 27 addition rows (28 digits) fit in 1 screen vertically!
+                      const cellWidth = 24;
+                      const cellHeight = 13;
+                      const svgWidth = totalCols * cellWidth + 40; // 1240px SVG width
+                      const svgHeight = numRows * cellHeight + 50; // 401px total SVG height
+
+                      const peakPoints: { x: number; y: number }[] = [];
+
+                      return (
+                        <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} style={{ width: `${svgWidth}px`, minWidth: '100%', height: `${svgHeight}px`, display: 'block' }}>
+                          
+                          {/* Background Grid Pattern (Garis-Garis Graph Grid) */}
+                          <defs>
+                            <pattern id="kraepelinGridLines" width={cellWidth} height={cellHeight} patternUnits="userSpaceOnUse">
+                              <line x1="0" y1="0" x2={cellWidth} y2="0" stroke="#E2E8F0" strokeWidth="1" />
+                              <line x1="0" y1="0" x2="0" y2={cellHeight} stroke="#E2E8F0" strokeWidth="1" />
+                            </pattern>
+                          </defs>
+                          <rect width="100%" height="100%" fill="url(#kraepelinGridLines)" />
+
+                          {/* Render Columns (1 to 50) */}
+                          {new Array(totalCols).fill(0).map((_, c) => {
+                            const colIdx = c;
+                            const details = data?.perKolomDetails?.[colIdx];
+                            const colDigits: number[] = details?.digits || OFFICIAL_KRAEPELIN_MATRIX[colIdx] || [];
+                            const userAnsList: (number | null)[] = details?.userAnswers || [];
+                            const count = details?.dikerjakan || columnScores[c] || 0;
+
+                            const cx = 24 + c * cellWidth;
+
+                            // Collect peak coordinates for blue line
+                            const peakRowIdx = count > 0 ? count - 1 : 0;
+                            const peakY = (svgHeight - 22) - (peakRowIdx * cellHeight);
+                            peakPoints.push({ x: cx, y: peakY });
+
+                            return (
+                              <g key={c}>
+                                {/* Column header label at bottom */}
+                                <text x={cx} y={svgHeight - 6} fontSize="7.5" fontWeight="800" fill="#64748B" textAnchor="middle">
+                                  K{c + 1}
+                                </text>
+
+                                {/* Score badge at top of column */}
+                                {count > 0 && (
+                                  <text x={cx} y={Math.max(peakY - 4, 10)} fontSize="8" fontWeight="900" fill="#0F172A" textAnchor="middle">
+                                    {count}
+                                  </text>
+                                )}
+
+                                {/* Compact Answer Node Dots for answered pairs in this column (from bottom to top) */}
+                                {new Array(numRows).fill(0).map((_, p) => {
+                                  if (p >= count) return null; // only render answered pairs
+
+                                  const cy = (svgHeight - 22) - (p * cellHeight);
+                                  const uAns = userAnsList[p];
+                                  
+                                  // Calculate expected answer & pair
+                                  const DIGITS_COUNT = colDigits.length || 28;
+                                  const idxBottom = DIGITS_COUNT - 1 - p;
+                                  const idxTop = idxBottom - 1;
+                                  const d1 = colDigits[idxBottom];
+                                  const d2 = colDigits[idxTop];
+                                  const expectedSum = (d1 !== undefined && d2 !== undefined) ? (d1 + d2) % 10 : null;
+
+                                  const isCorrect = uAns !== null && uAns !== undefined && expectedSum !== null && uAns === expectedSum;
+
+                                  return (
+                                    <g key={p}>
+                                      {/* Small Colored Node Dot Circle (r=3.5px, no text inside) */}
+                                      <circle
+                                        cx={cx}
+                                        cy={cy}
+                                        r="3.5"
+                                        fill={isCorrect ? '#10B981' : '#EF4444'}
+                                      >
+                                        <title>
+                                          {`Kolom ${c + 1}, Baris ${p + 1}: Soal (${d2} + ${d1} = ${d1 + d2} -> Kunci: ${expectedSum}) | Jawaban Peserta: ${uAns} (${isCorrect ? 'BENAR ✓' : 'SALAH ✕'})`}
+                                        </title>
+                                      </circle>
+                                    </g>
+                                  );
+                                })}
+                              </g>
+                            );
+                          })}
+
+                          {/* Thinner Blue Work Curve Line Connecting Peak Nodes */}
+                          {(() => {
+                            const polylinePoints = peakPoints.map(pt => `${pt.x},${pt.y}`).join(' ');
+                            return (
+                              <polyline
+                                fill="none"
+                                stroke="#0284C7"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                points={polylinePoints}
+                              />
+                            );
+                          })()}
+
+                        </svg>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* Column Details Table & Detailed Equation Inspector */}
+                <div style={{ background: '#FFFFFF', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                  <h3 style={{ margin: '0 0 1rem 0', color: '#0F172A', fontSize: '1.1rem', fontWeight: 700 }}>
+                    📋 Rekapitulasi Pengerjaan Per Kolom (1–50)
+                  </h3>
+                  <div style={{ overflowX: 'auto', marginBottom: '1.5rem' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'center' }}>
+                      <thead>
+                        <tr style={{ background: '#F1F5F9', color: '#475569', borderBottom: '2px solid #CBD5E1' }}>
+                          <th style={{ padding: '6px', minWidth: '80px' }}>Kolom</th>
+                          {new Array(data?.perKolomDetails?.length || columnScores.length || 50).fill(0).map((_, i) => (
+                            <th key={i} style={{ padding: '6px', minWidth: '28px' }}>K{i + 1}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                          <td style={{ padding: '6px', fontWeight: 700, background: '#F8FAFC', textAlign: 'left' }}>Dikerjakan</td>
+                          {columnScores.map((s, i) => (
+                            <td key={i} style={{ padding: '6px', fontWeight: 700 }}>{s}</td>
+                          ))}
+                        </tr>
+                        <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                          <td style={{ padding: '6px', fontWeight: 700, background: '#F8FAFC', color: '#047857', textAlign: 'left' }}>Benar</td>
+                          {data?.perKolomDetails ? data.perKolomDetails.map((k: any, i: number) => (
+                            <td key={i} style={{ padding: '6px', color: '#047857', fontWeight: 600 }}>{k.benar}</td>
+                          )) : new Array(columnScores.length || 50).fill(0).map((_, i) => <td key={i}>-</td>)}
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '6px', fontWeight: 700, background: '#F8FAFC', color: '#DC2626', textAlign: 'left' }}>Salah</td>
+                          {data?.perKolomDetails ? data.perKolomDetails.map((k: any, i: number) => (
+                            <td key={i} style={{ padding: '6px', color: '#DC2626', fontWeight: 600 }}>{k.salah}</td>
+                          )) : new Array(columnScores.length || 50).fill(0).map((_, i) => <td key={i}>-</td>)}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* 🔎 Rincian Transparan Soal & Jawaban (All 50 Columns Centered & Displayed Directly) */}
+                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>🔎 Rincian Transparan Soal & Jawaban (50 Kolom Centered)</span>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B' }}>
+                        ↔ Geser horisontal untuk mengecek seluruh 50 kolom
+                      </span>
+                    </div>
+
+                    <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '10px' }}>
+                      <div style={{ display: 'flex', gap: '12px', minWidth: 'max-content' }}>
+                        {new Array(50).fill(0).map((_, c) => {
+                          const colIdx = c;
+                          const details = data?.perKolomDetails?.[colIdx];
+                          const colDigits: number[] = details?.digits || OFFICIAL_KRAEPELIN_MATRIX[colIdx] || [];
+                          const userAnsList: (number | null)[] = details?.userAnswers || [];
+                          const dikerjakan = details?.dikerjakan || columnScores[c] || 0;
+                          const benar = details?.benar ?? 0;
+                          const salah = details?.salah ?? 0;
+
+                          return (
+                            <div
+                              key={c}
+                              style={{
+                                width: '185px',
+                                flexShrink: 0,
+                                background: '#FFFFFF',
+                                border: '1px solid #CBD5E1',
+                                borderRadius: '10px',
+                                padding: '10px 8px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                textAlign: 'center',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                              }}
+                            >
+                              {/* Header Kolom Centered */}
+                              <div style={{ fontSize: '13px', fontWeight: 900, color: '#0F172A', marginBottom: '2px' }}>
+                                Kolom {c + 1}
+                              </div>
+                              <div style={{ fontSize: '10px', fontWeight: 700, marginBottom: '8px', display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                <span style={{ color: '#0F172A' }}>{dikerjakan} Jwb</span> •
+                                <span style={{ color: '#047857' }}>{benar} B</span> •
+                                <span style={{ color: '#DC2626' }}>{salah} S</span>
+                              </div>
+
+                              {/* Stack of Rows (Centered, bottom to top) */}
+                              {dikerjakan === 0 ? (
+                                <div style={{ padding: '14px 0', fontSize: '11px', color: '#94A3B8', fontStyle: 'italic' }}>
+                                  Tidak dikerjakan
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', width: '100%' }}>
+                                  {new Array(dikerjakan).fill(0).map((_, p) => {
+                                    const uAns = userAnsList[p];
+                                    const DIGITS_COUNT = colDigits.length || 28;
+                                    const idxBottom = DIGITS_COUNT - 1 - p;
+                                    const idxTop = idxBottom - 1;
+                                    const d1 = colDigits[idxBottom];
+                                    const d2 = colDigits[idxTop];
+                                    const sum = (d1 !== undefined && d2 !== undefined) ? d1 + d2 : null;
+                                    const expectedSum = sum !== null ? sum % 10 : null;
+                                    const isCorrect = uAns !== null && uAns !== undefined && expectedSum !== null && uAns === expectedSum;
+
+                                    return (
+                                      <div
+                                        key={p}
+                                        style={{
+                                          background: isCorrect ? '#ECFDF5' : '#FEF2F2',
+                                          border: isCorrect ? '1px solid #A7F3D0' : '1px solid #FECACA',
+                                          borderRadius: '6px',
+                                          padding: '5px 4px',
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          fontSize: '11px'
+                                        }}
+                                      >
+                                        <div style={{ fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap' }}>
+                                          {d2} + {d1} = {sum} → Kunci: <strong style={{ color: '#2563EB' }}>{expectedSum}</strong>
+                                        </div>
+                                        <div style={{ marginTop: '2px', fontWeight: 900, color: isCorrect ? '#047857' : '#DC2626', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10.5px' }}>
+                                          <span>Jwb: <strong>{uAns !== null && uAns !== undefined ? uAns : '-'}</strong></span>
+                                          <span>{isCorrect ? '✓ BENAR' : '✕ SALAH'}</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            );
+          })()
+        ) : questions.length === 0 ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: '#64748B', background: '#F8FAFC', borderRadius: '8px' }}>
             {currentAnswers.length === 0 ? 'Peserta belum memiliki rekam jawaban untuk modul ini.' : 'Memuat susunan soal...'}
           </div>
@@ -1816,142 +2205,197 @@ export default function ReportDetailPage() {
                     const scaleC = getDiscScale('C', diffC);
 
                     const getSvgY = (metric: string, score: number) => {
-                      return 100 - mapScoreToYPercent(metric, score);
+                      return mapScoreToYPercent(metric, score);
                     };
 
                     const mostPoints = `12.5,${getSvgY('DM', dM)} 37.5,${getSvgY('IM', iM)} 62.5,${getSvgY('SM', sM)} 87.5,${getSvgY('CM', cM)}`;
                     const leastPoints = `12.5,${getSvgY('DL', dL)} 37.5,${getSvgY('IL', iL)} 62.5,${getSvgY('SL', sL)} 87.5,${getSvgY('CL', cL)}`;
                     const changePoints = `12.5,${getSvgY('DC', diffD)} 37.5,${getSvgY('IC', diffI)} 62.5,${getSvgY('SC', diffS)} 87.5,${getSvgY('CC', diffC)}`;
 
-                    const bgScores = {
+                    const bgScores: Record<string, { m: string; s: (number | string)[] }[]> = {
                       MOST: [
-                        { m: 'DM', s: [21, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] },
-                        { m: 'IM', s: [19, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] },
-                        { m: 'SM', s: [20, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] },
-                        { m: 'CM', s: [17, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] }
+                        { m: 'DM', s: [21, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 1, 0] },
+                        { m: 'IM', s: [19, 11, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] },
+                        { m: 'SM', s: [20, 14, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] },
+                        { m: 'CM', s: [17, 13, 11, 9, 8, 7, 6, 4, 3, 2, 1, 0] }
                       ],
                       LEAST: [
-                        { m: 'DL', s: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] },
-                        { m: 'IL', s: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] },
-                        { m: 'SL', s: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
-                        { m: 'CL', s: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] }
+                        { m: 'DL', s: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20] },
+                        { m: 'IL', s: [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 19] },
+                        { m: 'SL', s: [0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 19] },
+                        { m: 'CL', s: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17] }
                       ],
                       CHANGE: [
-                        { m: 'DC', s: [21, 16, 15, 14, 13, 12, 10, 9, 8, 7, 6, 5, 4, 1, 0, -1, -2, -3, -4, -5, -6, -7, -9, -10, -11, -12, -13] },
-                        { m: 'IC', s: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -9] },
-                        { m: 'SC', s: [13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10] },
-                        { m: 'CC', s: [17, 7, 6, 5, 4, 3, 2, 1, 0, -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11] }
+                        { m: 'DC', s: ['+21', '+18', '+15', '+14', '+13', '+12', '+10', '+9', '+8', '+7', '+5', '+3', '+1', '0', '-2', '-3', '-4', '-6', '-7', '-9', '-10', '-11', '-12', '-16', '-20'] },
+                        { m: 'IC', s: ['+18', '+10', '+8', '+7', '+6', '+5', '+4', '+3', '+2', '+1', '0', '-1', '-2', '-3', '-4', '-5', '-6', '-7', '-8', '-9', '-10', '-18'] },
+                        { m: 'SC', s: ['+20', '+15', '+11', '+10', '+9', '+8', '+7', '+5', '+4', '+3', '+2', '+1', '0', '-1', '-2', '-3', '-4', '-6', '-7', '-8', '-9', '-10', '-15', '-18'] },
+                        { m: 'CC', s: ['+17', '+10', '+6', '+5', '+4', '+3', '+2', '+1', '0', '-1', '-2', '-3', '-4', '-5', '-6', '-7', '-8', '-9', '-10', '-13', '-15', '-19', '-22'] }
                       ]
                     };
 
-                    const drawGraph = (title: string, points: string, color: string, graphType: 'MOST' | 'LEAST' | 'CHANGE', scales?: number[]) => (
-                      <div style={{ flex: '1 1 300px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ textAlign: 'center', fontWeight: 'bold', marginBottom: '1.5rem', color: '#1E293B', background: '#F1F5F9', padding: '8px', borderRadius: '8px' }}>{title}</div>
-                        
-                        <div style={{ position: 'relative', width: '100%', height: '580px', borderLeft: '2px solid #94A3B8', borderBottom: '2px solid #94A3B8', borderTop: '2px solid #94A3B8', borderRight: '2px solid #94A3B8', paddingRight: '20px' }}>
-                           
-                           {/* Background Grid Lines */}
-                           <div style={{ position: 'absolute', top: '12.5%', left: 0, right: '20px', borderTop: '1px solid #E2E8F0' }}></div>
-                           <div style={{ position: 'absolute', top: '25%', left: 0, right: '20px', borderTop: '2px dashed #CBD5E1' }}></div>
-                           <div style={{ position: 'absolute', top: '37.5%', left: 0, right: '20px', borderTop: '1px solid #E2E8F0' }}></div>
-                           <div style={{ position: 'absolute', top: '50%', left: 0, right: '20px', borderTop: '2px solid #94A3B8' }}></div>
-                           <div style={{ position: 'absolute', top: '62.5%', left: 0, right: '20px', borderTop: '1px solid #E2E8F0' }}></div>
-                           <div style={{ position: 'absolute', top: '75%', left: 0, right: '20px', borderTop: '2px dashed #CBD5E1' }}></div>
-                           <div style={{ position: 'absolute', top: '87.5%', left: 0, right: '20px', borderTop: '1px solid #E2E8F0' }}></div>
+                    const graphMeta = {
+                      MOST: { num: 'Graph 1', badge: 'MOST', sub: 'Mask, Public Self', stroke: '#2563EB' },
+                      LEAST: { num: 'Graph 2', badge: 'LEAST', sub: 'Core, Private Self', stroke: '#DC2626' },
+                      CHANGE: { num: 'Graph 3', badge: 'CHANGE', sub: 'Mirror, Perceived Self', stroke: '#16A34A' }
+                    };
 
-                           {/* Vertical column dividers */}
-                           <div style={{ position: 'absolute', top: 0, bottom: 0, left: '25%', borderLeft: '1px solid #E2E8F0' }}></div>
-                           <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', borderLeft: '1px solid #E2E8F0' }}></div>
-                           <div style={{ position: 'absolute', top: 0, bottom: 0, left: '75%', borderLeft: '1px solid #E2E8F0' }}></div>
+                    const drawGraph = (points: string, graphType: 'MOST' | 'LEAST' | 'CHANGE', scales?: number[]) => {
+                      const meta = graphMeta[graphType];
+                      const color = meta.stroke;
 
-                           {/* Scale Labels on the Right */}
-                           <div style={{ position: 'absolute', top: '0%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.7rem', color: '#64748B', fontWeight: 'bold' }}>8</div>
-                           <div style={{ position: 'absolute', top: '12.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.7rem', color: '#64748B' }}>6</div>
-                           <div style={{ position: 'absolute', top: '25%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.7rem', color: '#64748B', fontWeight: 'bold' }}>4</div>
-                           <div style={{ position: 'absolute', top: '37.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.7rem', color: '#64748B' }}>2</div>
-                           <div style={{ position: 'absolute', top: '50%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.7rem', color: '#64748B', fontWeight: 'bold' }}>0</div>
-                           <div style={{ position: 'absolute', top: '62.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.7rem', color: '#64748B' }}>-2</div>
-                           <div style={{ position: 'absolute', top: '75%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.7rem', color: '#64748B', fontWeight: 'bold' }}>-4</div>
-                           <div style={{ position: 'absolute', top: '87.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.7rem', color: '#64748B' }}>-6</div>
-                           <div style={{ position: 'absolute', top: '100%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.7rem', color: '#64748B', fontWeight: 'bold' }}>-8</div>
-
-                           {/* Background Numbers */}
-                           {bgScores[graphType].map((col, cIdx) => (
-                             <div key={cIdx}>
-                               {col.s.map((s, sIdx) => {
-                                  const yPerc = 100 - mapScoreToYPercent(col.m, s);
-                                  const xPerc = [12.5, 37.5, 62.5, 87.5][cIdx];
-                                                                    return (
-<div key={sIdx} style={{
-                                      position: 'absolute',
-                                      left: `${xPerc}%`,
-                                      top: `${yPerc}%`,
-                                      transform: 'translate(-50%, -50%)',
-                                      fontSize: '0.65rem',
-                                      color: '#94A3B8',
-                                      pointerEvents: 'none',
-                                      zIndex: 1
-                                    }}>
-                                      {s}
-                                    </div>
-                                  );
+                      return (
+                        <div style={{ flex: '1 1 320px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                          {/* Header */}
+                          <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
+                            <div style={{ fontSize: '15px', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                              <span style={{ fontWeight: 600 }}>{meta.num}</span>
+                              <span style={{ background: '#000', color: '#fff', padding: '2px 8px', borderRadius: '3px', fontWeight: 800, fontSize: '13px', letterSpacing: '0.5px' }}>
+                                {meta.badge}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px', fontStyle: 'italic' }}>
+                              {meta.sub}
+                            </div>
+                            
+                            {/* D I S C Black badges above columns */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', width: 'calc(100% - 24px)', margin: '10px 0 6px 0' }}>
+                              {['D', 'I', 'S', 'C'].map((char) => (
+                                <div key={char} style={{ display: 'flex', justifyContent: 'center' }}>
+                                  <span style={{ 
+                                    background: '#000', 
+                                    color: '#fff', 
+                                    width: '24px', 
+                                    height: '24px', 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center', 
+                                    fontWeight: 900, 
+                                    fontSize: '13px',
+                                    borderRadius: '3px'
+                                  }}>
+                                    {char}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          {/* The Grid Box */}
+                          <div style={{ position: 'relative', width: '100%', height: '820px', border: '2px solid #000', paddingRight: '24px', background: '#FAFAFA' }}>
+                             
+                             {/* Background Horizontal Grid Lines */}
+                             {/* Level 8 (Top) */}
+                             <div style={{ position: 'absolute', top: '0%', left: 0, right: '24px', borderTop: '2px solid #000' }}></div>
+                             {/* Level 6 */}
+                             <div style={{ position: 'absolute', top: '12.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
+                             {/* Level 4 (Dashed SD +1) */}
+                             <div style={{ position: 'absolute', top: '25%', left: 0, right: '24px', borderTop: '1.5px dashed #334155' }}></div>
+                             {/* Level 2 */}
+                             <div style={{ position: 'absolute', top: '37.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
+                             {/* Level 0 (Bold Midline) */}
+                             <div style={{ position: 'absolute', top: '50%', left: 0, right: '24px', borderTop: '2.5px solid #000' }}></div>
+                             {/* Level -2 */}
+                             <div style={{ position: 'absolute', top: '62.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
+                             {/* Level -4 (Dashed SD -1) */}
+                             <div style={{ position: 'absolute', top: '75%', left: 0, right: '24px', borderTop: '1.5px dashed #334155' }}></div>
+                             {/* Level -6 */}
+                             <div style={{ position: 'absolute', top: '87.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
+                             {/* Level -8 (Bottom) */}
+                             <div style={{ position: 'absolute', top: '100%', left: 0, right: '24px', borderTop: '2px solid #000' }}></div>
+  
+                             {/* Vertical column dividers */}
+                             <div style={{ position: 'absolute', top: 0, bottom: 0, left: '25%', borderLeft: '1px solid #CBD5E1' }}></div>
+                             <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', borderLeft: '1px solid #CBD5E1' }}></div>
+                             <div style={{ position: 'absolute', top: 0, bottom: 0, left: '75%', borderLeft: '1px solid #CBD5E1' }}></div>
+  
+                             {/* Scale Labels on the Right */}
+                             <div style={{ position: 'absolute', top: '0%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>8</div>
+                             <div style={{ position: 'absolute', top: '12.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>6</div>
+                             <div style={{ position: 'absolute', top: '25%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>4</div>
+                             <div style={{ position: 'absolute', top: '37.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>2</div>
+                             <div style={{ position: 'absolute', top: '50%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.8rem', color: '#0F172A', fontWeight: 900 }}>0</div>
+                             <div style={{ position: 'absolute', top: '62.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>-2</div>
+                             <div style={{ position: 'absolute', top: '75%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>-4</div>
+                             <div style={{ position: 'absolute', top: '87.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>-6</div>
+                             <div style={{ position: 'absolute', top: '100%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>-8</div>
+  
+                             {/* Background Numbers */}
+                             {bgScores[graphType].map((col, cIdx) => (
+                               <div key={cIdx}>
+                                 {col.s.map((s, sIdx) => {
+                                    const numVal = typeof s === 'string' ? parseFloat(s.replace('+', '')) : s;
+                                    const yPerc = mapScoreToYPercent(col.m, numVal);
+                                    const xPerc = [12.5, 37.5, 62.5, 87.5][cIdx];
+                                    return (
+                                      <div key={sIdx} style={{
+                                        position: 'absolute',
+                                        left: `${xPerc}%`,
+                                        top: `${yPerc}%`,
+                                        transform: 'translate(-50%, -50%)',
+                                        fontSize: '0.66rem',
+                                        fontWeight: 600,
+                                        color: '#64748B',
+                                        pointerEvents: 'none',
+                                        zIndex: 1
+                                      }}>
+                                        {s}
+                                      </div>
+                                    );
+                                 })}
+                               </div>
+                             ))}
+  
+                             {/* The dynamic chart line */}
+                             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', top: 0, left: 0, right: '24px', width: 'calc(100% - 24px)', overflow: 'visible', zIndex: 5 }}>
+                               <polyline points={points} fill="none" stroke={color} strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+                             </svg>
+                             
+                             {/* Container for dots matching SVG dimensions exactly */}
+                             <div style={{ position: 'absolute', top: 0, left: 0, right: '24px', height: '100%', zIndex: 10 }}>
+                               {points.split(' ').map((p, i) => {
+                                 const [x, y] = p.split(',');
+                                 return (
+                                   <div key={i} style={{
+                                     position: 'absolute',
+                                     left: `${x}%`,
+                                     top: `${y}%`,
+                                     width: '12px',
+                                     height: '12px',
+                                     backgroundColor: color,
+                                     borderRadius: '50%',
+                                     transform: 'translate(-50%, -50%)',
+                                     border: '2.5px solid white',
+                                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                   }} />
+                                 );
                                })}
                              </div>
-                           ))}
-
-                           {/* The dynamic chart line */}
-                           <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', top: 0, left: 0, right: '20px', width: 'calc(100% - 20px)', overflow: 'visible', zIndex: 5 }}>
-                             <polyline points={points} fill="none" stroke={color} strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                           </svg>
-                           
-                           {/* Chart dots using HTML for perfect un-stretched circles */}
-                           {points.split(' ').map((p, i) => {
-                             const [x, y] = p.split(',');
-                               return (<div key={i} style={{
-                                 position: 'absolute',
-                                 left: `calc(${x}% * 0.9 + ${x}% * 0.1)`, /* Adjusting for right padding implicitly by using absolute on the container */
-                                 // Wait, the SVG is width: calc(100% - 20px). 
-                                 // To align the dot perfectly with the SVG, we can put it inside a div that matches the SVG bounds
-                                 display: 'none'
-                               }} />
-                             )
-                           })}
-                           
-                           {/* Container for dots matching SVG dimensions exactly */}
-                           <div style={{ position: 'absolute', top: 0, left: 0, right: '20px', height: '100%', zIndex: 10 }}>
-                             {points.split(' ').map((p, i) => {
-                               const [x, y] = p.split(',');
-                               return (<div key={i} style={{
-                                   position: 'absolute',
-                                   left: `${x}%`,
-                                   top: `${y}%`,
-                                   width: '10px',
-                                   height: '10px',
-                                   backgroundColor: color,
-                                   borderRadius: '50%',
-                                   transform: 'translate(-50%, -50%)',
-                                   border: '2px solid white',
-                                   boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                 }} />
-                               )
-                             })}
-                           </div>
-                           
-                           <div style={{ position: 'absolute', bottom: '-25px', left: '12.5%', transform: 'translateX(-50%)', fontWeight: 'bold', color: '#0F172A', background: 'white', padding: '0 4px' }}>D</div>
-                           <div style={{ position: 'absolute', bottom: '-25px', left: '37.5%', transform: 'translateX(-50%)', fontWeight: 'bold', color: '#0F172A', background: 'white', padding: '0 4px' }}>I</div>
-                           <div style={{ position: 'absolute', bottom: '-25px', left: '62.5%', transform: 'translateX(-50%)', fontWeight: 'bold', color: '#0F172A', background: 'white', padding: '0 4px' }}>S</div>
-                           <div style={{ position: 'absolute', bottom: '-25px', left: '87.5%', transform: 'translateX(-50%)', fontWeight: 'bold', color: '#0F172A', background: 'white', padding: '0 4px' }}>C</div>
-                        </div>
-                        {scales && (
-                          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '45px', padding: '0 10px' }}>
-                            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '0.75rem', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '1px' }}>Skala D</div><div style={{ fontWeight: '800', fontSize: '1.4rem', color: '#0F172A' }}>{scales[0]}</div></div>
-                            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '0.75rem', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '1px' }}>Skala I</div><div style={{ fontWeight: '800', fontSize: '1.4rem', color: '#0F172A' }}>{scales[1]}</div></div>
-                            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '0.75rem', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '1px' }}>Skala S</div><div style={{ fontWeight: '800', fontSize: '1.4rem', color: '#0F172A' }}>{scales[2]}</div></div>
-                            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '0.75rem', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '1px' }}>Skala C</div><div style={{ fontWeight: '800', fontSize: '1.4rem', color: '#0F172A' }}>{scales[3]}</div></div>
                           </div>
-                        )}
-                      </div>
-                    );
+                          
+                          {scales && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', marginTop: '16px', gap: '8px' }}>
+                              <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '6px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                                <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>SKALA D</div>
+                                <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0F172A' }}>{scales[0]}</div>
+                              </div>
+                              <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '6px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                                <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>SKALA I</div>
+                                <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0F172A' }}>{scales[1]}</div>
+                              </div>
+                              <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '6px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                                <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>SKALA S</div>
+                                <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0F172A' }}>{scales[2]}</div>
+                              </div>
+                              <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '6px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                                <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>SKALA C</div>
+                                <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0F172A' }}>{scales[3]}</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    };
+
                     return (
                                         <div style={{ marginTop: '2rem' }}>
                         <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
@@ -1997,9 +2441,9 @@ export default function ReportDetailPage() {
                         </div>
                         
                         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-                          {drawGraph('Grafik 1: Mask Publik (Most)', mostPoints, '#2563EB', 'MOST')}
-                          {drawGraph('Grafik 2: Inti Diri (Least)', leastPoints, '#DC2626', 'LEAST')}
-                          {drawGraph('Grafik 3: Cermin Diri (Change)', changePoints, '#16A34A', 'CHANGE', [scaleD, scaleI, scaleS, scaleC])}
+                          {drawGraph(mostPoints, 'MOST')}
+                          {drawGraph(leastPoints, 'LEAST')}
+                          {drawGraph(changePoints, 'CHANGE', [scaleD, scaleI, scaleS, scaleC])}
                         </div>
                       </div>
                     );
@@ -2348,8 +2792,8 @@ export default function ReportDetailPage() {
                 }
                 return null;
               })()}
-          </div>
-        )}
+            </div>
+          )}
         </div>
       )}
     </div>

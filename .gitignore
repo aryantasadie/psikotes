@@ -53,3 +53,5 @@ next-env.d.ts
 # Compiled Zip Bundles
 *.zip
 
+# Uploaded test captures
+/public/uploads/

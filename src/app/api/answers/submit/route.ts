@@ -31,6 +31,25 @@ export async function POST(req: Request) {
 
     // Prepare operations to save answers
     let ops: any[] = [];
+
+    if (testType === 'KRAEPELIN' || testType === 'KREAPELIN') {
+      const rawDataStr = typeof answers === 'string' ? answers : JSON.stringify(answers);
+      await prisma.testResultRaw.deleteMany({
+        where: {
+          participantId: participant.id,
+          testType: 'KRAEPELIN'
+        }
+      });
+      await prisma.testResultRaw.create({
+        data: {
+          participantId: participant.id,
+          testType: 'KRAEPELIN',
+          rawData: rawDataStr
+        }
+      });
+      return NextResponse.json({ success: true });
+    }
+
     if (testType === 'DISC') {
       const discAns: Record<number, any> = {};
       for (const [key, val] of Object.entries(answers)) {
