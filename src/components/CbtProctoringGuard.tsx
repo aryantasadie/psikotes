@@ -564,12 +564,15 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   // Live Stream Broadcast every 1.5s
   useEffect(() => {
-    if (!participantId || !webcamActive) return;
-
-    const testeeName = sessionStorage.getItem('testee_name') || undefined;
+    if (!webcamActive) return;
 
     const streamInterval = setInterval(async () => {
       try {
+        const testeeName = sessionStorage.getItem('testee_name') || localStorage.getItem('testee_name') || undefined;
+        const currentPId = participantId || (localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : (sessionStorage.getItem('current_participant_id') ? parseInt(sessionStorage.getItem('current_participant_id')!, 10) : null));
+        
+        if (!currentPId) return;
+
         const cameraFrame = getWebcamWebPBase64();
         const screenFrame = await getScreenWebPBase64();
         if (cameraFrame || screenFrame) {
@@ -577,7 +580,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              participantId,
+              participantId: currentPId,
               name: testeeName,
               cameraFrame,
               screenFrame,

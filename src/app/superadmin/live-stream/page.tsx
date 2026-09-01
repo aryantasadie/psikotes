@@ -114,12 +114,11 @@ export default function LiveStreamPage() {
     };
 
     connectSSE();
+    fetchFallbackFeed();
 
     const fallbackInterval = setInterval(() => {
-      if (!eventSourceRef.current || eventSourceRef.current.readyState !== EventSource.OPEN) {
-        fetchFallbackFeed();
-      }
-    }, 3000);
+      fetchFallbackFeed();
+    }, 2000);
 
     return () => {
       if (es) {
@@ -129,7 +128,7 @@ export default function LiveStreamPage() {
     };
   }, []);
 
-  const streamsList = Array.from(streamsMap.values()).filter(s => Date.now() - s.lastActive < 60000);
+  const streamsList = Array.from(streamsMap.values()).filter(s => Date.now() - s.lastActive < 120000);
   const focusedStream = streamsList.find(s => s.participantId === focusedParticipantId);
 
   return (

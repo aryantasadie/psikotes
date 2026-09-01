@@ -63,15 +63,14 @@ export default function KraepelinTest() {
 
   // Live session states
   const [currentCol, setCurrentCol] = useState(0);
-  const [currentPairIdx, setCurrentPairIdx] = useState(0); // 0 to DIGITS_PER_COLUMN - 2
+  const [currentPairIdx, setCurrentPairIdx] = useState(0); // 0 (bottom pair) to 26 (top pair)
   const [timeLeft, setTimeLeft] = useState(COLUMN_DURATION);
   const [showPindah, setShowPindah] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
 
   // Matrix data
   const [matrix, setMatrix] = useState<number[][]>([]);
-  // User answers matrix
+  // User answers matrix: userAnswers[col][pairIdx]
   const [userAnswers, setUserAnswers] = useState<(number | null)[][]>([]);
 
   // Refs for auto-scrolling
@@ -175,14 +174,13 @@ export default function KraepelinTest() {
     if (!testStarted || testFinished || matrix.length === 0 || showPindah || isTransitioning) return;
 
     const colDigits = matrix[currentCol];
-    // In Kraepelin, addition is from BOTTOM to TOP:
-    const idxBottom = DIGITS_PER_COLUMN - 1 - currentPairIdx;
-    const idxTop = idxBottom - 1;
+    if (!colDigits) return;
 
-    if (idxTop < 0) return;
-
-    const d1 = colDigits[idxBottom];
-    const d2 = colDigits[idxTop];
+    // In Kraepelin matrix:
+    // Index 0 = Bottom (Row 1), Index 1 = Row 2, etc.
+    // currentPairIdx = 0 is pair between Index 0 and Index 1
+    const d1 = colDigits[currentPairIdx];
+    const d2 = colDigits[currentPairIdx + 1];
     const expectedSum = (d1 + d2) % 10;
 
     // Record user answer
@@ -198,7 +196,7 @@ export default function KraepelinTest() {
       playTone(250, 0.12, 'sawtooth');
     }
 
-    // Move to next pair in column
+    // Move to next pair in column (moving upwards)
     if (currentPairIdx + 1 < DIGITS_PER_COLUMN - 1) {
       setCurrentPairIdx(prev => prev + 1);
     } else {
@@ -222,7 +220,6 @@ export default function KraepelinTest() {
   const finishTest = async () => {
     setTestStarted(false);
     setTestFinished(true);
-    setSubmitting(true);
 
     try {
       // 1. Calculate Per-Column Details and Raw Scores
@@ -243,9 +240,7 @@ export default function KraepelinTest() {
           const ans = answers[p];
           if (ans !== null && ans !== undefined) {
             colDikerjakan++;
-            const idxBottom = DIGITS_PER_COLUMN - 1 - p;
-            const idxTop = idxBottom - 1;
-            const expectedSum = (colDigits[idxBottom] + colDigits[idxTop]) % 10;
+            const expectedSum = (colDigits[p] + colDigits[p + 1]) % 10;
 
             if (ans === expectedSum) {
               colBenar++;
@@ -338,7 +333,7 @@ export default function KraepelinTest() {
             </h3>
             <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <li>Jumlahkan 2 angka yang berdekatan dari <strong>BAWAH ke ATAS</strong>.</li>
-              <li>Jika hasil penjumlahan $\ge 10$, ketikkan <strong>ANGKA SATUANNYA SAJA</strong> (Contoh: $8 + 7 = 15 \rightarrow$ ketik <strong>5</strong>, $9 + 9 = 18 \rightarrow$ ketik <strong>8</strong>).</li>
+              <li>Jika hasil penjumlahan &ge; 10, ketikkan <strong>ANGKA SATUANNYA SAJA</strong> (Contoh: 8 + 7 = 15 &rarr; ketik <strong>5</strong>, 9 + 9 = 18 &rarr; ketik <strong>8</strong>).</li>
               <li>Setiap kolom memiliki batas waktu <strong>15 detik</strong>.</li>
               <li>Ketika terdengar bunyi nada dan muncul peringatan <strong>PINDAH!</strong>, sistem akan otomatis beralih ke kolom berikutnya.</li>
               <li>Gunakan tombol angka <code>0</code> s.d. <code>9</code> pada keyboard laptop atau tombol keypad di layar.</li>
@@ -384,6 +379,10 @@ export default function KraepelinTest() {
     );
   }
 
+  // Row Indices from Top (27) to Bottom (0)
+  // Display row 28 (top) at the top, down to row 1 (bottom) at the bottom
+  const rowIndices = Array.from({ length: DIGITS_PER_COLUMN }, (_, i) => DIGITS_PER_COLUMN - 1 - i);
+
   return (
     <div style={{ minHeight: '100vh', background: '#F4F6F9', color: '#0F172A', display: 'flex', flexDirection: 'column', fontFamily: '"Inter", system-ui, sans-serif', userSelect: 'none', overflow: 'hidden' }}>
       
@@ -425,7 +424,7 @@ export default function KraepelinTest() {
       </div>
 
       {/* Main Workspace Card Container */}
-      <div style={{ flex: 1, padding: '0 36px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+      <div style={{ flex: 1, padding: '0 36px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
         <div 
           ref={scrollContainerRef}
           style={{ 
@@ -433,9 +432,9 @@ export default function KraepelinTest() {
             width: '100%', 
             background: '#FFFFFF', 
             borderRadius: '24px', 
-            boxShadow: '0 10px 30px rgba(0,0,0,0.03)', 
+            boxShadow: '0 10px 30px rgba(0,0,0,0.04)', 
             border: '1px solid #E2E8F0', 
-            padding: '24px 30px', 
+            padding: '20px 24px', 
             overflowX: 'auto', 
             overflowY: 'auto',
             maxHeight: 'calc(100vh - 180px)',
@@ -443,8 +442,8 @@ export default function KraepelinTest() {
             justifyContent: 'center'
           }}
         >
-          {/* Multi-Column Display (Showing all 50 columns with horizontal layout) */}
-          <div style={{ display: 'flex', gap: '32px', alignItems: 'flex-start', margin: '0 auto', padding: '10px 40px' }}>
+          {/* Multi-Column Display (Horizontal layout of all 50 columns) */}
+          <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', margin: '0 auto', padding: '10px 30px' }}>
             {matrix.map((colDigits, colIdx) => {
               const isActiveCol = colIdx === currentCol;
               const isPastCol = colIdx < currentCol;
@@ -458,35 +457,36 @@ export default function KraepelinTest() {
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    minWidth: '54px',
-                    padding: '12px 10px',
+                    minWidth: '58px',
+                    padding: '14px 10px',
                     borderRadius: '16px',
-                    background: isActiveCol ? '#F0F7FF' : 'transparent',
-                    border: isActiveCol ? '1.5px solid #BFDBFE' : '1.5px solid transparent',
+                    background: isActiveCol ? '#EFF6FF' : 'transparent',
+                    border: isActiveCol ? '2px solid #3B82F6' : '2px solid transparent',
+                    boxShadow: isActiveCol ? '0 4px 20px rgba(59, 130, 246, 0.15)' : 'none',
                     transition: 'all 0.2s ease',
                     opacity: isActiveCol ? 1 : isPastCol ? 0.35 : 0.25
                   }}
                 >
-                  {/* Digits & Answer slots stacked vertically from top (index 0) to bottom (index 27) */}
-                  {colDigits.map((digitVal, digitIdx) => {
-                    // pairIndex for the slot below this digit
-                    // Since addition is bottom-to-top:
-                    // bottom digit is at digitIdx (where digitIdx = 27 is pairIdx 0 bottom, digitIdx = 26 is pairIdx 0 top)
-                    // The slot between digitIdx and digitIdx+1 corresponds to pairIdx = DIGITS_PER_COLUMN - 1 - (digitIdx + 1)
-                    const pairIdxForSlotBelow = DIGITS_PER_COLUMN - 2 - digitIdx;
-                    const hasSlotBelow = digitIdx < DIGITS_PER_COLUMN - 1;
-                    const isSlotActive = isActiveCol && pairIdxForSlotBelow === currentPairIdx;
-                    const userAnsForSlot = colAnswers[pairIdxForSlotBelow];
+                  {/* Render from top row (index 27) down to bottom row (index 0) */}
+                  {rowIndices.map((digitIdx) => {
+                    const digitVal = colDigits[digitIdx];
+                    // pairIdx for slot directly below digitIdx (pair between digitIdx and digitIdx - 1)
+                    // Pair 0 is between digitIdx 0 and digitIdx 1
+                    // So slot below digitIdx corresponds to pairIdx = digitIdx - 1
+                    const pairIdxBelow = digitIdx - 1;
+                    const hasSlotBelow = digitIdx > 0;
+                    const isSlotActive = isActiveCol && pairIdxBelow === currentPairIdx;
+                    const userAnsForSlot = colAnswers[pairIdxBelow];
 
                     return (
                       <React.Fragment key={digitIdx}>
-                        {/* Digit Number */}
+                        {/* Number Digit */}
                         <div
                           style={{
-                            fontSize: '20px',
-                            fontWeight: isActiveCol ? 800 : 600,
-                            color: isActiveCol ? '#0F172A' : '#64748B',
-                            height: '28px',
+                            fontSize: isActiveCol ? '22px' : '18px',
+                            fontWeight: isActiveCol ? 900 : 600,
+                            color: isActiveCol ? '#0F172A' : '#94A3B8',
+                            height: '30px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -496,34 +496,36 @@ export default function KraepelinTest() {
                           {digitVal}
                         </div>
 
-                        {/* Answer Slot Circle between this digit and the one below */}
+                        {/* Answer Slot Circle between this digit and the digit below it */}
                         {hasSlotBelow && (
                           <div
                             ref={isSlotActive ? activePairRef : null}
                             style={{
-                              width: '26px',
-                              height: '26px',
+                              width: isSlotActive ? '30px' : '24px',
+                              height: isSlotActive ? '30px' : '24px',
                               borderRadius: '50%',
                               margin: '2px 0',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              fontSize: '13px',
-                              fontWeight: 800,
+                              fontSize: isSlotActive ? '15px' : '13px',
+                              fontWeight: 900,
                               background: isSlotActive
-                                ? '#DBEAFE'
+                                ? '#2563EB'
                                 : userAnsForSlot !== null && userAnsForSlot !== undefined
                                 ? '#EFF6FF'
                                 : '#F8FAFC',
                               color: isSlotActive
-                                ? '#1D4ED8'
+                                ? '#FFFFFF'
                                 : userAnsForSlot !== null && userAnsForSlot !== undefined
                                 ? '#2563EB'
                                 : '#CBD5E1',
                               border: isSlotActive
-                                ? '1.5px solid #3B82F6'
+                                ? '2px solid #1D4ED8'
+                                : userAnsForSlot !== null && userAnsForSlot !== undefined
+                                ? '1.5px solid #93C5FD'
                                 : '1px solid #E2E8F0',
-                              boxShadow: isSlotActive ? '0 0 10px rgba(59, 130, 246, 0.35)' : 'none',
+                              boxShadow: isSlotActive ? '0 0 14px rgba(37, 99, 235, 0.55)' : 'none',
                               transition: 'all 0.15s ease'
                             }}
                           >
@@ -543,7 +545,7 @@ export default function KraepelinTest() {
       </div>
 
       {/* Bottom Horizontal Keypad Bar */}
-      <div style={{ padding: '0 0 24px', display: 'flex', justifyContent: 'center' }}>
+      <div style={{ padding: '0 0 20px', display: 'flex', justifyContent: 'center' }}>
         <div
           style={{
             background: '#FFFFFF',
@@ -563,7 +565,7 @@ export default function KraepelinTest() {
               disabled={isTransitioning || showPindah}
               onClick={() => handleInputDigit(digit)}
               style={{
-                width: '48px',
+                width: '50px',
                 height: '46px',
                 background: isTransitioning || showPindah ? '#F1F5F9' : '#FFFFFF',
                 border: '1.5px solid #E2E8F0',

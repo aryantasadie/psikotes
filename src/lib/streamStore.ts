@@ -12,14 +12,24 @@ export interface StreamSession {
   latestViolationReason?: string;
 }
 
-// In-memory global store & event emitter for ultra-fast SSE live streaming
-const globalStreamStore = new Map<number, StreamSession>();
-export const streamEvents = new EventEmitter();
+declare global {
+  var __globalStreamStore: Map<number, StreamSession> | undefined;
+  var __streamEvents: EventEmitter | undefined;
+}
 
-// Increase max listeners for up to 100 concurrent admin SSE connections
-streamEvents.setMaxListeners(100);
+// In-memory global store attached to globalThis to prevent worker/module split in Next.js
+const globalStreamStore = globalThis.__globalStreamStore || new Map<number, StreamSession>();
+if (!globalThis.__globalStreamStore) {
+  globalThis.__globalStreamStore = globalStreamStore;
+}
 
-// Batching Buffer Queue for high-concurrency scaling (50+ participants)
+export const streamEvents = globalThis.__streamEvents || new EventEmitter();
+if (!globalThis.__streamEvents) {
+  globalThis.__streamEvents = streamEvents;
+  streamEvents.setMaxListeners(200);
+}
+
+// Batching Buffer Queue
 let pendingBatchMap = new Map<number, StreamSession>();
 let batchTimer: NodeJS.Timeout | null = null;
 
@@ -39,7 +49,7 @@ export function updateStreamSession(session: StreamSession) {
   // Instantly emit single update for real-time focus view
   streamEvents.emit('stream_update', updated);
 
-  // Schedule batch flush every 300ms to optimize network overhead for 50+ candidates
+  // Schedule batch flush every 300ms
   if (!batchTimer) {
     batchTimer = setTimeout(flushBatchUpdates, 300);
   }
@@ -54,7 +64,7 @@ function flushBatchUpdates() {
   }
 }
 
-export function getAllActiveStreams(maxAgeMs = 25000): StreamSession[] {
+export function getAllActiveStreams(maxAgeMs = 35000): StreamSession[] {
   const now = Date.now();
   const activeStreams: StreamSession[] = [];
 
@@ -62,8 +72,8 @@ export function getAllActiveStreams(maxAgeMs = 25000): StreamSession[] {
     if (now - session.lastActive <= maxAgeMs) {
       activeStreams.push(session);
     } else {
-      // Clean up dead stream after 2 minutes of inactivity
-      if (now - session.lastActive > 120000) {
+      // Clean up dead stream after 3 minutes of inactivity
+      if (now - session.lastActive > 180000) {
         globalStreamStore.delete(participantId);
       }
     }
