@@ -68,9 +68,12 @@ export default function KraepelinTest() {
   const [showPindah, setShowPindah] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Sync refs to prevent stale closure bugs in timers
+  // Sync atomic refs to prevent state race condition & input leakage during column transitions
   const currentColRef = useRef(0);
   currentColRef.current = currentCol;
+
+  const currentPairIdxRef = useRef(0);
+  currentPairIdxRef.current = currentPairIdx;
 
   const isTransitioningRef = useRef(false);
   isTransitioningRef.current = isTransitioning;
@@ -137,15 +140,24 @@ export default function KraepelinTest() {
           // Time is up -> advance to next column
           const nextCol = currentColRef.current + 1;
           if (nextCol < TOTAL_COLUMNS) {
+            // Lock transition immediately
+            isTransitioningRef.current = true;
+            setIsTransitioning(true);
+            currentColRef.current = nextCol;
+            currentPairIdxRef.current = 0;
             setCurrentCol(nextCol);
             setCurrentPairIdx(0);
             playTone(880, 0.25, 'triangle');
             setShowPindah(true);
-            setIsTransitioning(true);
+
             setTimeout(() => {
               setShowPindah(false);
               setIsTransitioning(false);
+              isTransitioningRef.current = false;
+              setCurrentPairIdx(0);
+              currentPairIdxRef.current = 0;
             }, 800);
+
             return COLUMN_DURATION;
           } else {
             finishTest();
@@ -164,62 +176,85 @@ export default function KraepelinTest() {
     const container = scrollContainerRef.current;
     if (!container || !testStarted) return;
 
+    let targetLeft = container.scrollLeft;
+    let targetTop = container.scrollTop;
+
     // Horizontal centering of active column
     if (activeColRef.current) {
-      const colLeft = activeColRef.current.offsetLeft;
-      const colWidth = activeColRef.current.offsetWidth;
-      const containerWidth = container.clientWidth;
-      const targetLeft = colLeft - (containerWidth / 2) + (colWidth / 2);
-      container.scrollTo({ left: targetLeft, behavior: 'smooth' });
+      const containerRect = container.getBoundingClientRect();
+      const colRect = activeColRef.current.getBoundingClientRect();
+      const currentScrollLeft = container.scrollLeft;
+      const colCenterX = colRect.left - containerRect.left + currentScrollLeft + (colRect.width / 2);
+      targetLeft = colCenterX - (container.clientWidth / 2);
     }
 
-    // Vertical centering of active pair
+    // Vertical centering of active pair (the active question bubble)
     if (activePairRef.current) {
-      const pairTop = activePairRef.current.offsetTop;
-      const pairHeight = activePairRef.current.offsetHeight;
-      const containerHeight = container.clientHeight;
-      const targetTop = pairTop - (containerHeight / 2) + (pairHeight / 2);
-      container.scrollTo({ top: targetTop, behavior: 'smooth' });
+      const containerRect = container.getBoundingClientRect();
+      const pairRect = activePairRef.current.getBoundingClientRect();
+      const currentScrollTop = container.scrollTop;
+      const pairCenterY = pairRect.top - containerRect.top + currentScrollTop + (pairRect.height / 2);
+      targetTop = pairCenterY - (container.clientHeight / 2);
     }
+
+    // Single combined atomic scroll to prevent X/Y axis interference
+    container.scrollTo({
+      left: Math.max(0, targetLeft),
+      top: Math.max(0, targetTop),
+      behavior: 'smooth'
+    });
   }, [currentCol, currentPairIdx, testStarted]);
 
   const triggerPindah = () => {
     if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
     setIsTransitioning(true);
-    playTone(880, 0.25, 'triangle'); // Pindah tone
+    playTone(880, 0.25, 'triangle');
     setShowPindah(true);
-    setTimeout(() => {
-      setShowPindah(false);
-      setIsTransitioning(false);
-    }, 800);
 
     const nextCol = currentColRef.current + 1;
     if (nextCol < TOTAL_COLUMNS) {
+      currentColRef.current = nextCol;
+      currentPairIdxRef.current = 0;
       setCurrentCol(nextCol);
       setCurrentPairIdx(0);
       setTimeLeft(COLUMN_DURATION);
+
+      setTimeout(() => {
+        setShowPindah(false);
+        setIsTransitioning(false);
+        isTransitioningRef.current = false;
+        setCurrentPairIdx(0);
+        currentPairIdxRef.current = 0;
+      }, 800);
     } else {
       finishTest();
     }
   };
 
   const handleInputDigit = (digit: number) => {
-    if (!testStarted || testFinished || matrix.length === 0 || showPindah || isTransitioning) return;
+    if (!testStarted || testFinished || matrix.length === 0 || showPindah || isTransitioningRef.current || isTransitioning) {
+      return;
+    }
 
-    const colDigits = matrix[currentCol];
+    const cCol = currentColRef.current;
+    const cPair = currentPairIdxRef.current;
+    const colDigits = matrix[cCol];
     if (!colDigits) return;
 
     // In Kraepelin matrix:
     // Index 0 = Bottom (Row 1), Index 1 = Row 2, etc.
-    // currentPairIdx = 0 is pair between Index 0 and Index 1
-    const d1 = colDigits[currentPairIdx];
-    const d2 = colDigits[currentPairIdx + 1];
+    const d1 = colDigits[cPair];
+    const d2 = colDigits[cPair + 1];
+    if (d1 === undefined || d2 === undefined) return;
     const expectedSum = (d1 + d2) % 10;
 
     // Record user answer
     setUserAnswers(prev => {
       const copy = prev.map(c => [...c]);
-      copy[currentCol][currentPairIdx] = digit;
+      if (copy[cCol]) {
+        copy[cCol][cPair] = digit;
+      }
       return copy;
     });
 
@@ -229,9 +264,11 @@ export default function KraepelinTest() {
       playTone(250, 0.12, 'sawtooth');
     }
 
-    // Move to next pair in column (moving upwards)
-    if (currentPairIdx + 1 < DIGITS_PER_COLUMN - 1) {
-      setCurrentPairIdx(prev => prev + 1);
+    // Advance pair safely
+    if (cPair + 1 < DIGITS_PER_COLUMN - 1) {
+      const nextPair = cPair + 1;
+      currentPairIdxRef.current = nextPair;
+      setCurrentPairIdx(nextPair);
     } else {
       triggerPindah();
     }
@@ -240,15 +277,18 @@ export default function KraepelinTest() {
   // Keyboard Event Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!testStarted || testFinished || isTransitioning || showPindah) return;
+      if (!testStarted || testFinished || isTransitioningRef.current || isTransitioning || showPindah) {
+        return;
+      }
       if (e.key >= '0' && e.key <= '9') {
         e.preventDefault();
+        e.stopPropagation();
         handleInputDigit(parseInt(e.key, 10));
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [testStarted, testFinished, currentCol, currentPairIdx, matrix, isTransitioning, showPindah]);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [testStarted, testFinished, matrix, isTransitioning, showPindah]);
 
   const finishTest = async () => {
     setTestStarted(false);
@@ -492,12 +532,12 @@ export default function KraepelinTest() {
             scrollBehavior: 'smooth'
           }}
         >
-          {/* Multi-Column Display with Centered Horizontal Padding so Column 1 to 50 are ALWAYS dead-centered */}
+          {/* Multi-Column Display with Centered Horizontal & Vertical Padding */}
           <div style={{ 
             display: 'inline-flex', 
             gap: '24px', 
             alignItems: 'flex-start', 
-            padding: '10px calc(50% - 28px)',
+            padding: '200px calc(50% - 28px)',
             minWidth: '100%',
             justifyContent: 'flex-start'
           }}>
@@ -515,7 +555,7 @@ export default function KraepelinTest() {
                     flexDirection: 'column',
                     alignItems: 'center',
                     minWidth: '56px',
-                    padding: '12px 10px',
+                    padding: '14px 10px',
                     borderRadius: '16px',
                     background: isActiveCol ? '#F0F6FF' : 'transparent',
                     border: isActiveCol ? '1.5px solid #BFDBFE' : '1.5px solid transparent',
