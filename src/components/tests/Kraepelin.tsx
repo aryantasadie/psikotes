@@ -68,6 +68,13 @@ export default function KraepelinTest() {
   const [showPindah, setShowPindah] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
+  // Sync refs to prevent stale closure bugs in timers
+  const currentColRef = useRef(0);
+  currentColRef.current = currentCol;
+
+  const isTransitioningRef = useRef(false);
+  isTransitioningRef.current = isTransitioning;
+
   // Matrix data
   const [matrix, setMatrix] = useState<number[][]>([]);
   // User answers matrix: userAnswers[col][pairIdx]
@@ -120,22 +127,37 @@ export default function KraepelinTest() {
     setUserAnswers(newAnswers);
   }, []);
 
-  // Column countdown timer tick
+  // Strict 15-second column auto-switch countdown timer
   useEffect(() => {
     if (!testStarted || testFinished) return;
 
-    const interval = setInterval(() => {
+    const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          triggerPindah();
-          return COLUMN_DURATION;
+          // Time is up -> advance to next column
+          const nextCol = currentColRef.current + 1;
+          if (nextCol < TOTAL_COLUMNS) {
+            setCurrentCol(nextCol);
+            setCurrentPairIdx(0);
+            playTone(880, 0.25, 'triangle');
+            setShowPindah(true);
+            setIsTransitioning(true);
+            setTimeout(() => {
+              setShowPindah(false);
+              setIsTransitioning(false);
+            }, 800);
+            return COLUMN_DURATION;
+          } else {
+            finishTest();
+            return 0;
+          }
         }
         return prev - 1;
       });
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [testStarted, testFinished, currentCol]);
+    return () => clearInterval(timer);
+  }, [testStarted, testFinished]);
 
   // Center active column horizontally & active pair vertically — INNER CONTAINER ONLY
   useEffect(() => {
@@ -162,7 +184,7 @@ export default function KraepelinTest() {
   }, [currentCol, currentPairIdx, testStarted]);
 
   const triggerPindah = () => {
-    if (isTransitioning) return;
+    if (isTransitioningRef.current) return;
     setIsTransitioning(true);
     playTone(880, 0.25, 'triangle'); // Pindah tone
     setShowPindah(true);
@@ -171,8 +193,9 @@ export default function KraepelinTest() {
       setIsTransitioning(false);
     }, 800);
 
-    if (currentCol + 1 < TOTAL_COLUMNS) {
-      setCurrentCol(prev => prev + 1);
+    const nextCol = currentColRef.current + 1;
+    if (nextCol < TOTAL_COLUMNS) {
+      setCurrentCol(nextCol);
       setCurrentPairIdx(0);
       setTimeLeft(COLUMN_DURATION);
     } else {
@@ -415,7 +438,7 @@ export default function KraepelinTest() {
         </div>
       )}
 
-      {/* Top Header / Status Bar (Given top margin/padding to sit cleanly below the proctoring bar) */}
+      {/* Top Header / Status Bar (Padding top 52px ensures clearance under proctoring bar) */}
       <div style={{ padding: '52px 40px 14px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9' }}>
         {/* Subtle pill indicator on top center/left */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -463,18 +486,18 @@ export default function KraepelinTest() {
             borderRadius: '24px', 
             boxShadow: '0 4px 20px rgba(0,0,0,0.03)', 
             border: '1px solid #E2E8F0', 
-            padding: '20px 24px', 
+            padding: '20px 0', 
             overflowX: 'auto', 
             overflowY: 'auto',
             scrollBehavior: 'smooth'
           }}
         >
-          {/* Multi-Column Display (Horizontal layout of all 50 columns) */}
+          {/* Multi-Column Display with Centered Horizontal Padding so Column 1 to 50 are ALWAYS dead-centered */}
           <div style={{ 
             display: 'inline-flex', 
             gap: '24px', 
             alignItems: 'flex-start', 
-            padding: '10px 40px',
+            padding: '10px calc(50% - 28px)',
             minWidth: '100%',
             justifyContent: 'flex-start'
           }}>
