@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TestTimer from './TestTimer';
-import UnansweredModal from './UnansweredModal';
 
 interface Question {
   id: number;
@@ -18,8 +17,6 @@ export default function WPT() {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [showInstruction, setShowInstruction] = useState(true);
-  const [unansweredList, setUnansweredList] = useState<number[]>([]);
-  const [showUnansweredModal, setShowUnansweredModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -50,24 +47,6 @@ export default function WPT() {
     router.push('/testee/session');
   };
 
-  const handleManualSubmit = () => {
-    const emptyNums: number[] = [];
-    questions.forEach((qItem, idx) => {
-      const val = answers[qItem.id];
-      if (val === undefined || val === null || String(val).trim() === '') {
-        emptyNums.push(idx + 1);
-      }
-    });
-
-    if (emptyNums.length > 0) {
-      setUnansweredList(emptyNums);
-      setShowUnansweredModal(true);
-      return;
-    }
-
-    handleFinish();
-  };
-
   if (loading) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Memuat soal WPT...</div>;
   if (questions.length === 0) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Tidak ada soal WPT yang tersedia.</div>;
 
@@ -75,59 +54,27 @@ export default function WPT() {
   const handlePrev = () => setCurrentIndex(prev => Math.max(prev - 1, 0));
   const goToQuestion = (idx: number) => setCurrentIndex(idx);
 
-  const isMultiSelectQuestion = (q: Question) => {
-    if (!q) return false;
-    const content = q.content || '';
-    return (
-      content.includes("Centang semua") ||
-      content.includes("EMPAT DARI 5 BAGIAN") ||
-      content.includes("MANAKAH KEEMPAT GAMBAR INI") ||
-      q.id === 1406
-    );
-  };
-
   const handleAnswer = (val: string) => {
-    const q = questions[currentIndex];
-    if (!q) return;
-    const optKey = val.charAt(0);
-    
-    if (isMultiSelectQuestion(q)) {
-      const current = (answers[q.id] as string) || "";
-      let updated = "";
-      if (current.includes(optKey)) {
-        updated = current.replace(optKey, "").split("").sort().join("");
-      } else {
-        updated = (current + optKey).split("").sort().join("");
-      }
-      setAnswers({ ...answers, [q.id]: updated });
-    } else {
-      setAnswers({ ...answers, [q.id]: optKey });
+    const qItem = questions[currentIndex];
+    if (qItem) {
+      setAnswers({ ...answers, [qItem.id]: val });
     }
   };
 
   if (showInstruction) {
     return (
       <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ maxWidth: '800px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
+        <div style={{ maxWidth: '750px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
           <h2 style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>WPT - Wonderlic Personnel Test</h2>
           <div style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
-            <p><strong>CONTOH SOAL WPT</strong></p>
-            <p>WPT merupakan tes untuk kemampuan memecahkan masalah. Tes ini mencakup berbagai jenis pertanyaan yang harus diselesaikan tanpa alat bantu seperti kalkulator atau alat sejenisnya.</p>
-            <p>Tes ini berisi 50 pertanyaan yang secara bertahap menjadi semakin sulit. Anda tidak mungkin dapat menyelesaikan semua pertanyaan, tetapi selesaikan semampu anda. Anda memiliki waktu <strong>13 menit</strong> (Sistem otomatis mengumpulkan jika waktu habis) untuk memberi jawaban yang benar sebanyak mungkin.</p>
-            
-            <hr style={{ margin: '20px 0', borderColor: '#d1e6f7' }} />
-            
-            <div style={{ marginBottom: '20px' }}>
-              <p style={{ fontWeight: 'bold', margin: '0 0 5px 0' }}>Contoh 1 :</p>
-              <p style={{ margin: '0 0 5px 0' }}>MENINGKAT adalah lawan kata dari :</p>
-              <p style={{ margin: '0 0 5px 0', color: '#555' }}>1. Menambah &nbsp; 2. Menyelesaikan &nbsp; 3. Menolak &nbsp; 4. Menurun &nbsp; 5. Menghidupkan</p>
-              <p style={{ margin: '0', color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : 4 (Menurun)</p>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <p style={{ fontWeight: 'bold', margin: '0 0 5px 0' }}>Contoh 2 :</p>
-              <p style={{ margin: '0 0 5px 0' }}>Berapa rupiah kah harga 8 lembar kertas kado jika 4 lembar berharga 1200 rupiah?</p>
-              <p style={{ margin: '0', color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : 2400 (Ketik angka saja: 2400)</p>
+            <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 12 Menit (Otomatis berpindah jika waktu habis)</p>
+            <p style={{ margin: '0 0 10px 0' }}><strong>Jumlah Soal:</strong> 50 Soal</p>
+            <p style={{ margin: '0 0 15px 0' }}>Tes ini terdiri dari berbagai jenis pertanyaan: logika kata, hitungan matematika, dan pola gambar. Kerjakan secepat dan seteliti mungkin.</p>
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #ddd', marginTop: '20px' }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>CONTOH SOAL</h4>
+              <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>Bulan terakhir pada tahun adalah?</p>
+              <p style={{ margin: '0 0 5px 0' }}>A. Januari &nbsp; B. Maret &nbsp; C. Juli &nbsp; D. Desember &nbsp; E. Oktober</p>
+              <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Jawaban: D. Desember</p>
             </div>
           </div>
           <button 
@@ -148,17 +95,8 @@ export default function WPT() {
 
   return (
     <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', color: '#333', display: 'flex', alignItems: 'center', position: 'relative' }}>
-      {/* Top Left Floating Timer (13 Min, Auto Submit) */}
-      <TestTimer durationSeconds={13 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="WPT" />
-
-      {/* In-App Unanswered Modal */}
-      <UnansweredModal
-        isOpen={showUnansweredModal}
-        unansweredList={unansweredList}
-        testTitle="WPT (Wonderlic)"
-        onSelectQuestion={(num) => goToQuestion(num - 1)}
-        onClose={() => setShowUnansweredModal(false)}
-      />
+      {/* Top Left Floating Timer (12 Min, Auto Submit) */}
+      <TestTimer durationSeconds={12 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="WPT" />
 
       <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', gap: '30px', alignItems: 'flex-start', flexWrap: 'wrap', width: '100%' }}>
         {/* Main Test Card */}
@@ -170,62 +108,38 @@ export default function WPT() {
             </div>
           </div>
 
-          <div style={{ marginBottom: '30px', minHeight: '150px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ textAlign: 'center' }}>
-              {q.content.includes('|||') ? (
-                <>
-                  <h3 style={{ margin: '0 0 20px 0', fontSize: '24px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{q.content.split('|||')[0]}</h3>
-                  <img src={q.content.split('|||')[1]} alt="Soal" style={{ maxWidth: '100%', maxHeight: '400px', borderRadius: '8px', border: '1px solid #ddd', marginTop: '15px' }} />
-                </>
-              ) : (
-                <h3 style={{ margin: 0, fontSize: '24px', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{q.content}</h3>
-              )}
-            </div>
+          <div style={{ marginBottom: '40px', minHeight: '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            {q.content.includes('|||') ? (
+              <>
+                <h3 style={{ margin: '0 0 20px 0', fontSize: '22px', textAlign: 'center', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{q.content.split('|||')[0]}</h3>
+                <img src={q.content.split('|||')[1]} alt="Soal" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px', border: '1px solid #ddd' }} />
+              </>
+            ) : (
+              <h3 style={{ margin: 0, fontSize: '22px', textAlign: 'center', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{q.content}</h3>
+            )}
           </div>
 
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: (q.options && q.options.length > 0 && q.options.every(o => /^[A-Z]$/.test(o)) || q.testType === 'TIKI 6' || q.testType === 'TIKI 3') ? '1fr 1fr' : '1fr', 
+            gridTemplateColumns: (q.options && q.options.length > 0 && q.options.every(o => /^[A-Z]$/.test(o))) ? 'repeat(5, 1fr)' : '1fr', 
             gap: '15px', 
             marginBottom: '40px', 
-            maxWidth: '500px', 
+            maxWidth: '600px', 
             margin: '0 auto 40px' 
           }}>
-            {isMultiSelectQuestion(q) && (
-              <div style={{ gridColumn: '1 / -1', marginBottom: '15px', padding: '10px 16px', background: '#F0FDFA', border: '1px solid #0D9488', borderRadius: '8px', color: '#0F766E', fontSize: '13px', fontWeight: 'bold', textAlign: 'center' }}>
-                💡 Soal ini dapat memilih lebih dari 1 opsi jawaban. Klik opsi yang menurut Anda benar.
-              </div>
-            )}
             {q.options && q.options.length > 0 ? q.options.map((opt, idx) => {
-              const isSelected = isMultiSelectQuestion(q)
-                ? ((answers[q.id] || "") as string).includes(opt.charAt(0))
-                : answers[q.id] === opt.charAt(0);
               const letter = String.fromCharCode(65 + idx);
-              const isSingleLetter = /^[A-Z]$/.test(opt);
-              const isTiki6 = q.testType === 'TIKI 6';
-              const isTiki3 = q.testType === 'TIKI 3';
-              const isGrid = q.options.every(o => /^[A-Z]$/.test(o)) || isTiki6 || isTiki3;
-              const isLastOdd = isGrid && q.options.length % 2 !== 0 && idx === q.options.length - 1;
-              
-              let labelContent;
-              if (isTiki6 || isSingleLetter) {
-                  labelContent = <span style={{ fontWeight: 'bold' }}>{opt}</span>;
-              } else {
-                  labelContent = <><span style={{ marginRight: '15px', fontWeight: 'bold', color: isSelected ? 'white' : '#888' }}>{letter})</span>{opt}</>;
-              }
-
+              const isSelected = answers[q.id] === letter;
               return (
                 <button 
                   key={idx}
                   type="button"
-                  onClick={() => handleAnswer(opt)}
+                  onClick={() => handleAnswer(letter)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: (isTiki6 || isSingleLetter) ? 'center' : 'flex-start',
-                    gridColumn: isLastOdd ? '1 / -1' : 'auto',
-                    padding: '15px 25px',
-                    fontSize: '18px',
+                    padding: '15px 20px',
+                    fontSize: '16px',
                     fontWeight: '600',
                     cursor: 'pointer',
                     background: isSelected ? '#3498db' : '#f9f9f9',
@@ -236,7 +150,8 @@ export default function WPT() {
                     textAlign: 'left'
                   }}
                 >
-                  {labelContent}
+                  <span style={{ marginRight: '10px', fontWeight: 'bold', color: isSelected ? 'white' : '#888' }}>{letter})</span>
+                  {opt}
                 </button>
               );
             }) : (
@@ -266,7 +181,7 @@ export default function WPT() {
             {currentIndex === questions.length - 1 ? (
               <button 
                 type="button"
-                onClick={handleManualSubmit}
+                onClick={handleFinish}
                 style={{ padding: '12px 24px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(46, 204, 113, 0.3)' }}
               >
                 Selesai &amp; Kumpulkan

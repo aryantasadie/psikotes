@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TestTimer from './TestTimer';
-import UnansweredModal from './UnansweredModal';
 
 interface Question {
   id: number;
@@ -18,8 +17,6 @@ export default function IST2() {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [showInstruction, setShowInstruction] = useState(true);
-  const [unansweredList, setUnansweredList] = useState<number[]>([]);
-  const [showUnansweredModal, setShowUnansweredModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -45,25 +42,8 @@ export default function IST2() {
     router.push('/testee/session');
   };
 
-  const handleManualSubmit = () => {
-    const emptyNums: number[] = [];
-    questions.forEach((qItem, idx) => {
-      if (!answers[qItem.id]) {
-        emptyNums.push(idx + 1);
-      }
-    });
-
-    if (emptyNums.length > 0) {
-      setUnansweredList(emptyNums);
-      setShowUnansweredModal(true);
-      return;
-    }
-
-    handleFinish();
-  };
-
-  if (loading) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Memuat soal IST2...</div>;
-  if (questions.length === 0) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Tidak ada soal IST2 yang tersedia.</div>;
+  if (loading) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Memuat soal IST 2...</div>;
+  if (questions.length === 0) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Tidak ada soal IST 2 yang tersedia.</div>;
 
   const handleNext = () => setCurrentIndex(prev => Math.min(prev + 1, questions.length - 1));
   const handlePrev = () => setCurrentIndex(prev => Math.max(prev - 1, 0));
@@ -80,16 +60,17 @@ export default function IST2() {
     return (
       <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ maxWidth: '700px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>IST 2 - Kemampuan Kata</h2>
+          <h2 style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>IST 2 - Hubungan Kata</h2>
           <div style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
             <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 6 Menit (Otomatis berpindah jika waktu habis)</p>
             <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #ddd', marginTop: '20px' }}>
               <h4 style={{ margin: '0 0 15px 0', color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>CONTOH SOAL</h4>
-              <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>Tentukan 1 kata yang TIDAK memiliki kesamaan golongan / sifat dengan 4 kata lainnya.</p>
+              <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>Tentukan hubungan antar kata berikut:</p>
               <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '10px' }}>
-                <p style={{ margin: '0 0 5px 0' }}>A) Meja &nbsp; B) Kursi &nbsp; C) Burung &nbsp; D) Lemari &nbsp; E) Tempat Tidur</p>
+                <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>menemukan : menghilangkan = mengingat : ?</p>
+                <p style={{ margin: '0 0 5px 0' }}>a) menghafal &nbsp; b) mengenai &nbsp; c) melupakan &nbsp; d) berpikir &nbsp; e) memimpikan</p>
               </div>
-              <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : C (Burung, karena bukan perabot rumah tangga)</p>
+              <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : c (melupakan)</p>
             </div>
           </div>
           <button 
@@ -112,15 +93,6 @@ export default function IST2() {
     <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', color: '#333', display: 'flex', alignItems: 'center', position: 'relative' }}>
       {/* Top Left Floating Timer (6 Min, Auto Submit) */}
       <TestTimer durationSeconds={6 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="IST 2" />
-
-      {/* In-App Unanswered Modal */}
-      <UnansweredModal
-        isOpen={showUnansweredModal}
-        unansweredList={unansweredList}
-        testTitle="IST 2 (Kemampuan Kata)"
-        onSelectQuestion={(num) => goToQuestion(num - 1)}
-        onClose={() => setShowUnansweredModal(false)}
-      />
 
       <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', gap: '30px', alignItems: 'flex-start', flexWrap: 'wrap', width: '100%' }}>
         {/* Main Test Card */}
@@ -145,7 +117,7 @@ export default function IST2() {
             margin: '0 auto 40px' 
           }}>
             {q.options.map((opt, idx) => {
-              const letter = String.fromCharCode(65 + idx);
+              const letter = String.fromCharCode(97 + idx); // a, b, c, d, e
               const isSelected = answers[q.id] === letter;
               return (
                 <button 
@@ -188,7 +160,7 @@ export default function IST2() {
             {currentIndex === questions.length - 1 ? (
               <button 
                 type="button"
-                onClick={handleManualSubmit}
+                onClick={handleFinish}
                 style={{ padding: '12px 24px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(46, 204, 113, 0.3)' }}
               >
                 Selesai &amp; Kumpulkan

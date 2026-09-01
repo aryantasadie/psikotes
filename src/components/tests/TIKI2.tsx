@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TestTimer from './TestTimer';
-import UnansweredModal from './UnansweredModal';
 
 interface Question {
   id: number;
@@ -18,8 +17,6 @@ export default function TIKI2() {
   const [answers, setAnswers] = useState<Record<number, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [showInstruction, setShowInstruction] = useState(true);
-  const [unansweredList, setUnansweredList] = useState<number[]>([]);
-  const [showUnansweredModal, setShowUnansweredModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -43,24 +40,6 @@ export default function TIKI2() {
     } catch(e) { console.error(e); }
     localStorage.setItem('test_completed_tiki2', 'true'); 
     router.push('/testee/session');
-  };
-
-  const handleManualSubmit = () => {
-    const emptyNums: number[] = [];
-    questions.forEach((qItem, idx) => {
-      const ans = answers[qItem.id];
-      if (!ans || ans.length === 0) {
-        emptyNums.push(idx + 1);
-      }
-    });
-
-    if (emptyNums.length > 0) {
-      setUnansweredList(emptyNums);
-      setShowUnansweredModal(true);
-      return;
-    }
-
-    handleFinish();
   };
 
   if (loading) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Memuat soal TIKI2...</div>;
@@ -89,14 +68,13 @@ export default function TIKI2() {
         <div style={{ maxWidth: '700px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
           <h2 style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>TIKI 2 - Gabungan Bagian</h2>
           <div style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
-            <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 7 Menit (Otomatis berpindah jika waktu habis)</p>
+            <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 6 Menit (Otomatis berpindah jika waktu habis)</p>
             <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #ddd', marginTop: '20px' }}>
-              <h4 style={{ margin: '0 0 15px 0', color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>PETUNJUK &amp; CONTOH SOAL</h4>
-              <p style={{ margin: '0 0 10px 0' }}>Pilihlah <strong>2 (dua) bagian</strong> yang jika digabungkan akan membentuk gambar target di sebelah kiri.</p>
+              <h4 style={{ margin: '0 0 15px 0', color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>CONTOH SOAL</h4>
+              <p style={{ margin: '0 0 10px 0' }}>Pilihlah 2 bagian potongan yang jika digabungkan akan membentuk pola target di sebelah kiri.</p>
               <div style={{ marginBottom: '15px' }}>
                 <img src="/soal/tiki2/contoh.png" alt="Contoh TIKI 2" style={{ maxWidth: '100%', borderRadius: '8px', border: '1px solid #ddd' }} />
               </div>
-              <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : A dan D</p>
             </div>
           </div>
           <button 
@@ -118,17 +96,8 @@ export default function TIKI2() {
 
   return (
     <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', color: '#333', display: 'flex', alignItems: 'center', position: 'relative' }}>
-      {/* Top Left Floating Timer (7 Min, Auto Submit) */}
-      <TestTimer durationSeconds={7 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="TIKI 2" />
-
-      {/* In-App Unanswered Modal */}
-      <UnansweredModal
-        isOpen={showUnansweredModal}
-        unansweredList={unansweredList}
-        testTitle="TIKI 2 (Gabungan Bagian)"
-        onSelectQuestion={(num) => goToQuestion(num - 1)}
-        onClose={() => setShowUnansweredModal(false)}
-      />
+      {/* Top Left Floating Timer (6 Min, Auto Submit) */}
+      <TestTimer durationSeconds={6 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="TIKI 2" />
 
       <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', gap: '30px', alignItems: 'flex-start', flexWrap: 'wrap', width: '100%' }}>
         {/* Main Test Card */}
@@ -146,7 +115,7 @@ export default function TIKI2() {
 
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(4, 1fr)', 
+            gridTemplateColumns: 'repeat(5, 1fr)', 
             gap: '15px', 
             marginBottom: '40px', 
             maxWidth: '500px', 
@@ -195,7 +164,7 @@ export default function TIKI2() {
             {currentIndex === questions.length - 1 ? (
               <button 
                 type="button"
-                onClick={handleManualSubmit}
+                onClick={handleFinish}
                 style={{ padding: '12px 24px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(46, 204, 113, 0.3)' }}
               >
                 Selesai &amp; Kumpulkan

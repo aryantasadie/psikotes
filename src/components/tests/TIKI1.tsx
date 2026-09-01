@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import TestTimer from './TestTimer';
-import UnansweredModal from './UnansweredModal';
 
 interface Question {
   id: number;
@@ -18,8 +17,6 @@ export default function TIKI1() {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [showInstruction, setShowInstruction] = useState(true);
-  const [unansweredList, setUnansweredList] = useState<number[]>([]);
-  const [showUnansweredModal, setShowUnansweredModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -43,23 +40,6 @@ export default function TIKI1() {
     } catch(e) { console.error(e); }
     localStorage.setItem('test_completed_tiki1', 'true'); 
     router.push('/testee/session');
-  };
-
-  const handleManualSubmit = () => {
-    const emptyNums: number[] = [];
-    questions.forEach((q, idx) => {
-      if (!answers[q.id]) {
-        emptyNums.push(idx + 1);
-      }
-    });
-
-    if (emptyNums.length > 0) {
-      setUnansweredList(emptyNums);
-      setShowUnansweredModal(true);
-      return;
-    }
-
-    handleFinish();
   };
 
   if (loading) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: 'sans-serif' }}>Memuat soal TIKI1...</div>;
@@ -112,15 +92,6 @@ export default function TIKI1() {
     <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', color: '#333', display: 'flex', alignItems: 'center', position: 'relative' }}>
       {/* Top Left Floating Timer (7 Min, Auto Submit) */}
       <TestTimer durationSeconds={7 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="TIKI 1" />
-
-      {/* In-App Unanswered Modal */}
-      <UnansweredModal
-        isOpen={showUnansweredModal}
-        unansweredList={unansweredList}
-        testTitle="TIKI 1 (Berhitung)"
-        onSelectQuestion={(num) => goToQuestion(num - 1)}
-        onClose={() => setShowUnansweredModal(false)}
-      />
 
       <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', gap: '30px', alignItems: 'flex-start', flexWrap: 'wrap', width: '100%' }}>
         {/* Main Test Card */}
@@ -214,7 +185,7 @@ export default function TIKI1() {
             {currentIndex === questions.length - 1 ? (
               <button 
                 type="button"
-                onClick={handleManualSubmit}
+                onClick={handleFinish}
                 style={{ padding: '12px 24px', background: '#2ecc71', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(46, 204, 113, 0.3)' }}
               >
                 Selesai & Kumpulkan
