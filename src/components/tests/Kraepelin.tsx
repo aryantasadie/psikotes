@@ -55,7 +55,7 @@ export default function KraepelinTest() {
   // Test Config Parameters
   const TOTAL_COLUMNS = 50;
   const COLUMN_DURATION = 15; // 15 seconds per column
-  const DIGITS_PER_COLUMN = 28; // 28 digits per column (27 addition pairs per official printed test paper)
+  const DIGITS_PER_COLUMN = 28; // 28 digits per column (27 addition pairs)
 
   const [onboarding, setOnboarding] = useState(true);
   const [testStarted, setTestStarted] = useState(false);
@@ -69,10 +69,15 @@ export default function KraepelinTest() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Matrix data: 20 columns, each has array of random digits [0..9]
+  // Matrix data
   const [matrix, setMatrix] = useState<number[][]>([]);
-  // User answers matrix: userAnswers[colIdx][pairIdx] = user input digit or null
+  // User answers matrix
   const [userAnswers, setUserAnswers] = useState<(number | null)[][]>([]);
+
+  // Refs for auto-scrolling
+  const activeColRef = useRef<HTMLDivElement | null>(null);
+  const activePairRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Web Audio Synth for feedback sounds
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -133,6 +138,20 @@ export default function KraepelinTest() {
     return () => clearInterval(interval);
   }, [testStarted, testFinished, currentCol]);
 
+  // Center active column horizontally
+  useEffect(() => {
+    if (activeColRef.current) {
+      activeColRef.current.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [currentCol, testStarted]);
+
+  // Keep active pair in view vertically
+  useEffect(() => {
+    if (activePairRef.current) {
+      activePairRef.current.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    }
+  }, [currentPairIdx, currentCol, testStarted]);
+
   const triggerPindah = () => {
     if (isTransitioning) return;
     setIsTransitioning(true);
@@ -157,7 +176,6 @@ export default function KraepelinTest() {
 
     const colDigits = matrix[currentCol];
     // In Kraepelin, addition is from BOTTOM to TOP:
-    // pairIdx 0 adds digit at (DIGITS_PER_COLUMN - 1) and (DIGITS_PER_COLUMN - 2)
     const idxBottom = DIGITS_PER_COLUMN - 1 - currentPairIdx;
     const idxTop = idxBottom - 1;
 
@@ -206,174 +224,148 @@ export default function KraepelinTest() {
     setTestFinished(true);
     setSubmitting(true);
 
-    // Compute detailed column scores & raw norms
-    const columnScores: number[] = [];
-    const perKolomDetails: KraepelinColumnDetail[] = [];
+    try {
+      // 1. Calculate Per-Column Details and Raw Scores
+      const perKolomDetails: KraepelinColumnDetail[] = [];
+      const columnScores: number[] = [];
+      let totalBenar = 0;
+      let totalSalah = 0;
 
-    for (let c = 0; c < TOTAL_COLUMNS; c++) {
-      const colDigits = matrix[c] || [];
-      const colAns = userAnswers[c] || [];
-      let dikerjakan = 0;
-      let benar = 0;
-      let salah = 0;
+      for (let c = 0; c < TOTAL_COLUMNS; c++) {
+        const colDigits = matrix[c] || [];
+        const answers = userAnswers[c] || [];
 
-      for (let p = 0; p < DIGITS_PER_COLUMN - 1; p++) {
-        const uAns = colAns[p];
-        if (uAns !== null && uAns !== undefined) {
-          dikerjakan++;
-          const idxBottom = DIGITS_PER_COLUMN - 1 - p;
-          const idxTop = idxBottom - 1;
-          const d1 = colDigits[idxBottom];
-          const d2 = colDigits[idxTop];
-          const expected = (d1 + d2) % 10;
+        let colDikerjakan = 0;
+        let colBenar = 0;
+        let colSalah = 0;
 
-          if (uAns === expected) {
-            benar++;
-          } else {
-            salah++;
+        for (let p = 0; p < answers.length; p++) {
+          const ans = answers[p];
+          if (ans !== null && ans !== undefined) {
+            colDikerjakan++;
+            const idxBottom = DIGITS_PER_COLUMN - 1 - p;
+            const idxTop = idxBottom - 1;
+            const expectedSum = (colDigits[idxBottom] + colDigits[idxTop]) % 10;
+
+            if (ans === expectedSum) {
+              colBenar++;
+            } else {
+              colSalah++;
+            }
           }
         }
+
+        columnScores.push(colBenar);
+        totalBenar += colBenar;
+        totalSalah += colSalah;
+
+        perKolomDetails.push({
+          columnIdx: c,
+          dikerjakan: colDikerjakan,
+          benar: colBenar,
+          salah: colSalah,
+          digits: colDigits,
+          userAnswers: answers
+        });
       }
 
-      columnScores.push(dikerjakan);
-      perKolomDetails.push({
-        columnIdx: c + 1,
-        dikerjakan,
-        benar,
-        salah,
-        digits: colDigits,
-        userAnswers: colAns
-      });
-    }
+      // 2. Calculate PANKER, TINKER, JANKER, HANKER
+      const pankerRaw = parseFloat((totalBenar / TOTAL_COLUMNS).toFixed(2));
+      const tinkerRaw = totalSalah;
+      const validScores = columnScores.filter(s => s > 0);
+      const maxScore = validScores.length > 0 ? Math.max(...validScores) : 0;
+      const minScore = validScores.length > 0 ? Math.min(...validScores) : 0;
+      const jankerRaw = maxScore - minScore;
 
-    // Calculate PANKER
-    const sortedScores = [...columnScores].sort((a, b) => a - b);
-    const midIdx = Math.floor(sortedScores.length / 2);
-    const medianX = sortedScores.length % 2 !== 0
-      ? sortedScores[midIdx]
-      : Math.round((sortedScores[midIdx - 1] + sortedScores[midIdx]) / 2);
+      const pankerNorm = getKraepelinPankerNorm(pankerRaw);
+      const tinkerNorm = getKraepelinTinkerNorm(tinkerRaw);
+      const jankerNorm = getKraepelinJankerNorm(jankerRaw);
+      const hankerNorm = Math.round((pankerNorm + tinkerNorm + jankerNorm) / 3);
 
-    let B = 0;
-    let C = 0;
-    for (let c = 0; c < TOTAL_COLUMNS; c++) {
-      const s = columnScores[c];
-      if (s > medianX) B += (s - medianX);
-      else if (s < medianX) C += (medianX - s);
-    }
+      const resultPayload: KraepelinResultData = {
+        pankerRaw,
+        tinkerRaw,
+        jankerRaw,
+        pankerNorm,
+        tinkerNorm,
+        jankerNorm,
+        hankerNorm,
+        columnScores,
+        perKolomDetails
+      };
 
-    const pankerRaw = medianX > 0 ? (((medianX - 1) * 50 + (B - C)) / 50) : 0;
-
-    // Calculate TINKER (total wrong answers)
-    const tinkerRaw = perKolomDetails.reduce((sum, k) => sum + k.salah, 0);
-
-    // Calculate JANKER (max - min)
-    const maxScore = Math.max(...columnScores);
-    const minScore = Math.min(...columnScores);
-    const jankerRaw = maxScore - minScore;
-
-    // Calculate Norms
-    const pankerNorm = getKraepelinPankerNorm(pankerRaw);
-    const tinkerNorm = getKraepelinTinkerNorm(tinkerRaw);
-    const jankerNorm = getKraepelinJankerNorm(jankerRaw);
-    const hankerNorm = Math.floor((pankerNorm + jankerNorm) / 2);
-
-    const resultData: KraepelinResultData = {
-      pankerRaw: parseFloat(pankerRaw.toFixed(1)),
-      tinkerRaw,
-      jankerRaw,
-      pankerNorm,
-      tinkerNorm,
-      jankerNorm,
-      hankerNorm,
-      columnScores,
-      perKolomDetails
-    };
-
-    try {
-      localStorage.setItem('kraepelinResult', JSON.stringify(resultData));
-      localStorage.setItem('test_completed_kraepelin', 'true');
-      localStorage.setItem('test_completed_kreapelin', 'true');
-
-      // Submit to backend API
+      // 3. Save to backend
       await fetch('/api/answers/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           testType: 'KRAEPELIN',
-          answers: resultData
+          answers: resultPayload
         })
       });
-    } catch (e) {
-      console.error('Error submitting Kraepelin result:', e);
-    } finally {
-      setSubmitting(false);
+
+      localStorage.setItem('kraepelinResult', JSON.stringify(resultPayload));
+      localStorage.setItem('test_completed_kraepelin', 'true');
+      localStorage.setItem('test_completed_kreapelin', 'true');
+
+      router.push('/testee/session');
+    } catch (err) {
+      console.error('Error submitting Kraepelin test:', err);
+      localStorage.setItem('test_completed_kraepelin', 'true');
+      localStorage.setItem('test_completed_kreapelin', 'true');
       router.push('/testee/session');
     }
   };
 
-  const handleStartTestClick = () => {
-    setOnboarding(false);
-    setTestStarted(true);
-    setCurrentCol(0);
-    setCurrentPairIdx(0);
-    setTimeLeft(COLUMN_DURATION);
-  };
-
-  // Render Onboarding / Instruction Screen
   if (onboarding) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0A2A55', color: '#FFFFFF', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif' }}>
-        <div style={{ maxWidth: '600px', width: '100%', background: '#123B72', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '20px', padding: '32px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
-          <div style={{ color: '#FBBF24', fontSize: '24px', fontWeight: 800, marginBottom: '12px' }}>
-            📊 PETUNJUK TES KRAEPELIN / KREAPELIN
+      <div style={{ minHeight: '100vh', background: '#F8FAFC', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: '"Inter", system-ui, sans-serif' }}>
+        <div style={{ maxWidth: '680px', width: '100%', background: '#FFFFFF', borderRadius: '24px', padding: '44px 36px', boxShadow: '0 20px 40px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0', textAlign: 'center' }}>
+          <div style={{ width: '64px', height: '64px', background: '#EFF6FF', color: '#2563EB', borderRadius: '20px', display: 'grid', placeItems: 'center', fontSize: '32px', margin: '0 auto 20px' }}>
+            ⚡
           </div>
-          <p style={{ color: '#93C5FD', fontSize: '14px', lineHeight: '1.6', marginBottom: '20px' }}>
-            Anda akan diberikan deretan angka secara vertikal. Tugas Anda adalah menjumlahkan 2 angka yang berdekatan dari <strong>BAWAH ke ATAS</strong>. Tuliskan <strong>angka satuannya saja</strong> dari hasil penjumlahan.
+
+          <h1 style={{ fontSize: '26px', fontWeight: 900, color: '#0F172A', marginBottom: '8px' }}>
+            Tes Kraepelin (Kecepatan Kerja)
+          </h1>
+          <p style={{ color: '#64748B', fontSize: '14px', marginBottom: '28px' }}>
+            Standar Resmi 50 Kolom (Buku Tes Kraepelin Psikologi)
           </p>
 
-          {/* Visual Example Box */}
-          <div style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '14px', padding: '16px', marginBottom: '24px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#FBBF24', textTransform: 'uppercase', marginBottom: '12px' }}>
-              Contoh Cara Penjumlahan:
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '24px' }}>
-              <div style={{ background: '#0D1E3D', border: '1px solid #3B82F6', borderRadius: '10px', padding: '12px 20px', textAlign: 'center' }}>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: '#FFF' }}>4</div>
-                <div style={{ color: '#34D399', fontSize: '12px', fontWeight: 700, margin: '4px 0' }}>↑ Jawab 3 (9+4=13)</div>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: '#FFF' }}>9</div>
-                <div style={{ color: '#34D399', fontSize: '12px', fontWeight: 700, margin: '4px 0' }}>↑ Jawab 5 (6+9=15)</div>
-                <div style={{ fontSize: '20px', fontWeight: 800, color: '#FFF' }}>6</div>
-              </div>
-              <div style={{ textAlign: 'left', fontSize: '13px', color: '#E2E8F0', lineHeight: '1.6' }}>
-                <div><strong>1. Penjumlahan Pertama:</strong></div>
-                <div style={{ color: '#34D399', fontWeight: 700 }}>6 + 9 = 15 → Ketik 5</div>
-                <div style={{ marginTop: '8px' }}><strong>2. Penjumlahan Kedua:</strong></div>
-                <div style={{ color: '#34D399', fontWeight: 700 }}>9 + 4 = 13 → Ketik 3</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Parameters */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', borderTop: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid rgba(255,255,255,0.1)', padding: '16px 0', marginBottom: '24px' }}>
-            <div>
-              <div style={{ fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase' }}>Jumlah Kolom</div>
-              <div style={{ fontSize: '18px', fontWeight: 800, color: '#FFF' }}>{TOTAL_COLUMNS} Kolom</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase' }}>Waktu / Kolom</div>
-              <div style={{ fontSize: '18px', fontWeight: 800, color: '#FFF' }}>{COLUMN_DURATION} Detik</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase' }}>Total Waktu</div>
-              <div style={{ fontSize: '18px', fontWeight: 800, color: '#FFF' }}>5 Menit</div>
-            </div>
+          <div style={{ background: '#F8FAFC', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '24px', textAlign: 'left', marginBottom: '32px', lineHeight: '1.6' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#1E293B', marginBottom: '12px' }}>
+              Petunjuk Pengerjaan:
+            </h3>
+            <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <li>Jumlahkan 2 angka yang berdekatan dari <strong>BAWAH ke ATAS</strong>.</li>
+              <li>Jika hasil penjumlahan $\ge 10$, ketikkan <strong>ANGKA SATUANNYA SAJA</strong> (Contoh: $8 + 7 = 15 \rightarrow$ ketik <strong>5</strong>, $9 + 9 = 18 \rightarrow$ ketik <strong>8</strong>).</li>
+              <li>Setiap kolom memiliki batas waktu <strong>15 detik</strong>.</li>
+              <li>Ketika terdengar bunyi nada dan muncul peringatan <strong>PINDAH!</strong>, sistem akan otomatis beralih ke kolom berikutnya.</li>
+              <li>Gunakan tombol angka <code>0</code> s.d. <code>9</code> pada keyboard laptop atau tombol keypad di layar.</li>
+            </ul>
           </div>
 
           <button
-            onClick={handleStartTestClick}
-            style={{ width: '100%', padding: '16px', background: '#2563EB', color: '#FFF', border: 'none', borderRadius: '12px', fontSize: '16px', fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 14px rgba(37,99,235,0.4)', transition: 'all 0.2s' }}
+            type="button"
+            onClick={() => {
+              setOnboarding(false);
+              setTestStarted(true);
+            }}
+            style={{
+              width: '100%',
+              padding: '16px 32px',
+              background: '#2563EB',
+              color: '#FFFFFF',
+              border: 'none',
+              borderRadius: '14px',
+              fontSize: '16px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 10px 20px rgba(37,99,235,0.25)',
+              transition: 'all 0.2s'
+            }}
           >
-            ▶ MULAI TES KRAEPELIN SEKARANG
+            Mulai Tes Kraepelin
           </button>
         </div>
       </div>
@@ -382,129 +374,188 @@ export default function KraepelinTest() {
 
   if (testFinished) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0A2A55', color: '#FFF', display: 'grid', placeItems: 'center', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ minHeight: '100vh', background: '#F8FAFC', color: '#0F172A', display: 'grid', placeItems: 'center', fontFamily: '"Inter", sans-serif' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-          <h2>Mengirim & Menyimpan Hasil Kraepelin...</h2>
-          <p style={{ color: '#94A3B8' }}>Mohon tunggu sebentar.</p>
+          <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', marginBottom: '6px' }}>Menyimpan Hasil Kraepelin...</h2>
+          <p style={{ color: '#64748B', fontSize: '14px' }}>Mohon tunggu sebentar, hasil sedang dikirim ke server.</p>
         </div>
       </div>
     );
   }
 
-  // Active Test Screen UI
-  const currentDigits = matrix[currentCol] || [];
-  const currentColAnswers = userAnswers[currentCol] || [];
-
   return (
-    <div style={{ minHeight: '100vh', background: '#FAF8FF', color: '#1E293B', display: 'flex', flexDirection: 'column', fontFamily: 'Hanken Grotesk, sans-serif', userSelect: 'none', overflow: 'hidden' }}>
+    <div style={{ minHeight: '100vh', background: '#F4F6F9', color: '#0F172A', display: 'flex', flexDirection: 'column', fontFamily: '"Inter", system-ui, sans-serif', userSelect: 'none', overflow: 'hidden' }}>
       
       {/* Pindah Overlay Alert */}
       {showPindah && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(185,28,28,0.3)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, pointerEvents: 'none' }}>
-          <div style={{ fontSize: '4rem', fontWeight: 900, color: '#DC2626', textShadow: '0 4px 20px rgba(0,0,0,0.5)', letterSpacing: '2px' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(239,68,68,0.25)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 99999, pointerEvents: 'none' }}>
+          <div style={{ fontSize: '3.5rem', fontWeight: 900, color: '#DC2626', textShadow: '0 4px 20px rgba(0,0,0,0.3)', letterSpacing: '3px', background: '#FFFFFF', padding: '16px 48px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.15)' }}>
             PINDAH!
           </div>
         </div>
       )}
 
-      {/* Top Header / Progress Bar */}
-      <div style={{ background: '#0A2A55', color: '#FFF', padding: '12px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-        <div>
-          <div style={{ fontSize: '11px', color: '#93C5FD', fontWeight: 700, textTransform: 'uppercase' }}>KOLOM AKTIF</div>
-          <div style={{ fontSize: '20px', fontWeight: 900, color: '#FBBF24' }}>Kolom {currentCol + 1} / {TOTAL_COLUMNS}</div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '11px', color: '#93C5FD', fontWeight: 700, textTransform: 'uppercase' }}>SISA WAKTU KOLOM</div>
-          <div style={{ fontSize: '24px', fontWeight: 900, color: timeLeft <= 4 ? '#EF4444' : '#60A5FA' }}>
-            {timeLeft}s
+      {/* Top Header / Status Bar */}
+      <div style={{ padding: '16px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {/* Subtle pill indicator on top center/left */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }}></div>
+          <div style={{ width: '120px', height: '6px', background: '#E2E8F0', borderRadius: '10px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${((currentCol + 1) / TOTAL_COLUMNS) * 100}%`, background: '#2563EB', transition: 'width 0.3s' }}></div>
           </div>
         </div>
-      </div>
 
-      {/* Progress Bar Visual Line */}
-      <div style={{ height: '6px', background: '#E2E8F0', width: '100%' }}>
-        <div style={{ height: '100%', width: `${(timeLeft / COLUMN_DURATION) * 100}%`, background: timeLeft <= 4 ? '#EF4444' : '#2563EB', transition: 'width 1s linear' }} />
-      </div>
-
-      {/* Main Workspace: Kraepelin Column Grid Display */}
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px', background: '#F1F5F9', overflow: 'hidden' }}>
-        <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #CBD5E1', padding: '24px 40px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '320px' }}>
+        {/* Right Info: Kolom Aktif & Sisa Waktu */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '10px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>KOLOM AKTIF</div>
+            <div style={{ fontSize: '18px', fontWeight: 900, color: '#0F172A' }}>Kolom {currentCol + 1}</div>
+          </div>
           
-          <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748B', marginBottom: '16px', textTransform: 'uppercase' }}>
-            Arah Penjumlahan: Bawah ke Atas (Ketik Angka Satuan)
-          </div>
+          <div style={{ width: '1px', height: '32px', background: '#E2E8F0' }}></div>
 
-          {/* Render Active Vertical Digit Column (Showing 7 digits window around focus) */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            {(() => {
-              // Current pair focus indexes
-              const idxBottom = DIGITS_PER_COLUMN - 1 - currentPairIdx;
-              const idxTop = idxBottom - 1;
-
-              // Render digits around active pair
-              const visibleIndices: number[] = [];
-              for (let i = idxTop - 2; i <= idxBottom + 2; i++) {
-                if (i >= 0 && i < DIGITS_PER_COLUMN) {
-                  visibleIndices.push(i);
-                }
-              }
-
-              return visibleIndices.map(digitIdx => {
-                const digitVal = currentDigits[digitIdx];
-                const isTopActive = digitIdx === idxTop;
-                const isBottomActive = digitIdx === idxBottom;
-                const isActivePair = isTopActive || isBottomActive;
-
-                // Answer associated with pair starting from digitIdx (if digitIdx is top of pair)
-                const pairIndexForThisDigit = DIGITS_PER_COLUMN - 1 - digitIdx - 1;
-                const userAns = currentColAnswers[pairIndexForThisDigit];
-
-                return (
-                  <React.Fragment key={digitIdx}>
-                    <div style={{
-                      width: '64px',
-                      height: '54px',
-                      borderRadius: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '24px',
-                      fontWeight: 800,
-                      background: isActivePair ? '#DBEAFE' : '#F8FAFC',
-                      color: isActivePair ? '#1D4ED8' : '#64748B',
-                      border: isActivePair ? '2px solid #2563EB' : '1px solid #E2E8F0',
-                      boxShadow: isActivePair ? '0 0 12px rgba(37,99,235,0.3)' : 'none',
-                      transition: 'all 0.15s'
-                    }}>
-                      {digitVal}
-                    </div>
-
-                    {/* Display input slot indicator between top and bottom active numbers */}
-                    {isTopActive && (
-                      <div style={{
-                        background: '#2563EB',
-                        color: '#FFFFFF',
-                        padding: '4px 12px',
-                        borderRadius: '20px',
-                        fontSize: '13px',
-                        fontWeight: 800,
-                        animation: 'pulse 1s infinite'
-                      }}>
-                        {userAns !== null && userAns !== undefined ? userAns : '?'}
-                      </div>
-                    )}
-                  </React.Fragment>
-                );
-              });
-            })()}
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ fontSize: '10px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SISA WAKTU KOLOM</div>
+            <div style={{ fontSize: '18px', fontWeight: 900, color: timeLeft <= 4 ? '#EF4444' : '#0F172A' }}>
+              {timeLeft}s
+            </div>
           </div>
         </div>
       </div>
 
-      {/* On-Screen Keypad for Touch / Click Support */}
-      <div style={{ background: '#FFFFFF', borderTop: '1px solid #E2E8F0', padding: '16px', display: 'flex', justifyContent: 'center' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', maxWidth: '400px', width: '100%' }}>
+      {/* Main Workspace Card Container */}
+      <div style={{ flex: 1, padding: '0 36px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        <div 
+          ref={scrollContainerRef}
+          style={{ 
+            maxWidth: '1200px', 
+            width: '100%', 
+            background: '#FFFFFF', 
+            borderRadius: '24px', 
+            boxShadow: '0 10px 30px rgba(0,0,0,0.03)', 
+            border: '1px solid #E2E8F0', 
+            padding: '24px 30px', 
+            overflowX: 'auto', 
+            overflowY: 'auto',
+            maxHeight: 'calc(100vh - 180px)',
+            display: 'flex',
+            justifyContent: 'center'
+          }}
+        >
+          {/* Multi-Column Display (Showing all 50 columns with horizontal layout) */}
+          <div style={{ display: 'flex', gap: '32px', alignItems: 'flex-start', margin: '0 auto', padding: '10px 40px' }}>
+            {matrix.map((colDigits, colIdx) => {
+              const isActiveCol = colIdx === currentCol;
+              const isPastCol = colIdx < currentCol;
+              const colAnswers = userAnswers[colIdx] || [];
+
+              return (
+                <div
+                  key={colIdx}
+                  ref={isActiveCol ? activeColRef : null}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    minWidth: '54px',
+                    padding: '12px 10px',
+                    borderRadius: '16px',
+                    background: isActiveCol ? '#F0F7FF' : 'transparent',
+                    border: isActiveCol ? '1.5px solid #BFDBFE' : '1.5px solid transparent',
+                    transition: 'all 0.2s ease',
+                    opacity: isActiveCol ? 1 : isPastCol ? 0.35 : 0.25
+                  }}
+                >
+                  {/* Digits & Answer slots stacked vertically from top (index 0) to bottom (index 27) */}
+                  {colDigits.map((digitVal, digitIdx) => {
+                    // pairIndex for the slot below this digit
+                    // Since addition is bottom-to-top:
+                    // bottom digit is at digitIdx (where digitIdx = 27 is pairIdx 0 bottom, digitIdx = 26 is pairIdx 0 top)
+                    // The slot between digitIdx and digitIdx+1 corresponds to pairIdx = DIGITS_PER_COLUMN - 1 - (digitIdx + 1)
+                    const pairIdxForSlotBelow = DIGITS_PER_COLUMN - 2 - digitIdx;
+                    const hasSlotBelow = digitIdx < DIGITS_PER_COLUMN - 1;
+                    const isSlotActive = isActiveCol && pairIdxForSlotBelow === currentPairIdx;
+                    const userAnsForSlot = colAnswers[pairIdxForSlotBelow];
+
+                    return (
+                      <React.Fragment key={digitIdx}>
+                        {/* Digit Number */}
+                        <div
+                          style={{
+                            fontSize: '20px',
+                            fontWeight: isActiveCol ? 800 : 600,
+                            color: isActiveCol ? '#0F172A' : '#64748B',
+                            height: '28px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            userSelect: 'none'
+                          }}
+                        >
+                          {digitVal}
+                        </div>
+
+                        {/* Answer Slot Circle between this digit and the one below */}
+                        {hasSlotBelow && (
+                          <div
+                            ref={isSlotActive ? activePairRef : null}
+                            style={{
+                              width: '26px',
+                              height: '26px',
+                              borderRadius: '50%',
+                              margin: '2px 0',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '13px',
+                              fontWeight: 800,
+                              background: isSlotActive
+                                ? '#DBEAFE'
+                                : userAnsForSlot !== null && userAnsForSlot !== undefined
+                                ? '#EFF6FF'
+                                : '#F8FAFC',
+                              color: isSlotActive
+                                ? '#1D4ED8'
+                                : userAnsForSlot !== null && userAnsForSlot !== undefined
+                                ? '#2563EB'
+                                : '#CBD5E1',
+                              border: isSlotActive
+                                ? '1.5px solid #3B82F6'
+                                : '1px solid #E2E8F0',
+                              boxShadow: isSlotActive ? '0 0 10px rgba(59, 130, 246, 0.35)' : 'none',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            {userAnsForSlot !== null && userAnsForSlot !== undefined
+                              ? userAnsForSlot
+                              : '?'}
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Horizontal Keypad Bar */}
+      <div style={{ padding: '0 0 24px', display: 'flex', justifyContent: 'center' }}>
+        <div
+          style={{
+            background: '#FFFFFF',
+            borderRadius: '20px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+            border: '1px solid #E2E8F0',
+            padding: '10px 16px',
+            display: 'flex',
+            gap: '10px',
+            alignItems: 'center'
+          }}
+        >
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(digit => (
             <button
               key={digit}
@@ -512,16 +563,34 @@ export default function KraepelinTest() {
               disabled={isTransitioning || showPindah}
               onClick={() => handleInputDigit(digit)}
               style={{
-                height: '52px',
-                background: isTransitioning || showPindah ? '#E2E8F0' : '#F1F5F9',
-                border: '1px solid #CBD5E1',
+                width: '48px',
+                height: '46px',
+                background: isTransitioning || showPindah ? '#F1F5F9' : '#FFFFFF',
+                border: '1.5px solid #E2E8F0',
                 borderRadius: '12px',
-                fontSize: '20px',
+                fontSize: '18px',
                 fontWeight: 800,
                 color: isTransitioning || showPindah ? '#94A3B8' : '#0F172A',
                 cursor: isTransitioning || showPindah ? 'not-allowed' : 'pointer',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                transition: 'all 0.1s'
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.1s ease',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+              }}
+              onMouseOver={(e) => {
+                if (!isTransitioning && !showPindah) {
+                  e.currentTarget.style.borderColor = '#2563EB';
+                  e.currentTarget.style.color = '#2563EB';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (!isTransitioning && !showPindah) {
+                  e.currentTarget.style.borderColor = '#E2E8F0';
+                  e.currentTarget.style.color = '#0F172A';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }
               }}
             >
               {digit}
