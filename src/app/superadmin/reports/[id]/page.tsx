@@ -1420,133 +1420,193 @@ export default function ReportDetailPage() {
                   })}
                 </div>
                 <div style={{ background: '#FFFFFF', padding: '2rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
                       <h3 style={{ margin: 0, color: '#0F172A', fontSize: '1.25rem', fontWeight: 800 }}>
-                        📊 Lembar Hasil Jawaban Kraepelin & Kurva Kerja (50 Kolom)
+                        📈 Grafik Hasil Tes Kraepelin (Kurva Kecepatan & Ketahanan Kerja 50 Kolom)
                       </h3>
                       <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
-                        Penjumlahan dari bawah ke atas. Bulatan <span style={{ color: '#10B981', fontWeight: 700 }}>🟢 Hijau</span> = Benar, <span style={{ color: '#EF4444', fontWeight: 700 }}>🔴 Merah</span> = Salah. Garis <span style={{ color: '#0284C7', fontWeight: 700 }}>⚡ Biru</span> = Kurva Puncak.
+                        Grafik lembar kerja standar psikologi 50 kolom dengan garis nilai tengah (midpoint tertinggi & terendah).
                       </p>
                     </div>
                     
-                    {/* Legend badges */}
-                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', fontSize: '12px', fontWeight: 700 }}>
+                    {/* Legend Badges */}
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', fontSize: '12px', fontWeight: 700, flexWrap: 'wrap' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10B981', display: 'inline-block' }} /> Benar
+                        <span style={{ width: '22px', height: '3px', background: '#000000', borderRadius: '2px', display: 'inline-block' }} /> 
+                        Kurva Hasil Kerja (Skor Per Kolom)
                       </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }} /> Salah
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ width: '20px', height: '2px', background: '#0284C7', borderRadius: '1px', display: 'inline-block' }} /> Kurva Puncak
-                      </span>
+                      {(() => {
+                        const validScores = columnScores.filter(s => s > 0);
+                        const maxScore = validScores.length > 0 ? Math.max(...validScores) : (columnScores.length > 0 ? Math.max(...columnScores) : 0);
+                        const minScore = validScores.length > 0 ? Math.min(...validScores) : 0;
+                        const midScore = parseFloat(((maxScore + minScore) / 2).toFixed(2));
+                        return (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F1F5F9', padding: '4px 10px', borderRadius: '8px', border: '1px solid #CBD5E1' }}>
+                            <span style={{ width: '22px', borderBottom: '2.5px dashed #000000', display: 'inline-block' }} /> 
+                            Garis Tengah: <strong style={{ color: '#0F172A' }}>{midScore}</strong> (Min: {minScore}, Max: {maxScore})
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
 
-                  <div style={{ width: '100%', overflowX: 'auto', border: '1px solid #CBD5E1', borderRadius: '12px', background: '#FAFAFA' }}>
+                  <div style={{ width: '100%', overflowX: 'auto', border: '1.5px solid #94A3B8', borderRadius: '12px', background: '#FFFFFF', padding: '10px 0' }}>
                     {(() => {
                       const totalCols = 50; // Always render all 50 columns
-                      const numRows = 27; // All 27 addition rows (28 digits) fit in 1 screen vertically!
-                      const cellWidth = 24;
-                      const cellHeight = 13;
-                      const svgWidth = totalCols * cellWidth + 40; // 1240px SVG width
-                      const svgHeight = numRows * cellHeight + 50; // 401px total SVG height
+                      const maxScoreUnits = 30; // 0 to 30 Y-scale
+                      const cellWidth = 22;
+                      const cellHeight = 12;
+                      
+                      const padLeft = 65;
+                      const padRight = 35;
+                      const padTop = 30;
+                      const padBottom = 40;
 
-                      const peakPoints: { x: number; y: number }[] = [];
+                      const gridWidth = totalCols * cellWidth; // 1100px
+                      const gridHeight = maxScoreUnits * cellHeight; // 360px
+                      const svgWidth = padLeft + gridWidth + padRight; // 1200px
+                      const svgHeight = padTop + gridHeight + padBottom; // 430px
+
+                      const validScores = columnScores.filter(s => s > 0);
+                      const maxScore = validScores.length > 0 ? Math.max(...validScores) : (columnScores.length > 0 ? Math.max(...columnScores) : 0);
+                      const minScore = validScores.length > 0 ? Math.min(...validScores) : 0;
+                      const midScore = parseFloat(((maxScore + minScore) / 2).toFixed(2));
+
+                      // Y Coordinate helper for any score (0 <= score <= 30)
+                      const getYForScore = (s: number) => {
+                        const clamped = Math.max(0, Math.min(30, s));
+                        return padTop + gridHeight - (clamped * cellHeight);
+                      };
+
+                      // Midpoint Y coordinate for horizontal dashed line
+                      const midY = getYForScore(midScore);
+
+                      // Line points connecting each column
+                      const linePoints: { x: number; y: number; col: number; score: number }[] = [];
+                      for (let c = 0; c < totalCols; c++) {
+                        const score = columnScores[c] || 0;
+                        const x = padLeft + (c + 0.5) * cellWidth;
+                        const y = getYForScore(score);
+                        linePoints.push({ x, y, col: c + 1, score });
+                      }
+
+                      const polylineStr = linePoints.map(pt => `${pt.x},${pt.y}`).join(' ');
 
                       return (
                         <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} style={{ width: `${svgWidth}px`, minWidth: '100%', height: `${svgHeight}px`, display: 'block' }}>
                           
-                          {/* Background Grid Pattern (Garis-Garis Graph Grid) */}
-                          <defs>
-                            <pattern id="kraepelinGridLines" width={cellWidth} height={cellHeight} patternUnits="userSpaceOnUse">
-                              <line x1="0" y1="0" x2={cellWidth} y2="0" stroke="#E2E8F0" strokeWidth="1" />
-                              <line x1="0" y1="0" x2="0" y2={cellHeight} stroke="#E2E8F0" strokeWidth="1" />
-                            </pattern>
-                          </defs>
-                          <rect width="100%" height="100%" fill="url(#kraepelinGridLines)" />
+                          {/* Outer Border Background */}
+                          <rect
+                            x={padLeft}
+                            y={padTop}
+                            width={gridWidth}
+                            height={gridHeight}
+                            fill="#FFFFFF"
+                            stroke="#334155"
+                            strokeWidth="1.5"
+                          />
 
-                          {/* Render Columns (1 to 50) */}
-                          {new Array(totalCols).fill(0).map((_, c) => {
-                            const colIdx = c;
-                            const details = data?.perKolomDetails?.[colIdx];
-                            const colDigits: number[] = details?.digits || OFFICIAL_KRAEPELIN_MATRIX[colIdx] || [];
-                            const userAnsList: (number | null)[] = details?.userAnswers || [];
-                            const count = details?.dikerjakan || columnScores[c] || 0;
-
-                            const cx = 24 + c * cellWidth;
-
-                            // Collect peak coordinates for blue line
-                            const peakRowIdx = count > 0 ? count - 1 : 0;
-                            const peakY = (svgHeight - 22) - (peakRowIdx * cellHeight);
-                            peakPoints.push({ x: cx, y: peakY });
-
+                          {/* Horizontal Grid Lines for every 1 unit from 0 to 30 */}
+                          {new Array(maxScoreUnits + 1).fill(0).map((_, i) => {
+                            const s = i; // 0 to 30
+                            const y = getYForScore(s);
+                            const isMajor = s % 5 === 0;
                             return (
-                              <g key={c}>
-                                {/* Column header label at bottom */}
-                                <text x={cx} y={svgHeight - 6} fontSize="7.5" fontWeight="800" fill="#64748B" textAnchor="middle">
-                                  K{c + 1}
-                                </text>
-
-                                {/* Score badge at top of column */}
-                                {count > 0 && (
-                                  <text x={cx} y={Math.max(peakY - 4, 10)} fontSize="8" fontWeight="900" fill="#0F172A" textAnchor="middle">
-                                    {count}
+                              <g key={`h-${s}`}>
+                                <line
+                                  x1={padLeft}
+                                  y1={y}
+                                  x2={padLeft + gridWidth}
+                                  y2={y}
+                                  stroke={isMajor ? '#94A3B8' : '#E2E8F0'}
+                                  strokeWidth={isMajor ? 1.2 : 0.75}
+                                />
+                                {isMajor && (
+                                  <text
+                                    x={padLeft - 10}
+                                    y={y + 4}
+                                    textAnchor="end"
+                                    fontSize="12"
+                                    fontWeight="800"
+                                    fill="#0F172A"
+                                  >
+                                    {s}
                                   </text>
                                 )}
-
-                                {/* Compact Answer Node Dots for answered pairs in this column (from bottom to top) */}
-                                {new Array(numRows).fill(0).map((_, p) => {
-                                  if (p >= count) return null; // only render answered pairs
-
-                                  const cy = (svgHeight - 22) - (p * cellHeight);
-                                  const uAns = userAnsList[p];
-                                  
-                                  // Calculate expected answer & pair
-                                  const DIGITS_COUNT = colDigits.length || 28;
-                                  const idxBottom = DIGITS_COUNT - 1 - p;
-                                  const idxTop = idxBottom - 1;
-                                  const d1 = colDigits[idxBottom];
-                                  const d2 = colDigits[idxTop];
-                                  const expectedSum = (d1 !== undefined && d2 !== undefined) ? (d1 + d2) % 10 : null;
-
-                                  const isCorrect = uAns !== null && uAns !== undefined && expectedSum !== null && uAns === expectedSum;
-
-                                  return (
-                                    <g key={p}>
-                                      {/* Small Colored Node Dot Circle (r=3.5px, no text inside) */}
-                                      <circle
-                                        cx={cx}
-                                        cy={cy}
-                                        r="3.5"
-                                        fill={isCorrect ? '#10B981' : '#EF4444'}
-                                      >
-                                        <title>
-                                          {`Kolom ${c + 1}, Baris ${p + 1}: Soal (${d2} + ${d1} = ${d1 + d2} -> Kunci: ${expectedSum}) | Jawaban Peserta: ${uAns} (${isCorrect ? 'BENAR ✓' : 'SALAH ✕'})`}
-                                        </title>
-                                      </circle>
-                                    </g>
-                                  );
-                                })}
                               </g>
                             );
                           })}
 
-                          {/* Thinner Blue Work Curve Line Connecting Peak Nodes */}
-                          {(() => {
-                            const polylinePoints = peakPoints.map(pt => `${pt.x},${pt.y}`).join(' ');
+                          {/* Vertical Grid Lines for each column 0 to 50 */}
+                          {new Array(totalCols + 1).fill(0).map((_, c) => {
+                            const x = padLeft + c * cellWidth;
+                            const isMajor = c % 5 === 0;
                             return (
-                              <polyline
-                                fill="none"
-                                stroke="#0284C7"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                points={polylinePoints}
+                              <line
+                                key={`v-${c}`}
+                                x1={x}
+                                y1={padTop}
+                                x2={x}
+                                y2={padTop + gridHeight}
+                                stroke={isMajor ? '#94A3B8' : '#E2E8F0'}
+                                strokeWidth={isMajor ? 1.2 : 0.75}
                               />
                             );
-                          })()}
+                          })}
+
+                          {/* X-Axis Column Numbers 1 to 50 */}
+                          {new Array(totalCols).fill(0).map((_, c) => {
+                            const cx = padLeft + (c + 0.5) * cellWidth;
+                            return (
+                              <text
+                                key={`lbl-${c}`}
+                                x={cx}
+                                y={padTop + gridHeight + 18}
+                                textAnchor="middle"
+                                fontSize="9.5"
+                                fontWeight="700"
+                                fill="#334155"
+                              >
+                                {c + 1}
+                              </text>
+                            );
+                          })}
+
+                          {/* Horizontal Dashed Midpoint Line: (Tertinggi + Terendah) / 2 */}
+                          <line
+                            x1={padLeft}
+                            y1={midY}
+                            x2={padLeft + gridWidth}
+                            y2={midY}
+                            stroke="#000000"
+                            strokeWidth="2.5"
+                            strokeDasharray="8 6"
+                            strokeLinecap="round"
+                          />
+
+                          {/* Solid Black Trend Work Curve */}
+                          <polyline
+                            fill="none"
+                            stroke="#000000"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            points={polylineStr}
+                          />
+
+                          {/* Node Dots on Each Column Peak */}
+                          {linePoints.map((pt, idx) => (
+                            <circle
+                              key={idx}
+                              cx={pt.x}
+                              cy={pt.y}
+                              r="3"
+                              fill="#000000"
+                            >
+                              <title>{`Kolom ${pt.col}: ${pt.score} Jawaban`}</title>
+                            </circle>
+                          ))}
 
                         </svg>
                       );

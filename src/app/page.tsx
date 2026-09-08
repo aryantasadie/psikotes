@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
@@ -40,11 +40,9 @@ export default function LoginPage() {
           if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
         } catch {}
       } else {
-        // Ambil session untuk mengecek role
-        const sessionRes = await fetch('/api/auth/session');
-        const sessionData = await sessionRes.json();
-        
-        const role = sessionData?.user?.role;
+        // Ambil session secara aman dengan getSession()
+        const sessionData = await getSession();
+        const role = sessionData?.user ? (sessionData.user as any).role : undefined;
 
         if (role === 'superadmin') {
           // Exit fullscreen for superadmin
