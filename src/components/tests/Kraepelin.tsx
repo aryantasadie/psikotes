@@ -3,51 +3,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { OFFICIAL_KRAEPELIN_MATRIX, getOfficialKraepelinColumn } from '@/lib/kraepelinMatrix';
+import { 
+  calculateKraepelinFullAnalysis, 
+  getPankerNorm, 
+  getTinkerNorm, 
+  getJankerNorm, 
+  getHankerNorm,
+  KraepelinColumnDetail,
+  KraepelinAnalysisResult 
+} from '@/lib/kraepelinScoring';
 
-export interface KraepelinColumnDetail {
-  columnIdx: number;
-  dikerjakan: number;
-  benar: number;
-  salah: number;
-  digits: number[];
-  userAnswers: (number | null)[];
-}
-
-export interface KraepelinResultData {
-  pankerRaw: number;
-  tinkerRaw: number;
-  jankerRaw: number;
-  pankerNorm: number;
-  tinkerNorm: number;
-  jankerNorm: number;
-  hankerNorm: number;
-  columnScores: number[];
-  perKolomDetails: KraepelinColumnDetail[];
-}
-
-export const getKraepelinPankerNorm = (raw: number): number => {
-  if (raw >= 18) return 5;
-  if (raw >= 14) return 4;
-  if (raw >= 12) return 3;
-  if (raw >= 8) return 2;
-  return 1;
-};
-
-export const getKraepelinTinkerNorm = (rawError: number): number => {
-  if (rawError <= 2) return 5;
-  if (rawError <= 6) return 4;
-  if (rawError <= 10) return 3;
-  if (rawError <= 19) return 2;
-  return 1;
-};
-
-export const getKraepelinJankerNorm = (rawRange: number): number => {
-  if (rawRange <= 3) return 5;
-  if (rawRange <= 7) return 4;
-  if (rawRange <= 9) return 3;
-  if (rawRange <= 14) return 2;
-  return 1;
-};
+export type { KraepelinColumnDetail, KraepelinAnalysisResult };
+export const getKraepelinPankerNorm = (raw: number) => getPankerNorm(raw).scale1to5;
+export const getKraepelinTinkerNorm = (rawError: number) => getTinkerNorm(rawError).scale1to5;
+export const getKraepelinJankerNorm = (rawRange: number) => getJankerNorm(rawRange).scale1to5;
 
 export default function KraepelinTest() {
   const router = useRouter();
@@ -354,74 +323,23 @@ export default function KraepelinTest() {
     setTestFinished(true);
 
     try {
-      // 1. Calculate Per-Column Details and Raw Scores
-      const perKolomDetails: KraepelinColumnDetail[] = [];
-      const columnScores: number[] = [];
-      let totalBenar = 0;
-      let totalSalah = 0;
+      // Calculate Official Kraepelin Analysis (PANKER, TINKER, JANKER, HANKER, SS, Norms)
+      const currentAnswers = userAnswersRef.current.length > 0 ? userAnswersRef.current : userAnswers;
+      const analysis = calculateKraepelinFullAnalysis(matrix, currentAnswers);
 
-      for (let c = 0; c < TOTAL_COLUMNS; c++) {
-        const colDigits = matrix[c] || [];
-        const answers = userAnswers[c] || [];
-
-        let colDikerjakan = 0;
-        let colBenar = 0;
-        let colSalah = 0;
-
-        for (let p = 0; p < answers.length; p++) {
-          const ans = answers[p];
-          if (ans !== null && ans !== undefined) {
-            colDikerjakan++;
-            const expectedSum = (colDigits[p] + colDigits[p + 1]) % 10;
-
-            if (ans === expectedSum) {
-              colBenar++;
-            } else {
-              colSalah++;
-            }
-          }
-        }
-
-        columnScores.push(colBenar);
-        totalBenar += colBenar;
-        totalSalah += colSalah;
-
-        perKolomDetails.push({
-          columnIdx: c,
-          dikerjakan: colDikerjakan,
-          benar: colBenar,
-          salah: colSalah,
-          digits: colDigits,
-          userAnswers: answers
-        });
-      }
-
-      // 2. Calculate PANKER, TINKER, JANKER, HANKER
-      const pankerRaw = parseFloat((totalBenar / TOTAL_COLUMNS).toFixed(2));
-      const tinkerRaw = totalSalah;
-      const validScores = columnScores.filter(s => s > 0);
-      const maxScore = validScores.length > 0 ? Math.max(...validScores) : 0;
-      const minScore = validScores.length > 0 ? Math.min(...validScores) : 0;
-      const jankerRaw = maxScore - minScore;
-
-      const pankerNorm = getKraepelinPankerNorm(pankerRaw);
-      const tinkerNorm = getKraepelinTinkerNorm(tinkerRaw);
-      const jankerNorm = getKraepelinJankerNorm(jankerRaw);
-      const hankerNorm = Math.round((pankerNorm + tinkerNorm + jankerNorm) / 3);
-
-      const resultPayload: KraepelinResultData = {
-        pankerRaw,
-        tinkerRaw,
-        jankerRaw,
-        pankerNorm,
-        tinkerNorm,
-        jankerNorm,
-        hankerNorm,
-        columnScores,
-        perKolomDetails
+      const resultPayload = {
+        ...analysis,
+        // Backward-compatible fields
+        pankerRaw: analysis.panker.raw,
+        tinkerRaw: analysis.tinker.raw,
+        jankerRaw: analysis.janker.raw,
+        pankerNorm: analysis.panker.scale1to5,
+        tinkerNorm: analysis.tinker.scale1to5,
+        jankerNorm: analysis.janker.scale1to5,
+        hankerNorm: analysis.hanker.scale1to5,
       };
 
-      // 3. Save to backend
+      // Save to backend
       await fetch('/api/answers/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
