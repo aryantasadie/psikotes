@@ -23,6 +23,20 @@ export default function PAPI() {
   const router = useRouter();
 
   useEffect(() => {
+    // Restore draft answers if available
+    if (typeof window !== 'undefined') {
+      try {
+        const draft = localStorage.getItem('test_draft_answers_papi');
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            setAnswers(parsed);
+            setShowInstruction(false);
+          }
+        }
+      } catch (e) {}
+    }
+
     fetch('/api/questions?testType=PAPI_KOSTICK')
       .then(res => res.json())
       .then(data => {
@@ -42,10 +56,16 @@ export default function PAPI() {
   }, []);
 
   const handleSelect = (questionId: string, optionIndex: number) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: optionIndex === 0 ? 'A' : 'B'
-    }));
+    setAnswers(prev => {
+      const updated = {
+        ...prev,
+        [questionId]: optionIndex === 0 ? 'A' : 'B'
+      };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('test_draft_answers_papi', JSON.stringify(updated));
+      }
+      return updated;
+    });
   };
 
   const calculateProgress = () => {
@@ -77,9 +97,14 @@ export default function PAPI() {
       });
       if (res.ok) {
         const data = await res.json();
-        localStorage.setItem('papiResult', JSON.stringify(data.scores));
-        localStorage.setItem('test_completed_papi', 'true');
-        localStorage.setItem('test_completed_papikostick', 'true');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('test_draft_answers_papi');
+          localStorage.removeItem('test_timer_left_papikostick');
+          localStorage.removeItem('test_timer_left_papi');
+          localStorage.setItem('papiResult', JSON.stringify(data.scores));
+          localStorage.setItem('test_completed_papi', 'true');
+          localStorage.setItem('test_completed_papikostick', 'true');
+        }
         router.push('/testee/session');
       } else {
         console.error("Gagal mengirim jawaban.");

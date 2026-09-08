@@ -23,6 +23,20 @@ export default function DISC() {
   const router = useRouter();
 
   useEffect(() => {
+    // Restore draft answers if available
+    if (typeof window !== 'undefined') {
+      try {
+        const draft = localStorage.getItem('test_draft_answers_disc');
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            setAnswers(parsed);
+            setShowInstruction(false);
+          }
+        }
+      } catch (e) {}
+    }
+
     fetch('/api/questions?testType=DISC')
       .then(res => res.json())
       .then(data => {
@@ -57,6 +71,9 @@ export default function DISC() {
           delete newAnswers[`${questionId}_most`];
         }
         newAnswers[`${questionId}_least`] = optionPrefix;
+      }
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('test_draft_answers_disc', JSON.stringify(newAnswers));
       }
       return newAnswers;
     });
@@ -95,9 +112,13 @@ export default function DISC() {
       });
       if (res.ok) {
         const data = await res.json();
-        localStorage.setItem('discResult', JSON.stringify(data.scores));
         await fetch('/api/answers/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ testType: 'DISC', answers }) });
-        localStorage.setItem('test_completed_disc', 'true'); 
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('test_draft_answers_disc');
+          localStorage.removeItem('test_timer_left_disc');
+          localStorage.setItem('discResult', JSON.stringify(data.scores));
+          localStorage.setItem('test_completed_disc', 'true');
+        }
         router.push('/testee/session');
       } else {
         console.error("Gagal mengirim jawaban.");

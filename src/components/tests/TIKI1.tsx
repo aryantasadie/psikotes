@@ -20,6 +20,20 @@ export default function TIKI1() {
   const router = useRouter();
 
   useEffect(() => {
+    // Restore draft answers if available
+    if (typeof window !== 'undefined') {
+      try {
+        const draft = localStorage.getItem('test_draft_answers_tiki1');
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            setAnswers(parsed);
+            setShowInstruction(false);
+          }
+        }
+      } catch (e) {}
+    }
+
     fetch('/api/questions?testType=TIKI 1')
       .then(res => res.json())
       .then(data => {
@@ -38,7 +52,11 @@ export default function TIKI1() {
         body: JSON.stringify({ testType: 'TIKI 1', answers })
       });
     } catch(e) { console.error(e); }
-    localStorage.setItem('test_completed_tiki1', 'true'); 
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('test_draft_answers_tiki1');
+      localStorage.removeItem('test_timer_left_tiki1');
+      localStorage.setItem('test_completed_tiki1', 'true');
+    }
     router.push('/testee/session');
   };
 
@@ -52,7 +70,11 @@ export default function TIKI1() {
   const handleAnswer = (val: string) => {
     const q = questions[currentIndex];
     if (q) {
-      setAnswers({ ...answers, [q.id]: val });
+      const updated = { ...answers, [q.id]: val };
+      setAnswers(updated);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('test_draft_answers_tiki1', JSON.stringify(updated));
+      }
     }
   };
 

@@ -23,6 +23,20 @@ export default function MSDT() {
   const router = useRouter();
 
   useEffect(() => {
+    // Restore draft answers if available
+    if (typeof window !== 'undefined') {
+      try {
+        const draft = localStorage.getItem('test_draft_answers_msdt');
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            setAnswers(parsed);
+            setShowInstruction(false);
+          }
+        }
+      } catch (e) {}
+    }
+
     fetch('/api/questions?testType=MSDT')
       .then(res => res.json())
       .then(data => {
@@ -42,10 +56,16 @@ export default function MSDT() {
   }, []);
 
   const handleSelect = (questionId: string, optionIndex: number) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: optionIndex === 0 ? 'A' : 'B'
-    }));
+    setAnswers(prev => {
+      const updated = {
+        ...prev,
+        [questionId]: optionIndex === 0 ? 'A' : 'B'
+      };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('test_draft_answers_msdt', JSON.stringify(updated));
+      }
+      return updated;
+    });
   };
 
   const calculateProgress = () => {
@@ -76,9 +96,14 @@ export default function MSDT() {
       });
       if (res.ok) {
         const data = await res.json();
-        localStorage.setItem('msdtResult', JSON.stringify(data));
         await fetch('/api/answers/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ testType: 'MSDT', answers }) });
-        localStorage.setItem('test_completed_msdt', 'true'); router.push('/testee/session');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('test_draft_answers_msdt');
+          localStorage.removeItem('test_timer_left_msdt');
+          localStorage.setItem('msdtResult', JSON.stringify(data));
+          localStorage.setItem('test_completed_msdt', 'true');
+        }
+        router.push('/testee/session');
       } else {
         console.error("Gagal mengirim jawaban.");
       }

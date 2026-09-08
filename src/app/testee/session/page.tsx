@@ -45,8 +45,10 @@ export default function TesteeSession() {
           }
         }
 
-        // Check localStorage for completed tests
-        const completed = [];
+        // Check DB completedTests + localStorage for completed tests
+        const dbCompleted = Array.isArray(data.completedTests) ? data.completedTests : [];
+        const completedSet = new Set<string>(dbCompleted);
+
         for (const testName of (data.sequence || [])) {
           const slug = testName.toLowerCase().replace(/[\s\-_]+/g, '');
           if (
@@ -55,19 +57,39 @@ export default function TesteeSession() {
             (slug.includes('papi') && (localStorage.getItem('test_completed_papi') || localStorage.getItem('test_completed_papikostick'))) ||
             ((slug.includes('kraepelin') || slug.includes('kreapelin')) && (localStorage.getItem('test_completed_kraepelin') || localStorage.getItem('test_completed_kreapelin')))
           ) {
-            completed.push(testName);
+            completedSet.add(testName);
           }
         }
-        setCompletedTests(completed);
+        setCompletedTests(Array.from(completedSet));
         
-        // Cek apakah data nama & umur sudah diisi di session storage
+        // Cek apakah data nama & umur sudah diisi atau sudah pernah mulai tes
         const savedName = sessionStorage.getItem('testee_name');
         const savedAge = sessionStorage.getItem('testee_age');
+        const localSavedName = localStorage.getItem('testee_name');
+        const localSavedAge = localStorage.getItem('testee_age');
+
+        // Cek jika ada draft tes yang sedang berjalan
+        let hasDraftTest = false;
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && (k.startsWith('test_draft_answers_') || k.startsWith('kraepelin_draft_') || k.startsWith('test_timer_left_'))) {
+            hasDraftTest = true;
+            break;
+          }
+        }
+
+        const hasExistingProfile = (savedName && savedAge) || (localSavedName && localSavedAge) || data.userName || completedSet.size > 0 || hasDraftTest;
         
-        if (savedName && savedAge) {
-          setOnboardingStage(3); // Langsung siap tes
+        if (hasExistingProfile) {
+          const finalName = savedName || localSavedName || data.userName || 'Peserta';
+          const finalAge = savedAge || localSavedAge || '22';
+          sessionStorage.setItem('testee_name', finalName);
+          sessionStorage.setItem('testee_age', finalAge);
+          localStorage.setItem('testee_name', finalName);
+          localStorage.setItem('testee_age', finalAge);
+          setOnboardingStage(3); // Langsung siap tes & skip form
         } else {
-          setOnboardingStage(1); // Minta input form
+          setOnboardingStage(1); // Minta input form untuk peserta baru
         }
         
         setLoading(false);
@@ -117,10 +139,13 @@ export default function TesteeSession() {
       console.error('Failed to sync name to database:', err);
     }
     
-    // Simpan ke session storage
+    // Simpan ke session storage & local storage
     sessionStorage.setItem('testee_name', name.trim());
     sessionStorage.setItem('testee_dob', dob);
     sessionStorage.setItem('testee_age', age.toString());
+    localStorage.setItem('testee_name', name.trim());
+    localStorage.setItem('testee_dob', dob);
+    localStorage.setItem('testee_age', age.toString());
     
     // Pindah ke briefing
     setOnboardingStage(2);

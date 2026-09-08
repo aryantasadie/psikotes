@@ -16,13 +16,40 @@ export default function TestTimer({
   isActive = true,
   testName
 }: TestTimerProps) {
-  const [timeLeft, setTimeLeft] = useState(durationSeconds);
+  const timerStorageKey = testName
+    ? `test_timer_left_${testName.toLowerCase().replace(/[\s\-_]+/g, '')}`
+    : null;
+
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    if (typeof window !== 'undefined' && timerStorageKey) {
+      const saved = localStorage.getItem(timerStorageKey);
+      if (saved !== null) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed > 0 && parsed <= durationSeconds) {
+          return parsed;
+        }
+      }
+    }
+    return durationSeconds;
+  });
+
   const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
+    if (timerStorageKey && typeof window !== 'undefined') {
+      const saved = localStorage.getItem(timerStorageKey);
+      if (saved !== null) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed > 0 && parsed <= durationSeconds) {
+          setTimeLeft(parsed);
+          setIsExpired(false);
+          return;
+        }
+      }
+    }
     setTimeLeft(durationSeconds);
     setIsExpired(false);
-  }, [durationSeconds]);
+  }, [durationSeconds, timerStorageKey]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -30,6 +57,9 @@ export default function TestTimer({
     if (timeLeft <= 0) {
       if (!isExpired) {
         setIsExpired(true);
+        if (timerStorageKey && typeof window !== 'undefined') {
+          localStorage.removeItem(timerStorageKey);
+        }
         if (autoSubmit && onTimeUp) {
           onTimeUp();
         }
@@ -39,7 +69,15 @@ export default function TestTimer({
 
     const interval = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev <= 1) {
+        const next = prev - 1;
+        if (timerStorageKey && typeof window !== 'undefined') {
+          if (next > 0) {
+            localStorage.setItem(timerStorageKey, String(next));
+          } else {
+            localStorage.removeItem(timerStorageKey);
+          }
+        }
+        if (next <= 0) {
           clearInterval(interval);
           if (!isExpired) {
             setIsExpired(true);
@@ -49,12 +87,12 @@ export default function TestTimer({
           }
           return 0;
         }
-        return prev - 1;
+        return next;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isActive, timeLeft, isExpired, autoSubmit, onTimeUp]);
+  }, [isActive, timeLeft, isExpired, autoSubmit, onTimeUp, timerStorageKey]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;

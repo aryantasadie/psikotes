@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import TestTimer from './TestTimer';
 
 interface Question {
   id: number;
@@ -19,6 +20,19 @@ export default function CFIT4() {
   const router = useRouter();
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const draft = localStorage.getItem('test_draft_answers_cfit4');
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            setAnswers(parsed);
+            setShowInstruction(false);
+          }
+        }
+      } catch (e) {}
+    }
+
     fetch('/api/questions?testType=CFIT 4')
       .then(res => res.json())
       .then(data => {
@@ -37,7 +51,11 @@ export default function CFIT4() {
         body: JSON.stringify({ testType: 'CFIT 4', answers })
       });
     } catch(e) { console.error(e); }
-    localStorage.setItem('test_completed_cfit4', 'true'); 
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('test_draft_answers_cfit4');
+      localStorage.removeItem('test_timer_left_cfit4');
+      localStorage.setItem('test_completed_cfit4', 'true');
+    }
     router.push('/testee/session');
   };
 
@@ -51,7 +69,11 @@ export default function CFIT4() {
   const handleAnswer = (val: string) => {
     const qItem = questions[currentIndex];
     if (qItem) {
-      setAnswers({ ...answers, [qItem.id]: val });
+      const updated = { ...answers, [qItem.id]: val };
+      setAnswers(updated);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('test_draft_answers_cfit4', JSON.stringify(updated));
+      }
     }
   };
 
@@ -82,6 +104,8 @@ export default function CFIT4() {
 
   return (
     <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', color: '#333', display: 'flex', alignItems: 'center', position: 'relative' }}>
+      {/* Top Left Floating Timer (2.5 Min, Auto Submit) */}
+      <TestTimer durationSeconds={150} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="cfit4" />
       <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', gap: '30px', alignItems: 'flex-start', flexWrap: 'wrap', width: '100%' }}>
         {/* Main Test Card */}
         <div style={{ flex: '1 1 600px', background: 'white', padding: '40px', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>

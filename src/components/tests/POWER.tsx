@@ -19,6 +19,19 @@ export default function POWER() {
   const router = useRouter();
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const draft = localStorage.getItem('test_draft_answers_power');
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            setAnswers(parsed);
+            setShowInstruction(false);
+          }
+        }
+      } catch (e) {}
+    }
+
     fetch('/api/questions?testType=POWER')
       .then(res => res.json())
       .then(data => {
@@ -38,17 +51,23 @@ export default function POWER() {
   }, []);
 
   const handleSelect = (questionId: string, optionIndex: number) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: optionIndex === 0 ? 'A' : 'B'
-    }));
+    const val = optionIndex === 0 ? 'A' : 'B';
+    const updated = {
+      ...answers,
+      [questionId]: val
+    };
+    setAnswers(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('test_draft_answers_power', JSON.stringify(updated));
+    }
   };
 
   const handleSubmit = async () => {
     const unanswered = questions.filter(q => !answers[q.id]);
     
     if (unanswered.length > 0) {
-            return;
+      alert(`Masih ada ${unanswered.length} soal yang belum dijawab. Harap jawab semua soal.`);
+      return;
     }
 
     setSubmitting(true);
@@ -60,10 +79,13 @@ export default function POWER() {
       });
       if (res.ok) {
         const data = await res.json();
-        localStorage.setItem('powerResult', JSON.stringify(data));
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('powerResult', JSON.stringify(data));
+          localStorage.removeItem('test_draft_answers_power');
+          localStorage.setItem('test_completed_power', 'true');
+          localStorage.setItem('test_completed_powerleader', 'true');
+        }
         await fetch('/api/answers/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ testType: 'POWER LEADER', answers }) });
-        localStorage.setItem('test_completed_power', 'true');
-        localStorage.setItem('test_completed_powerleader', 'true');
         router.push('/testee/session');
       } else {
         console.error("Gagal mengirim jawaban.");

@@ -20,6 +20,20 @@ export default function WPT() {
   const router = useRouter();
 
   useEffect(() => {
+    // Restore draft answers if available
+    if (typeof window !== 'undefined') {
+      try {
+        const draft = localStorage.getItem('test_draft_answers_wpt');
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            setAnswers(parsed);
+            setShowInstruction(false);
+          }
+        }
+      } catch (e) {}
+    }
+
     fetch('/api/questions?testType=WPT')
       .then(res => res.json())
       .then(data => {
@@ -43,7 +57,11 @@ export default function WPT() {
         })
       });
     } catch(e) { console.error(e); }
-    localStorage.setItem('test_completed_wpt', 'true'); 
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('test_draft_answers_wpt');
+      localStorage.removeItem('test_timer_left_wpt');
+      localStorage.setItem('test_completed_wpt', 'true');
+    }
     router.push('/testee/session');
   };
 
@@ -57,7 +75,11 @@ export default function WPT() {
   const handleAnswer = (val: string) => {
     const qItem = questions[currentIndex];
     if (qItem) {
-      setAnswers({ ...answers, [qItem.id]: val });
+      const updated = { ...answers, [qItem.id]: val };
+      setAnswers(updated);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('test_draft_answers_wpt', JSON.stringify(updated));
+      }
     }
   };
 

@@ -82,6 +82,7 @@ export default function KraepelinTest() {
   const [matrix, setMatrix] = useState<number[][]>([]);
   // User answers matrix: userAnswers[col][pairIdx]
   const [userAnswers, setUserAnswers] = useState<(number | null)[][]>([]);
+  const userAnswersRef = useRef<(number | null)[][]>([]);
 
   // Inner scroll container & item refs
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -115,7 +116,7 @@ export default function KraepelinTest() {
     } catch (e) {}
   };
 
-  // Load Official Printed Kraepelin Test Paper Matrix on mount
+  // Load Official Printed Kraepelin Test Paper Matrix on mount & restore draft if disconnected
   useEffect(() => {
     const newMatrix: number[][] = [];
     const newAnswers: (number | null)[][] = [];
@@ -127,7 +128,51 @@ export default function KraepelinTest() {
     }
 
     setMatrix(newMatrix);
-    setUserAnswers(newAnswers);
+
+    // Check for previous draft progress (e.g. participant was disconnected at Column 30)
+    let initialCol = 0;
+    let initialAnswers = newAnswers;
+
+    if (typeof window !== 'undefined') {
+      try {
+        const savedColStr = localStorage.getItem('kraepelin_draft_col');
+        const savedAnsStr = localStorage.getItem('kraepelin_draft_answers');
+        if (savedColStr !== null && savedAnsStr !== null) {
+          const parsedCol = parseInt(savedColStr, 10);
+          const parsedAns = JSON.parse(savedAnsStr);
+          if (!isNaN(parsedCol) && parsedCol >= 0 && parsedCol < TOTAL_COLUMNS && Array.isArray(parsedAns)) {
+            const colAns = parsedAns[parsedCol];
+            let firstEmptyPairIdx = 0;
+            if (Array.isArray(colAns)) {
+              const foundIdx = colAns.findIndex((ans: any) => ans === null || ans === undefined);
+              if (foundIdx !== -1) {
+                firstEmptyPairIdx = foundIdx;
+              } else {
+                firstEmptyPairIdx = Math.max(0, colAns.length - 1);
+              }
+            }
+
+            // If there's any progress made (either in col > 0 or in col 0 answered pairs)
+            const hasProgress = parsedCol > 0 || firstEmptyPairIdx > 0 || parsedAns.some((c: any[]) => Array.isArray(c) && c.some(x => x !== null));
+            if (hasProgress) {
+              initialCol = parsedCol;
+              initialAnswers = parsedAns;
+              currentColRef.current = parsedCol;
+              setCurrentCol(parsedCol);
+              currentPairIdxRef.current = firstEmptyPairIdx;
+              setCurrentPairIdx(firstEmptyPairIdx);
+              setOnboarding(false);
+              setTestStarted(true);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error restoring Kraepelin draft:', e);
+      }
+    }
+
+    setUserAnswers(initialAnswers);
+    userAnswersRef.current = initialAnswers;
   }, []);
 
   // Strict 15-second column auto-switch countdown timer
@@ -149,6 +194,11 @@ export default function KraepelinTest() {
             setCurrentPairIdx(0);
             playTone(880, 0.25, 'triangle');
             setShowPindah(true);
+
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('kraepelin_draft_col', String(nextCol));
+              localStorage.setItem('kraepelin_draft_answers', JSON.stringify(userAnswersRef.current));
+            }
 
             setTimeout(() => {
               setShowPindah(false);
@@ -220,6 +270,11 @@ export default function KraepelinTest() {
       setCurrentPairIdx(0);
       setTimeLeft(COLUMN_DURATION);
 
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('kraepelin_draft_col', String(nextCol));
+        localStorage.setItem('kraepelin_draft_answers', JSON.stringify(userAnswersRef.current));
+      }
+
       setTimeout(() => {
         setShowPindah(false);
         setIsTransitioning(false);
@@ -254,6 +309,10 @@ export default function KraepelinTest() {
       const copy = prev.map(c => [...c]);
       if (copy[cCol]) {
         copy[cCol][cPair] = digit;
+      }
+      userAnswersRef.current = copy;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('kraepelin_draft_answers', JSON.stringify(copy));
       }
       return copy;
     });
@@ -372,15 +431,23 @@ export default function KraepelinTest() {
         })
       });
 
-      localStorage.setItem('kraepelinResult', JSON.stringify(resultPayload));
-      localStorage.setItem('test_completed_kraepelin', 'true');
-      localStorage.setItem('test_completed_kreapelin', 'true');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('kraepelin_draft_col');
+        localStorage.removeItem('kraepelin_draft_answers');
+        localStorage.setItem('kraepelinResult', JSON.stringify(resultPayload));
+        localStorage.setItem('test_completed_kraepelin', 'true');
+        localStorage.setItem('test_completed_kreapelin', 'true');
+      }
 
       router.push('/testee/session');
     } catch (err) {
       console.error('Error submitting Kraepelin test:', err);
-      localStorage.setItem('test_completed_kraepelin', 'true');
-      localStorage.setItem('test_completed_kreapelin', 'true');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('kraepelin_draft_col');
+        localStorage.removeItem('kraepelin_draft_answers');
+        localStorage.setItem('test_completed_kraepelin', 'true');
+        localStorage.setItem('test_completed_kreapelin', 'true');
+      }
       router.push('/testee/session');
     }
   };

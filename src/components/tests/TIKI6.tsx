@@ -20,6 +20,19 @@ export default function TIKI6() {
   const router = useRouter();
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const draft = localStorage.getItem('test_draft_answers_tiki6');
+        if (draft) {
+          const parsed = JSON.parse(draft);
+          if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            setAnswers(parsed);
+            setShowInstruction(false);
+          }
+        }
+      } catch (e) {}
+    }
+
     fetch('/api/questions?testType=TIKI 6')
       .then(res => res.json())
       .then(data => {
@@ -38,7 +51,11 @@ export default function TIKI6() {
         body: JSON.stringify({ testType: 'TIKI 6', answers })
       });
     } catch(e) { console.error(e); }
-    localStorage.setItem('test_completed_tiki6', 'true'); 
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('test_draft_answers_tiki6');
+      localStorage.removeItem('test_timer_left_tiki6');
+      localStorage.setItem('test_completed_tiki6', 'true');
+    }
     router.push('/testee/session');
   };
 
@@ -52,7 +69,11 @@ export default function TIKI6() {
   const handleAnswer = (val: string) => {
     const qItem = questions[currentIndex];
     if (qItem) {
-      setAnswers({ ...answers, [qItem.id]: val });
+      const updated = { ...answers, [qItem.id]: val };
+      setAnswers(updated);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('test_draft_answers_tiki6', JSON.stringify(updated));
+      }
     }
   };
 
@@ -91,7 +112,7 @@ export default function TIKI6() {
   return (
     <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', color: '#333', display: 'flex', alignItems: 'center', position: 'relative' }}>
       {/* Top Left Floating Timer (4 Min, Auto Submit) */}
-      <TestTimer durationSeconds={4 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="TIKI 6" />
+      <TestTimer durationSeconds={4 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="tiki6" />
 
       <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', gap: '30px', alignItems: 'flex-start', flexWrap: 'wrap', width: '100%' }}>
         {/* Main Test Card */}
