@@ -645,7 +645,7 @@ export default function ReportPdfPage() {
                     return (
                       <tr key={aspectName} style={{ borderBottom: isLast ? '1px solid #CBD5E1' : '1px dotted #E2E8F0' }}>
                         <td style={{ padding: '8px', fontWeight: 700, color: '#334155', verticalAlign: 'top' }}>{aspectName}</td>
-                        <td style={{ padding: '8px', color: '#64748B', verticalAlign: 'top', paddingRight: '16px' }}>{descriptions[aspectName] || '-'}</td>
+                        <td style={{ padding: '8px', color: '#64748B', verticalAlign: 'top', paddingRight: '16px' }}>{asp.description || descriptions[aspectName] || '-'}</td>
                         {[1, 2, 3, 4, 5].map(score => {
                           const isTarget = score === targetScore;
                           const isPlot = finalScore === score;

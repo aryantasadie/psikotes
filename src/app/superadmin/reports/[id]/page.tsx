@@ -1053,7 +1053,7 @@ export default function ReportDetailPage() {
                                                 <td style={{ padding: '16px 24px' }}>
                                                     <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '13px', marginBottom: '4px' }}>{aspectName}</div>
                                                     <div style={{ fontSize: '11px', color: '#64748B', lineHeight: '1.4' }}>
-                                                        {descriptions[aspectName] || "Deskripsi aspek belum tersedia."}
+                                                        {asp.description || descriptions[aspectName] || "Deskripsi aspek belum tersedia."}
                                                     </div>
                                                 </td>
                                                 {[1, 2, 3, 4, 5].map(score => {
