@@ -27,18 +27,18 @@ export default function TesteeSession() {
         if (data.participantId) {
           const currentParticipant = localStorage.getItem('current_participant_id');
           if (currentParticipant !== String(data.participantId)) {
-            // Clear all test_completed flags for new participant
+            // Clear all test_completed flags & profile for new participant
             const keysToRemove = [];
             for (let i = 0; i < localStorage.length; i++) {
               const key = localStorage.key(i);
-              if (key && (key.startsWith('test_completed_') || key.endsWith('Result'))) {
+              if (key && (key.startsWith('test_completed_') || key.endsWith('Result') || key.startsWith('testee_') || key.startsWith('test_draft_') || key.startsWith('kraepelin_draft_') || key.startsWith('test_timer_left_'))) {
                 keysToRemove.push(key);
               }
             }
             keysToRemove.forEach(k => localStorage.removeItem(k));
             localStorage.setItem('current_participant_id', String(data.participantId));
             
-            // Juga bersihkan session storage umur jika ganti partisipan
+            // Juga bersihkan session storage jika ganti partisipan
             sessionStorage.removeItem('testee_name');
             sessionStorage.removeItem('testee_age');
             sessionStorage.removeItem('testee_dob');
@@ -62,34 +62,35 @@ export default function TesteeSession() {
         }
         setCompletedTests(Array.from(completedSet));
         
-        // Cek apakah data nama & umur sudah diisi atau sudah pernah mulai tes
+        // Cek apakah nama di database masih bawaan/default atau sudah diisi nama asli peserta
+        const isDefault = data.isDefaultName ?? true;
         const savedName = sessionStorage.getItem('testee_name');
         const savedAge = sessionStorage.getItem('testee_age');
         const localSavedName = localStorage.getItem('testee_name');
         const localSavedAge = localStorage.getItem('testee_age');
 
-        // Cek jika ada draft tes yang sedang berjalan
-        let hasDraftTest = false;
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && (k.startsWith('test_draft_answers_') || k.startsWith('kraepelin_draft_') || k.startsWith('test_timer_left_'))) {
-            hasDraftTest = true;
-            break;
-          }
-        }
+        // Jika nama di DB sudah diubah (bukan bawaan), atau sudah terisi nama custom di session saat ini
+        const hasCustomDbName = !isDefault && data.userName && !data.userName.toLowerCase().startsWith('peserta');
+        const hasValidLocalName = (savedName && !savedName.toLowerCase().startsWith('peserta') && savedAge) ||
+                                  (localSavedName && !localSavedName.toLowerCase().startsWith('peserta') && localSavedAge);
 
-        const hasExistingProfile = (savedName && savedAge) || (localSavedName && localSavedAge) || data.userName || completedSet.size > 0 || hasDraftTest;
-        
-        if (hasExistingProfile) {
-          const finalName = savedName || localSavedName || data.userName || 'Peserta';
+        if (hasCustomDbName || hasValidLocalName) {
+          const finalName = hasCustomDbName ? data.userName : (savedName || localSavedName || 'Peserta');
           const finalAge = savedAge || localSavedAge || '22';
           sessionStorage.setItem('testee_name', finalName);
           sessionStorage.setItem('testee_age', finalAge);
           localStorage.setItem('testee_name', finalName);
           localStorage.setItem('testee_age', finalAge);
-          setOnboardingStage(3); // Langsung siap tes & skip form
+          setOnboardingStage(3); // Sudah isi nama asli -> langsung lanjut ke tes
         } else {
-          setOnboardingStage(1); // Minta input form untuk peserta baru
+          // Bersihkan sisa data lama & wajibkan input form nama & tanggal lahir
+          sessionStorage.removeItem('testee_name');
+          sessionStorage.removeItem('testee_age');
+          sessionStorage.removeItem('testee_dob');
+          localStorage.removeItem('testee_name');
+          localStorage.removeItem('testee_age');
+          localStorage.removeItem('testee_dob');
+          setOnboardingStage(1); // Minta input nama asli & tanggal lahir
         }
         
         setLoading(false);

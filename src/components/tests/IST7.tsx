@@ -99,6 +99,18 @@ export default function IST7() {
                 alt="Contoh IST 7" 
                 style={{ maxWidth: '100%', maxHeight: '260px', borderRadius: '8px', border: '1px solid #cbd5e1', objectFit: 'contain' }} 
               />
+              <div style={{ textAlign: 'left', marginTop: '16px', fontSize: '13.5px', color: '#334155', lineHeight: '1.6', background: '#f8fafc', padding: '14px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <p style={{ margin: '0 0 8px 0', fontWeight: 700, color: '#0f172a' }}>CONTOH 07 :</p>
+                <p style={{ margin: '0 0 12px 0' }}>
+                  Jika potongan-potongan pada CONTOH 07 di bawah disusun (digabungkan), maka akan menghasilkan bentuk <strong>A</strong> oleh karena itu, pada lembar jawaban di CONTOH 07, huruf <strong>A</strong> harus dipilih.
+                </p>
+                <p style={{ margin: '0 0 8px 0', fontWeight: 700, color: '#0f172a' }}>CONTOH berikutnya :</p>
+                <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                  <li>Potongan-potongan CONTOH ke 08 setelah disusun (digabungkan) menghasilakan bentuk <strong>E</strong></li>
+                  <li>Potongan-potongan CONTOH ke 09 setelah disusun (digabungkan) menghasilakan bentuk <strong>B</strong></li>
+                  <li>Potongan-potongan CONTOH ke 10 setelah disusun (digabungkan) menghasilakan bentuk <strong>D</strong></li>
+                </ul>
+              </div>
             </div>
           </div>
 
@@ -135,7 +147,7 @@ export default function IST7() {
   const masterReferenceImg = isFirstBatch ? '/soal/ist7/referensi.jpeg' : '/soal/ist7/referensi2.jpeg';
 
   return (
-    <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', color: '#333', display: 'flex', alignItems: 'center', position: 'relative' }}>
+    <div style={{ padding: '30px 30px 160px 30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', color: '#333', display: 'flex', alignItems: 'center', position: 'relative' }}>
       {/* Top Left Floating Timer (7 Min, Auto Submit) */}
       <TestTimer durationSeconds={7 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="IST 7" />
 

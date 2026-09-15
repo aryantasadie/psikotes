@@ -594,25 +594,8 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     return () => clearInterval(streamInterval);
   }, [participantId, webcamActive, violationCount]);
 
-  // Audio beep on violation
-  const playAlertTone = () => {
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (AudioCtx) {
-        const ctx = new AudioCtx();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(440, ctx.currentTime);
-        gain.gain.setValueAtTime(0.3, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.5);
-      }
-    } catch (e) {}
-  };
+  // Audio beep on violation (disabled per request)
+  const playAlertTone = () => {};
 
   // Event Listener: Tab Switch & Window Blur Detection
   useEffect(() => {

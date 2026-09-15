@@ -3,6 +3,8 @@
  * Implementasi Formula dan Tabel Norma Standar dari file "Skoring Tes Kraeplin.xlsx"
  */
 
+import { OFFICIAL_KRAEPELIN_MATRIX } from '@/lib/kraepelinMatrix';
+
 export type KraepelinCategory = 'TS' | 'T' | 'CT' | 'S' | 'AR' | 'R' | 'RS';
 
 export const KRAEPELIN_CATEGORY_LABELS: Record<KraepelinCategory, string> = {
@@ -197,7 +199,8 @@ export function calculateKraepelinFullAnalysis(
   matrix: number[][],
   userAnswers: (number | null)[][]
 ): KraepelinAnalysisResult {
-  const TOTAL_COLUMNS = matrix.length || 50;
+  const activeMatrix = (Array.isArray(matrix) && matrix.length > 0) ? matrix : OFFICIAL_KRAEPELIN_MATRIX;
+  const TOTAL_COLUMNS = 50;
   const perKolomDetails: KraepelinColumnDetail[] = [];
   const columnScores: number[] = [];
   let totalBenar = 0;
@@ -205,8 +208,9 @@ export function calculateKraepelinFullAnalysis(
   let totalDikerjakan = 0;
 
   for (let c = 0; c < TOTAL_COLUMNS; c++) {
-    const colDigits = matrix[c] || [];
-    const answers = userAnswers[c] || [];
+    const rawCol = activeMatrix[c] || [];
+    const colDigits = (rawCol.length > 0) ? rawCol : (OFFICIAL_KRAEPELIN_MATRIX[c] || []);
+    const answers = (Array.isArray(userAnswers) && userAnswers[c]) ? userAnswers[c] : [];
 
     let colDikerjakan = 0;
     let colBenar = 0;
@@ -226,7 +230,7 @@ export function calculateKraepelinFullAnalysis(
       }
     }
 
-    columnScores.push(colBenar);
+    columnScores.push(colDikerjakan);
     totalBenar += colBenar;
     totalSalah += colSalah;
     totalDikerjakan += colDikerjakan;

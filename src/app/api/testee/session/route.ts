@@ -58,12 +58,21 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { name: true }
+    select: { name: true, username: true }
   });
+
+  const rawName = (user?.name || '').trim();
+  const username = (user?.username || '').trim();
+  const isDefaultName = !rawName || 
+    rawName.toLowerCase().startsWith('peserta ') || 
+    rawName.toLowerCase() === 'peserta' ||
+    rawName.toLowerCase() === username.toLowerCase();
 
   return NextResponse.json({ 
     participantId: participant.id,
-    userName: user?.name || null,
+    userName: rawName,
+    username: username,
+    isDefaultName,
     sequence,
     completedTests
   });

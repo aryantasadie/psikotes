@@ -94,57 +94,7 @@ export default function TestTimer({
     return () => clearInterval(interval);
   }, [isActive, timeLeft, isExpired, autoSubmit, onTimeUp, timerStorageKey]);
 
-  const minutes = Math.floor(timeLeft / 60);
-  const seconds = timeLeft % 60;
-  const timeFormatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-
-  const isLowTime = timeLeft <= 60 && timeLeft > 0;
-
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        top: '20px',
-        left: '20px',
-        zIndex: 9999,
-        background: isExpired
-          ? '#FEF2F2'
-          : isLowTime
-          ? '#FFFBEB'
-          : '#FFFFFF',
-        color: isExpired
-          ? '#DC2626'
-          : isLowTime
-          ? '#D97706'
-          : '#0F172A',
-        border: isExpired
-          ? '2px solid #EF4444'
-          : isLowTime
-          ? '2px solid #F59E0B'
-          : '2px solid #CBD5E1',
-        borderRadius: '16px',
-        padding: '10px 18px',
-        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        fontFamily: '"Inter", system-ui, sans-serif',
-        backdropFilter: 'blur(8px)',
-        transition: 'all 0.3s ease'
-      }}
-    >
-      <div style={{ fontSize: '20px' }}>
-        {isExpired ? '⚠️' : isLowTime ? '⏳' : '⏱️'}
-      </div>
-      <div>
-        <div style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748B' }}>
-          {testName ? `${testName} • ` : ''}
-          {isExpired ? (autoSubmit ? 'Waktu Habis!' : 'Waktu Habis (Wajib Selesai)') : 'Sisa Waktu'}
-        </div>
-        <div style={{ fontSize: '18px', fontWeight: 900, fontFamily: 'monospace', letterSpacing: '-0.02em' }}>
-          {timeFormatted}
-        </div>
-      </div>
-    </div>
-  );
+  // Timer runs silently in background (UI hidden per requirement)
+  return null;
 }
+

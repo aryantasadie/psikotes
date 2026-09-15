@@ -231,7 +231,7 @@ export const checkAnswerMatch = (userAns: any, correctKey: any, testType?: strin
   const cleanK = strKey.toLowerCase().replace(/\s+/g, ' ');
   if (cleanU === cleanK) return true;
 
-  // 3. Multi-answer match: "2.4" vs "24", "2,4", "4,2", "2 dan 4"
+  // 3. Multi-answer match: "2.4" vs "24", "2,4", "4,2", "2 dan 4", "25", "52", "BE"
   if (cleanK.includes('.') || cleanK.includes(',') || cleanK.includes(' ')) {
     const keyParts = cleanK.split(/[\.,\s]+/).filter(Boolean).sort();
     const userParts = cleanU.split(/[\.,\s]+/).filter(Boolean).sort();
@@ -239,6 +239,18 @@ export const checkAnswerMatch = (userAns: any, correctKey: any, testType?: strin
       if (JSON.stringify(keyParts) === JSON.stringify(userParts)) return true;
     }
   }
+
+  // Multi-digit set matching (e.g. "25" vs "52", "14" vs "41", "1245")
+  const combDigitsU = cleanU.replace(/\D/g, '').split('').sort().join('');
+  const combDigitsK = cleanK.replace(/\D/g, '').split('').sort().join('');
+  if (combDigitsU.length > 0 && combDigitsU === combDigitsK) return true;
+
+  // Letter to number conversion for options (e.g. "BE" -> "25", "AD" -> "14", "ABDE" -> "1245")
+  const letterToNumStr = (s: string) => s.toUpperCase().replace(/[^A-E]/g, '').split('').map(c => c.charCodeAt(0) - 64).sort().join('');
+  if (letterToNumStr(cleanU) === combDigitsK && combDigitsK.length > 0) return true;
+  if (combDigitsU === letterToNumStr(cleanK) && combDigitsU.length > 0) return true;
+
+
 
   // 4. Fractions, decimals, and thousand separators
   const parseNumOrFraction = (val: string): number | null => {
@@ -1386,7 +1398,16 @@ export default function ReportDetailPage() {
             const tinkerNorm = data?.tinkerNorm ?? 1;
             const jankerNorm = data?.jankerNorm ?? 1;
             const hankerNorm = data?.hankerNorm ?? 1;
-            const columnScores: number[] = new Array(50).fill(0).map((_, i) => data?.columnScores?.[i] ?? 0);
+            const columnScores: number[] = new Array(50).fill(0).map((_, i) => {
+              if (data?.perKolomDetails?.[i]?.dikerjakan !== undefined) {
+                return data.perKolomDetails[i].dikerjakan;
+              }
+              return data?.columnScores?.[i] ?? 0;
+            });
+
+            const maxScore = columnScores.length > 0 ? Math.max(...columnScores) : 0;
+            const minScore = columnScores.length > 0 ? Math.min(...columnScores) : 0;
+            const midScore = parseFloat(((maxScore + minScore) / 2).toFixed(2));
 
             const getKraepelinCatLabel = (norm: number) => {
               if (norm === 5) return { label: 'TS', text: 'Tinggi Sekali', color: '#047857', bg: '#D1FAE5' };
@@ -1434,20 +1455,12 @@ export default function ReportDetailPage() {
                     <div style={{ display: 'flex', gap: '16px', alignItems: 'center', fontSize: '12px', fontWeight: 700, flexWrap: 'wrap' }}>
                       <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ width: '22px', height: '3px', background: '#000000', borderRadius: '2px', display: 'inline-block' }} /> 
-                        Kurva Hasil Kerja (Skor Per Kolom)
+                        Kurva Hasil Kerja (Total Dijawab Per Kolom)
                       </span>
-                      {(() => {
-                        const validScores = columnScores.filter(s => s > 0);
-                        const maxScore = validScores.length > 0 ? Math.max(...validScores) : (columnScores.length > 0 ? Math.max(...columnScores) : 0);
-                        const minScore = validScores.length > 0 ? Math.min(...validScores) : 0;
-                        const midScore = parseFloat(((maxScore + minScore) / 2).toFixed(2));
-                        return (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F1F5F9', padding: '4px 10px', borderRadius: '8px', border: '1px solid #CBD5E1' }}>
-                            <span style={{ width: '22px', borderBottom: '2.5px dashed #000000', display: 'inline-block' }} /> 
-                            Garis Tengah: <strong style={{ color: '#0F172A' }}>{midScore}</strong> (Min: {minScore}, Max: {maxScore})
-                          </span>
-                        );
-                      })()}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F1F5F9', padding: '4px 10px', borderRadius: '8px', border: '1px solid #CBD5E1' }}>
+                        <span style={{ width: '22px', borderBottom: '2.5px dashed #000000', display: 'inline-block' }} /> 
+                        Garis Tengah: <strong style={{ color: '#0F172A' }}>{midScore}</strong> (Min: {minScore}, Max: {maxScore})
+                      </span>
                     </div>
                   </div>
 
@@ -1467,11 +1480,6 @@ export default function ReportDetailPage() {
                       const gridHeight = maxScoreUnits * cellHeight; // 360px
                       const svgWidth = padLeft + gridWidth + padRight; // 1200px
                       const svgHeight = padTop + gridHeight + padBottom; // 430px
-
-                      const validScores = columnScores.filter(s => s > 0);
-                      const maxScore = validScores.length > 0 ? Math.max(...validScores) : (columnScores.length > 0 ? Math.max(...columnScores) : 0);
-                      const minScore = validScores.length > 0 ? Math.min(...validScores) : 0;
-                      const midScore = parseFloat(((maxScore + minScore) / 2).toFixed(2));
 
                       // Y Coordinate helper for any score (0 <= score <= 30)
                       const getYForScore = (s: number) => {
@@ -1668,11 +1676,28 @@ export default function ReportDetailPage() {
                         {new Array(50).fill(0).map((_, c) => {
                           const colIdx = c;
                           const details = data?.perKolomDetails?.[colIdx];
-                          const colDigits: number[] = details?.digits || OFFICIAL_KRAEPELIN_MATRIX[colIdx] || [];
-                          const userAnsList: (number | null)[] = details?.userAnswers || [];
+                          const colDigits: number[] = (Array.isArray(details?.digits) && details.digits.length > 0)
+                            ? details.digits 
+                            : (OFFICIAL_KRAEPELIN_MATRIX[colIdx] || []);
+                          const userAnsList: (number | null)[] = Array.isArray(details?.userAnswers) ? details.userAnswers : [];
                           const dikerjakan = details?.dikerjakan || columnScores[c] || 0;
-                          const benar = details?.benar ?? 0;
-                          const salah = details?.salah ?? 0;
+                          
+                          let calculatedBenar = 0;
+                          let calculatedSalah = 0;
+                          if (dikerjakan > 0) {
+                            for (let pi = 0; pi < dikerjakan; pi++) {
+                              const ansVal = userAnsList[pi];
+                              const exp = (colDigits[pi] !== undefined && colDigits[pi + 1] !== undefined)
+                                ? (colDigits[pi] + colDigits[pi + 1]) % 10
+                                : null;
+                              if (ansVal !== null && ansVal !== undefined && exp !== null) {
+                                if (ansVal === exp) calculatedBenar++;
+                                else calculatedSalah++;
+                              }
+                            }
+                          }
+                          const benar = (details?.benar !== undefined && details?.benar !== null) ? details.benar : calculatedBenar;
+                          const salah = (details?.salah !== undefined && details?.salah !== null) ? details.salah : calculatedSalah;
 
                           return (
                             <div
@@ -1710,12 +1735,9 @@ export default function ReportDetailPage() {
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', width: '100%' }}>
                                   {new Array(dikerjakan).fill(0).map((_, p) => {
                                     const uAns = userAnsList[p];
-                                    const DIGITS_COUNT = colDigits.length || 28;
-                                    const idxBottom = DIGITS_COUNT - 1 - p;
-                                    const idxTop = idxBottom - 1;
-                                    const d1 = colDigits[idxBottom];
-                                    const d2 = colDigits[idxTop];
-                                    const sum = (d1 !== undefined && d2 !== undefined) ? d1 + d2 : null;
+                                    const dBottom = colDigits[p];
+                                    const dTop = colDigits[p + 1];
+                                    const sum = (dBottom !== undefined && dTop !== undefined) ? dBottom + dTop : null;
                                     const expectedSum = sum !== null ? sum % 10 : null;
                                     const isCorrect = uAns !== null && uAns !== undefined && expectedSum !== null && uAns === expectedSum;
 
@@ -1735,7 +1757,7 @@ export default function ReportDetailPage() {
                                         }}
                                       >
                                         <div style={{ fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap' }}>
-                                          {d2} + {d1} = {sum} → Kunci: <strong style={{ color: '#2563EB' }}>{expectedSum}</strong>
+                                          {dTop} + {dBottom} = {sum} → Kunci: <strong style={{ color: '#2563EB' }}>{expectedSum}</strong>
                                         </div>
                                         <div style={{ marginTop: '2px', fontWeight: 900, color: isCorrect ? '#047857' : '#DC2626', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10.5px' }}>
                                           <span>Jwb: <strong>{uAns !== null && uAns !== undefined ? uAns : '-'}</strong></span>

@@ -128,7 +128,7 @@ export default function POWER() {
   }
 
   return (
-    <div style={{ padding: '40px 20px', fontFamily: 'system-ui, -apple-system, sans-serif', background: '#F8FAFC', minHeight: '100vh' }}>
+    <div style={{ padding: '40px 20px 160px 20px', fontFamily: 'system-ui, -apple-system, sans-serif', background: '#F8FAFC', minHeight: '100vh' }}>
       <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', borderRadius: '20px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
         
         <div style={{ padding: '40px' }}>

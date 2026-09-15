@@ -147,7 +147,52 @@ export default function PAPI() {
     );
   }
 
-  const progress = calculateProgress();
+  const DURATION_SECONDS = 20 * 60;
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('test_timer_left_papi');
+      if (saved !== null) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed > 0 && parsed <= DURATION_SECONDS) {
+          return parsed;
+        }
+      }
+    }
+    return DURATION_SECONDS;
+  });
+
+  useEffect(() => {
+    if (showInstruction) return;
+
+    if (timeLeft <= 0) {
+      handleSubmit();
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        const next = prev - 1;
+        if (typeof window !== 'undefined') {
+          if (next > 0) localStorage.setItem('test_timer_left_papi', String(next));
+          else localStorage.removeItem('test_timer_left_papi');
+        }
+        if (next <= 0) {
+          clearInterval(interval);
+          handleSubmit();
+          return 0;
+        }
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [showInstruction, timeLeft]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const scrollToQuestion = (num: number) => {
     const el = document.getElementById(`question-${num}`);
@@ -157,9 +202,7 @@ export default function PAPI() {
   };
 
   return (
-    <div style={{ padding: '40px 20px', fontFamily: '"Inter", sans-serif', background: '#f0f2f5', minHeight: '100vh', position: 'relative' }}>
-      {/* Top Left Floating Timer (20 Min, Mandatory Completion) */}
-      <TestTimer durationSeconds={20 * 60} autoSubmit={false} isActive={!showInstruction} testName="PAPI Kostick" />
+    <div style={{ padding: '40px 20px 160px 20px', fontFamily: '"Inter", sans-serif', background: '#f0f2f5', minHeight: '100vh', position: 'relative' }}>
 
       {/* In-App Unanswered Modal */}
       <UnansweredModal
@@ -172,14 +215,14 @@ export default function PAPI() {
 
       <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', borderRadius: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         
-        {/* Progress */}
-        <div style={{ padding: '30px 40px', background: '#fff', borderBottom: '1px solid #edf2f7', position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#4a5568' }}>Tingkat Penyelesaian</div>
-            <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#3182ce' }}>{progress}% ({Object.keys(answers).length}/90)</div>
+        {/* Sticky Timer Header */}
+        <div style={{ padding: '16px 30px', background: '#fff', borderBottom: '1px solid #edf2f7', position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '15px', fontWeight: 800, color: '#1e293b' }}>
+            PAPI Kostick (90 Soal)
           </div>
-          <div style={{ width: '100%', background: '#e2e8f0', borderRadius: '10px', height: '10px', overflow: 'hidden' }}>
-            <div style={{ height: '100%', background: 'linear-gradient(to right, #4299e1, #3182ce)', width: `${progress}%`, transition: 'width 0.3s ease' }}></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: timeLeft <= 180 ? '#fef2f2' : '#f0fdf4', border: `1.5px solid ${timeLeft <= 180 ? '#fca5a5' : '#86efac'}`, padding: '8px 18px', borderRadius: '50px', color: timeLeft <= 180 ? '#dc2626' : '#15803d', fontWeight: 900, fontSize: '16px', letterSpacing: '0.5px' }}>
+            <span>⏱️ Sisa Waktu:</span>
+            <span style={{ fontFamily: 'monospace' }}>{formatTime(timeLeft)}</span>
           </div>
         </div>
 

@@ -184,6 +184,18 @@ export const checkAnswerMatch = (userAns: any, correctKey: any, testType?: strin
     }
   }
 
+  // Multi-digit set matching (e.g. "25" vs "52", "14" vs "41", "1245")
+  const combDigitsU = cleanU.replace(/\D/g, '').split('').sort().join('');
+  const combDigitsK = cleanK.replace(/\D/g, '').split('').sort().join('');
+  if (combDigitsU.length > 0 && combDigitsU === combDigitsK) return true;
+
+  // Letter to number conversion for options (e.g. "BE" -> "25", "AD" -> "14", "ABDE" -> "1245")
+  const letterToNumStr = (s: string) => s.toUpperCase().replace(/[^A-E]/g, '').split('').map(c => c.charCodeAt(0) - 64).sort().join('');
+  if (letterToNumStr(cleanU) === combDigitsK && combDigitsK.length > 0) return true;
+  if (combDigitsU === letterToNumStr(cleanK) && combDigitsU.length > 0) return true;
+
+
+
   const parseNumOrFraction = (val: string): number | null => {
     let s = val.trim().toLowerCase();
     if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');

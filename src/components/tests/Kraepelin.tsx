@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { OFFICIAL_KRAEPELIN_MATRIX, getOfficialKraepelinColumn } from '@/lib/kraepelinMatrix';
 import { 
@@ -9,7 +9,7 @@ import {
   getTinkerNorm, 
   getJankerNorm, 
   getHankerNorm,
-  KraepelinColumnDetail,
+  KraepelinColumnDetail, 
   KraepelinAnalysisResult 
 } from '@/lib/kraepelinScoring';
 
@@ -18,17 +18,26 @@ export const getKraepelinPankerNorm = (raw: number) => getPankerNorm(raw).scale1
 export const getKraepelinTinkerNorm = (rawError: number) => getTinkerNorm(rawError).scale1to5;
 export const getKraepelinJankerNorm = (rawRange: number) => getJankerNorm(rawRange).scale1to5;
 
+/* ─── Practice Matrix Constants (5 Columns for Uji Coba) ─── */
+const PRACTICE_TOTAL_COLUMNS = 5;
+const PRACTICE_MATRIX: number[][] = [
+  [3, 8, 4, 7, 2, 9, 5, 1, 6, 8, 3, 7, 4, 9, 2, 6, 5, 8, 1, 7, 4, 9, 3, 8, 5, 2, 7, 6],
+  [6, 2, 9, 5, 8, 3, 7, 4, 1, 9, 5, 8, 2, 6, 4, 7, 3, 9, 8, 2, 5, 7, 1, 6, 4, 9, 3, 8],
+  [5, 9, 1, 6, 4, 8, 2, 7, 3, 9, 6, 1, 8, 5, 3, 7, 2, 9, 4, 6, 8, 1, 7, 5, 3, 9, 2, 4],
+  [8, 4, 7, 2, 9, 5, 3, 6, 8, 1, 7, 4, 9, 2, 5, 8, 3, 6, 1, 7, 4, 9, 2, 5, 8, 3, 7, 1],
+  [2, 7, 5, 9, 3, 8, 4, 6, 1, 7, 5, 9, 2, 8, 4, 6, 3, 7, 9, 1, 5, 8, 4, 2, 7, 6, 3, 9],
+];
+
 export default function KraepelinTest() {
   const router = useRouter();
 
   // Test Config Parameters
   const TOTAL_COLUMNS = 50;
-  const COLUMN_DURATION = 15; // 15 seconds per column
+  const COLUMN_DURATION = 15; // exactly 15 seconds per column
   const DIGITS_PER_COLUMN = 28; // 28 digits per column (27 addition pairs)
 
-  const [onboarding, setOnboarding] = useState(true);
-  const [testStarted, setTestStarted] = useState(false);
-  const [testFinished, setTestFinished] = useState(false);
+  // Test Phases: 'instruction' | 'practice' | 'practice_finished' | 'test' | 'submitting'
+  const [phase, setPhase] = useState<'instruction' | 'practice' | 'practice_finished' | 'test' | 'submitting'>('instruction');
 
   // Live session states
   const [currentCol, setCurrentCol] = useState(0);
@@ -47,9 +56,11 @@ export default function KraepelinTest() {
   const isTransitioningRef = useRef(false);
   isTransitioningRef.current = isTransitioning;
 
-  // Matrix data
+  const phaseRef = useRef<'instruction' | 'practice' | 'practice_finished' | 'test' | 'submitting'>('instruction');
+  phaseRef.current = phase;
+
+  // Active matrix & answers
   const [matrix, setMatrix] = useState<number[][]>([]);
-  // User answers matrix: userAnswers[col][pairIdx]
   const [userAnswers, setUserAnswers] = useState<(number | null)[][]>([]);
   const userAnswersRef = useRef<(number | null)[][]>([]);
 
@@ -58,50 +69,8 @@ export default function KraepelinTest() {
   const activeColRef = useRef<HTMLDivElement | null>(null);
   const activePairRef = useRef<HTMLDivElement | null>(null);
 
-  // Web Audio Synth for feedback sounds
-  const audioCtxRef = useRef<AudioContext | null>(null);
-
-  const playTone = (freq: number, durationSec: number, type: OscillatorType = 'sine') => {
-    try {
-      if (!audioCtxRef.current) {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioCtx) audioCtxRef.current = new AudioCtx();
-      }
-      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume();
-      }
-      if (audioCtxRef.current) {
-        const osc = audioCtxRef.current.createOscillator();
-        const gain = audioCtxRef.current.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtxRef.current.currentTime);
-        gain.gain.setValueAtTime(0.15, audioCtxRef.current.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtxRef.current.currentTime + durationSec);
-        osc.connect(gain);
-        gain.connect(audioCtxRef.current.destination);
-        osc.start();
-        osc.stop(audioCtxRef.current.currentTime + durationSec);
-      }
-    } catch (e) {}
-  };
-
-  // Load Official Printed Kraepelin Test Paper Matrix on mount & restore draft if disconnected
+  // Initial mount check (restore draft if candidate was disconnected during official test)
   useEffect(() => {
-    const newMatrix: number[][] = [];
-    const newAnswers: (number | null)[][] = [];
-
-    for (let c = 0; c < TOTAL_COLUMNS; c++) {
-      const colDigits = getOfficialKraepelinColumn(c);
-      newMatrix.push([...colDigits]);
-      newAnswers.push(new Array(colDigits.length - 1).fill(null));
-    }
-
-    setMatrix(newMatrix);
-
-    // Check for previous draft progress (e.g. participant was disconnected at Column 30)
-    let initialCol = 0;
-    let initialAnswers = newAnswers;
-
     if (typeof window !== 'undefined') {
       try {
         const savedColStr = localStorage.getItem('kraepelin_draft_col');
@@ -114,222 +83,87 @@ export default function KraepelinTest() {
             let firstEmptyPairIdx = 0;
             if (Array.isArray(colAns)) {
               const foundIdx = colAns.findIndex((ans: any) => ans === null || ans === undefined);
-              if (foundIdx !== -1) {
-                firstEmptyPairIdx = foundIdx;
-              } else {
-                firstEmptyPairIdx = Math.max(0, colAns.length - 1);
-              }
+              if (foundIdx !== -1) firstEmptyPairIdx = foundIdx;
+              else firstEmptyPairIdx = Math.max(0, colAns.length - 1);
             }
 
-            // If there's any progress made (either in col > 0 or in col 0 answered pairs)
             const hasProgress = parsedCol > 0 || firstEmptyPairIdx > 0 || parsedAns.some((c: any[]) => Array.isArray(c) && c.some(x => x !== null));
+
             if (hasProgress) {
-              initialCol = parsedCol;
-              initialAnswers = parsedAns;
-              currentColRef.current = parsedCol;
+              const officialMatrix: number[][] = [];
+              for (let c = 0; c < TOTAL_COLUMNS; c++) {
+                officialMatrix.push([...getOfficialKraepelinColumn(c)]);
+              }
+              setMatrix(officialMatrix);
+              setUserAnswers(parsedAns);
+              userAnswersRef.current = parsedAns;
               setCurrentCol(parsedCol);
-              currentPairIdxRef.current = firstEmptyPairIdx;
               setCurrentPairIdx(firstEmptyPairIdx);
-              setOnboarding(false);
-              setTestStarted(true);
+              currentColRef.current = parsedCol;
+              currentPairIdxRef.current = firstEmptyPairIdx;
+              setPhase('test');
+              return;
             }
           }
         }
       } catch (e) {
-        console.warn('Error restoring Kraepelin draft:', e);
+        console.error('Failed to restore Kraepelin draft:', e);
       }
     }
-
-    setUserAnswers(initialAnswers);
-    userAnswersRef.current = initialAnswers;
   }, []);
 
-  // Strict 15-second column auto-switch countdown timer
-  useEffect(() => {
-    if (!testStarted || testFinished) return;
-
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          // Time is up -> advance to next column
-          const nextCol = currentColRef.current + 1;
-          if (nextCol < TOTAL_COLUMNS) {
-            // Lock transition immediately
-            isTransitioningRef.current = true;
-            setIsTransitioning(true);
-            currentColRef.current = nextCol;
-            currentPairIdxRef.current = 0;
-            setCurrentCol(nextCol);
-            setCurrentPairIdx(0);
-            playTone(880, 0.25, 'triangle');
-            setShowPindah(true);
-
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('kraepelin_draft_col', String(nextCol));
-              localStorage.setItem('kraepelin_draft_answers', JSON.stringify(userAnswersRef.current));
-            }
-
-            setTimeout(() => {
-              setShowPindah(false);
-              setIsTransitioning(false);
-              isTransitioningRef.current = false;
-              setCurrentPairIdx(0);
-              currentPairIdxRef.current = 0;
-            }, 800);
-
-            return COLUMN_DURATION;
-          } else {
-            finishTest();
-            return 0;
-          }
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [testStarted, testFinished]);
-
-  // Center active column horizontally & active pair vertically — INNER CONTAINER ONLY
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container || !testStarted) return;
-
-    let targetLeft = container.scrollLeft;
-    let targetTop = container.scrollTop;
-
-    // Horizontal centering of active column
-    if (activeColRef.current) {
-      const containerRect = container.getBoundingClientRect();
-      const colRect = activeColRef.current.getBoundingClientRect();
-      const currentScrollLeft = container.scrollLeft;
-      const colCenterX = colRect.left - containerRect.left + currentScrollLeft + (colRect.width / 2);
-      targetLeft = colCenterX - (container.clientWidth / 2);
-    }
-
-    // Vertical centering of active pair (the active question bubble)
-    if (activePairRef.current) {
-      const containerRect = container.getBoundingClientRect();
-      const pairRect = activePairRef.current.getBoundingClientRect();
-      const currentScrollTop = container.scrollTop;
-      const pairCenterY = pairRect.top - containerRect.top + currentScrollTop + (pairRect.height / 2);
-      targetTop = pairCenterY - (container.clientHeight / 2);
-    }
-
-    // Single combined atomic scroll to prevent X/Y axis interference
-    container.scrollTo({
-      left: Math.max(0, targetLeft),
-      top: Math.max(0, targetTop),
-      behavior: 'smooth'
-    });
-  }, [currentCol, currentPairIdx, testStarted]);
-
-  const triggerPindah = () => {
-    if (isTransitioningRef.current) return;
-    isTransitioningRef.current = true;
-    setIsTransitioning(true);
-    playTone(880, 0.25, 'triangle');
-    setShowPindah(true);
-
-    const nextCol = currentColRef.current + 1;
-    if (nextCol < TOTAL_COLUMNS) {
-      currentColRef.current = nextCol;
-      currentPairIdxRef.current = 0;
-      setCurrentCol(nextCol);
-      setCurrentPairIdx(0);
-      setTimeLeft(COLUMN_DURATION);
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('kraepelin_draft_col', String(nextCol));
-        localStorage.setItem('kraepelin_draft_answers', JSON.stringify(userAnswersRef.current));
-      }
-
-      setTimeout(() => {
-        setShowPindah(false);
-        setIsTransitioning(false);
-        isTransitioningRef.current = false;
-        setCurrentPairIdx(0);
-        currentPairIdxRef.current = 0;
-      }, 800);
-    } else {
-      finishTest();
-    }
+  // Initialize Practice Mode
+  const startPractice = () => {
+    const practiceAns: (number | null)[][] = PRACTICE_MATRIX.map(col => new Array(col.length - 1).fill(null));
+    setMatrix(PRACTICE_MATRIX);
+    setUserAnswers(practiceAns);
+    userAnswersRef.current = practiceAns;
+    setCurrentCol(0);
+    setCurrentPairIdx(0);
+    currentColRef.current = 0;
+    currentPairIdxRef.current = 0;
+    setTimeLeft(COLUMN_DURATION);
+    setIsTransitioning(false);
+    isTransitioningRef.current = false;
+    setShowPindah(false);
+    setPhase('practice');
   };
 
-  const handleInputDigit = (digit: number) => {
-    if (!testStarted || testFinished || matrix.length === 0 || showPindah || isTransitioningRef.current || isTransitioning) {
-      return;
+  // Initialize Official 50-Column Test
+  const startOfficialTest = () => {
+    const officialMatrix: number[][] = [];
+    const officialAns: (number | null)[][] = [];
+    for (let c = 0; c < TOTAL_COLUMNS; c++) {
+      const colDigits = getOfficialKraepelinColumn(c);
+      officialMatrix.push([...colDigits]);
+      officialAns.push(new Array(colDigits.length - 1).fill(null));
     }
 
-    const cCol = currentColRef.current;
-    const cPair = currentPairIdxRef.current;
-    const colDigits = matrix[cCol];
-    if (!colDigits) return;
-
-    // In Kraepelin matrix:
-    // Index 0 = Bottom (Row 1), Index 1 = Row 2, etc.
-    const d1 = colDigits[cPair];
-    const d2 = colDigits[cPair + 1];
-    if (d1 === undefined || d2 === undefined) return;
-    const expectedSum = (d1 + d2) % 10;
-
-    // Record user answer
-    setUserAnswers(prev => {
-      const copy = prev.map(c => [...c]);
-      if (copy[cCol]) {
-        copy[cCol][cPair] = digit;
-      }
-      userAnswersRef.current = copy;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('kraepelin_draft_answers', JSON.stringify(copy));
-      }
-      return copy;
-    });
-
-    if (digit === expectedSum) {
-      playTone(600, 0.08, 'sine');
-    } else {
-      playTone(250, 0.12, 'sawtooth');
-    }
-
-    // Advance pair safely
-    if (cPair + 1 < DIGITS_PER_COLUMN - 1) {
-      const nextPair = cPair + 1;
-      currentPairIdxRef.current = nextPair;
-      setCurrentPairIdx(nextPair);
-    } else {
-      triggerPindah();
-    }
+    setMatrix(officialMatrix);
+    setUserAnswers(officialAns);
+    userAnswersRef.current = officialAns;
+    setCurrentCol(0);
+    setCurrentPairIdx(0);
+    currentColRef.current = 0;
+    currentPairIdxRef.current = 0;
+    setTimeLeft(COLUMN_DURATION);
+    setIsTransitioning(false);
+    isTransitioningRef.current = false;
+    setShowPindah(false);
+    setPhase('test');
   };
 
-  // Keyboard Event Listener
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!testStarted || testFinished || isTransitioningRef.current || isTransitioning || showPindah) {
-        return;
-      }
-      if (e.key >= '0' && e.key <= '9') {
-        e.preventDefault();
-        e.stopPropagation();
-        handleInputDigit(parseInt(e.key, 10));
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [testStarted, testFinished, matrix, isTransitioning, showPindah]);
-
-  const finishTest = async () => {
-    setTestStarted(false);
-    setTestFinished(true);
+  // Submit and finish official test
+  const finishOfficialTest = async () => {
+    setPhase('submitting');
 
     try {
-      // Calculate Official Kraepelin Analysis (PANKER, TINKER, JANKER, HANKER, SS, Norms)
       const currentAnswers = userAnswersRef.current.length > 0 ? userAnswersRef.current : userAnswers;
-      const analysis = calculateKraepelinFullAnalysis(matrix, currentAnswers);
+      const activeMatrix = (matrix && matrix.length > 0) ? matrix : OFFICIAL_KRAEPELIN_MATRIX;
+      const analysis = calculateKraepelinFullAnalysis(activeMatrix, currentAnswers);
 
       const resultPayload = {
         ...analysis,
-        // Backward-compatible fields
         pankerRaw: analysis.panker.raw,
         tinkerRaw: analysis.tinker.raw,
         jankerRaw: analysis.janker.raw,
@@ -339,7 +173,6 @@ export default function KraepelinTest() {
         hankerNorm: analysis.hanker.scale1to5,
       };
 
-      // Save to backend
       await fetch('/api/answers/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -352,14 +185,12 @@ export default function KraepelinTest() {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('kraepelin_draft_col');
         localStorage.removeItem('kraepelin_draft_answers');
-        localStorage.setItem('kraepelinResult', JSON.stringify(resultPayload));
         localStorage.setItem('test_completed_kraepelin', 'true');
         localStorage.setItem('test_completed_kreapelin', 'true');
       }
-
       router.push('/testee/session');
-    } catch (err) {
-      console.error('Error submitting Kraepelin test:', err);
+    } catch (e) {
+      console.error('Failed to submit Kraepelin:', e);
       if (typeof window !== 'undefined') {
         localStorage.removeItem('kraepelin_draft_col');
         localStorage.removeItem('kraepelin_draft_answers');
@@ -370,19 +201,151 @@ export default function KraepelinTest() {
     }
   };
 
-  if (onboarding) {
+  // Unified single Column Advance function (called exactly once per column switch)
+  const advanceColumn = useCallback(() => {
+    if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+    setIsTransitioning(true);
+
+    const totalCols = phaseRef.current === 'practice' ? PRACTICE_TOTAL_COLUMNS : TOTAL_COLUMNS;
+    const nextCol = currentColRef.current + 1;
+
+    if (nextCol < totalCols) {
+      currentColRef.current = nextCol;
+      currentPairIdxRef.current = 0;
+      setCurrentCol(nextCol);
+      setCurrentPairIdx(0);
+      setTimeLeft(COLUMN_DURATION);
+      setShowPindah(true);
+
+      if (phaseRef.current === 'test' && typeof window !== 'undefined') {
+        localStorage.setItem('kraepelin_draft_col', String(nextCol));
+        localStorage.setItem('kraepelin_draft_answers', JSON.stringify(userAnswersRef.current));
+      }
+
+      setTimeout(() => {
+        setShowPindah(false);
+        setIsTransitioning(false);
+        isTransitioningRef.current = false;
+      }, 700);
+    } else {
+      setShowPindah(false);
+      setIsTransitioning(false);
+      isTransitioningRef.current = false;
+
+      if (phaseRef.current === 'practice') {
+        setPhase('practice_finished');
+      } else {
+        finishOfficialTest();
+      }
+    }
+  }, [TOTAL_COLUMNS]);
+
+  // Dedicated 15-Second Timer (strictly 15s per column, resets cleanly on each column switch)
+  useEffect(() => {
+    if (phase !== 'practice' && phase !== 'test') return;
+
+    let secondsRemaining = COLUMN_DURATION;
+    setTimeLeft(COLUMN_DURATION);
+
+    const timer = setInterval(() => {
+      secondsRemaining -= 1;
+      setTimeLeft(secondsRemaining);
+
+      if (secondsRemaining <= 0) {
+        advanceColumn();
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [phase, currentCol, advanceColumn]);
+
+  // Auto-scroll keeping active pair centered in workspace viewport
+  useEffect(() => {
+    if (phase !== 'practice' && phase !== 'test') return;
+
+    if (activePairRef.current && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const target = activePairRef.current;
+
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+
+      const scrollOffsetY = targetRect.top - containerRect.top - containerRect.height / 2 + targetRect.height / 2;
+      const scrollOffsetX = targetRect.left - containerRect.left - containerRect.width / 2 + targetRect.width / 2;
+
+      container.scrollBy({
+        top: scrollOffsetY,
+        left: scrollOffsetX,
+        behavior: 'smooth'
+      });
+    }
+  }, [currentCol, currentPairIdx, phase]);
+
+  const handleInputDigit = (digit: number) => {
+    if ((phase !== 'practice' && phase !== 'test') || matrix.length === 0 || showPindah || isTransitioningRef.current || isTransitioning) {
+      return;
+    }
+
+    const cCol = currentColRef.current;
+    const cPair = currentPairIdxRef.current;
+    const colDigits = matrix[cCol];
+    if (!colDigits) return;
+
+    // Record user answer
+    setUserAnswers(prev => {
+      const copy = prev.map(c => [...c]);
+      if (copy[cCol]) {
+        copy[cCol][cPair] = digit;
+      }
+      userAnswersRef.current = copy;
+      if (phaseRef.current === 'test' && typeof window !== 'undefined') {
+        localStorage.setItem('kraepelin_draft_answers', JSON.stringify(copy));
+      }
+      return copy;
+    });
+
+    // Advance pair safely
+    if (cPair + 1 < DIGITS_PER_COLUMN - 1) {
+      const nextPair = cPair + 1;
+      currentPairIdxRef.current = nextPair;
+      setCurrentPairIdx(nextPair);
+    } else {
+      advanceColumn();
+    }
+  };
+
+  // Keyboard Event Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (phase !== 'practice' && phase !== 'test') return;
+      if (isTransitioningRef.current || isTransitioning || showPindah) return;
+
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleInputDigit(parseInt(e.key, 10));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [phase, matrix, isTransitioning, showPindah]);
+
+  /* ─── 1. INSTRUCTION / ONBOARDING SCREEN ─── */
+  if (phase === 'instruction') {
     return (
-      <div style={{ minHeight: '100vh', background: '#F8FAFC', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: '"Inter", system-ui, sans-serif' }}>
+      <div style={{ minHeight: '100vh', background: '#F8FAFC', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', fontFamily: '"Inter", system-ui, sans-serif' }}>
         <div style={{ maxWidth: '680px', width: '100%', background: '#FFFFFF', borderRadius: '24px', padding: '44px 36px', boxShadow: '0 20px 40px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0', textAlign: 'center' }}>
-          <div style={{ width: '64px', height: '64px', background: '#EFF6FF', color: '#2563EB', borderRadius: '20px', display: 'grid', placeItems: 'center', fontSize: '32px', margin: '0 auto 20px' }}>
+          
+          <div style={{ width: '60px', height: '60px', background: '#EFF6FF', color: '#2563EB', borderRadius: '20px', display: 'grid', placeItems: 'center', fontSize: '30px', margin: '0 auto 20px' }}>
             ⚡
           </div>
 
           <h1 style={{ fontSize: '26px', fontWeight: 900, color: '#0F172A', marginBottom: '8px' }}>
-            Tes Kraepelin (Kecepatan Kerja)
+            Tes Kraepelin (Kecepatan & Ketelitian Kerja)
           </h1>
           <p style={{ color: '#64748B', fontSize: '14px', marginBottom: '28px' }}>
-            Standar Resmi 50 Kolom (Buku Tes Kraepelin Psikologi)
+            Standar Resmi Tes Kraepelin Psikologi
           </p>
 
           <div style={{ background: '#F8FAFC', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '24px', textAlign: 'left', marginBottom: '32px', lineHeight: '1.6' }}>
@@ -392,18 +355,16 @@ export default function KraepelinTest() {
             <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <li>Jumlahkan 2 angka yang berdekatan dari <strong>BAWAH ke ATAS</strong>.</li>
               <li>Jika hasil penjumlahan &ge; 10, ketikkan <strong>ANGKA SATUANNYA SAJA</strong> (Contoh: 8 + 7 = 15 &rarr; ketik <strong>5</strong>, 9 + 9 = 18 &rarr; ketik <strong>8</strong>).</li>
-              <li>Setiap kolom memiliki batas waktu <strong>15 detik</strong>.</li>
-              <li>Ketika terdengar bunyi nada dan muncul peringatan <strong>PINDAH!</strong>, sistem akan otomatis beralih ke kolom berikutnya.</li>
-              <li>Gunakan tombol angka <code>0</code> s.d. <code>9</code> pada keyboard laptop atau tombol keypad di layar.</li>
+              <li>Setiap kolom memiliki batas waktu <strong>15 detik</strong>. Waktu dan perpindahan kolom berjalan otomatis di latar belakang.</li>
+              <li>Ketika muncul peringatan <strong>PINDAH!</strong>, sistem akan otomatis beralih ke kolom berikutnya.</li>
+              <li>Gunakan tombol angka <code>0</code> s.d. <code>9</code> pada keyboard laptop atau keypad layar.</li>
+              <li>Sebelum tes resmi dimulai, Anda akan masuk ke <strong>Sesi Uji Coba / Latihan</strong> terlebih dahulu.</li>
             </ul>
           </div>
 
           <button
             type="button"
-            onClick={() => {
-              setOnboarding(false);
-              setTestStarted(true);
-            }}
+            onClick={startPractice}
             style={{
               width: '100%',
               padding: '16px 32px',
@@ -418,14 +379,58 @@ export default function KraepelinTest() {
               transition: 'all 0.2s'
             }}
           >
-            Mulai Tes Kraepelin
+            Mulai Sesi Uji Coba Latihan →
           </button>
         </div>
       </div>
     );
   }
 
-  if (testFinished) {
+  /* ─── 2. PRACTICE FINISHED SCREEN (Proceed Only) ─── */
+  if (phase === 'practice_finished') {
+    return (
+      <div style={{ minHeight: '100vh', background: '#F8FAFC', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', fontFamily: '"Inter", system-ui, sans-serif' }}>
+        <div style={{ maxWidth: '600px', width: '100%', background: '#FFFFFF', borderRadius: '24px', padding: '44px 36px', boxShadow: '0 20px 40px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0', textAlign: 'center' }}>
+          
+          <div style={{ width: '64px', height: '64px', background: '#ECFDF5', color: '#059669', borderRadius: '20px', display: 'grid', placeItems: 'center', fontSize: '32px', margin: '0 auto 20px' }}>
+            🎉
+          </div>
+
+          <h2 style={{ fontSize: '24px', fontWeight: 900, color: '#0F172A', marginBottom: '8px' }}>
+            Uji Coba Latihan Selesai
+          </h2>
+          <p style={{ color: '#64748B', fontSize: '14px', marginBottom: '32px', lineHeight: '1.6' }}>
+            Anda telah menyelesaikan sesi uji coba latihan. Jika Anda sudah memahami cara pengerjaan, silakan klik tombol di bawah untuk memulai tes Kraepelin yang sesungguhnya.
+          </p>
+
+          <div>
+            <button
+              type="button"
+              onClick={startOfficialTest}
+              style={{
+                width: '100%',
+                padding: '16px 32px',
+                background: '#059669',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '14px',
+                fontSize: '16px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 10px 20px rgba(5,150,105,0.25)',
+                transition: 'all 0.2s'
+              }}
+            >
+              Mulai Tes Kraepelin Resmi →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ─── 3. SUBMITTING SCREEN ─── */
+  if (phase === 'submitting') {
     return (
       <div style={{ minHeight: '100vh', background: '#F8FAFC', color: '#0F172A', display: 'grid', placeItems: 'center', fontFamily: '"Inter", sans-serif' }}>
         <div style={{ textAlign: 'center' }}>
@@ -437,8 +442,7 @@ export default function KraepelinTest() {
     );
   }
 
-  // Row Indices from Top (27) to Bottom (0)
-  // Display row 28 (top) at the top, down to row 1 (bottom) at the bottom
+  /* ─── 4. LIVE TEST / PRACTICE CANVAS (Exact Same Clean Fullscreen CBT Interface) ─── */
   const rowIndices = Array.from({ length: DIGITS_PER_COLUMN }, (_, i) => DIGITS_PER_COLUMN - 1 - i);
 
   return (
@@ -463,35 +467,7 @@ export default function KraepelinTest() {
         </div>
       )}
 
-      {/* Top Header / Status Bar */}
-      <div style={{ padding: '16px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #F1F5F9' }}>
-        {/* Subtle pill indicator on top center/left */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }}></div>
-          <div style={{ width: '140px', height: '6px', background: '#E2E8F0', borderRadius: '10px', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${((currentCol + 1) / TOTAL_COLUMNS) * 100}%`, background: '#2563EB', transition: 'width 0.3s' }}></div>
-          </div>
-        </div>
-
-        {/* Right Info: Kolom Aktif & Sisa Waktu */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>KOLOM AKTIF</div>
-            <div style={{ fontSize: '20px', fontWeight: 900, color: '#0F172A' }}>Kolom {currentCol + 1}</div>
-          </div>
-          
-          <div style={{ width: '1px', height: '34px', background: '#E2E8F0' }}></div>
-
-          <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SISA WAKTU KOLOM</div>
-            <div style={{ fontSize: '20px', fontWeight: 900, color: timeLeft <= 4 ? '#EF4444' : '#0F172A' }}>
-              {timeLeft}s
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Workspace Card Container (Fixed Outer, Scrollable Inner ONLY) */}
+      {/* Main Workspace Card Container */}
       <div style={{ 
         flex: 1, 
         padding: '12px 30px', 
@@ -548,12 +524,9 @@ export default function KraepelinTest() {
                     opacity: isActiveCol ? 1 : isPastCol ? 0.35 : 0.25
                   }}
                 >
-                  {/* Render from top row (index 27) down to bottom row (index 0) */}
+                  {/* Render from top row down to bottom row */}
                   {rowIndices.map((digitIdx) => {
                     const digitVal = colDigits[digitIdx];
-                    // pairIdx for slot directly below digitIdx (pair between digitIdx and digitIdx - 1)
-                    // Pair 0 is between digitIdx 0 and digitIdx 1
-                    // So slot below digitIdx corresponds to pairIdx = digitIdx - 1
                     const pairIdxBelow = digitIdx - 1;
                     const hasSlotBelow = digitIdx > 0;
                     const isSlotActive = isActiveCol && pairIdxBelow === currentPairIdx;
@@ -625,55 +598,37 @@ export default function KraepelinTest() {
         </div>
       </div>
 
-      {/* Bottom Horizontal Keypad Bar */}
-      <div style={{ padding: '0 0 18px', display: 'flex', justifyContent: 'center' }}>
-        <div
-          style={{
-            background: '#FFFFFF',
-            borderRadius: '20px',
-            boxShadow: '0 6px 20px rgba(0,0,0,0.05)',
-            border: '1px solid #E2E8F0',
-            padding: '8px 14px',
-            display: 'flex',
-            gap: '8px',
-            alignItems: 'center'
-          }}
-        >
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(digit => (
+      {/* Bottom Keypad Bar */}
+      <div style={{ padding: '16px 24px', display: 'flex', justifyContent: 'center', background: '#FFFFFF', borderTop: '1px solid #F1F5F9' }}>
+        <div style={{ display: 'flex', gap: '8px', maxWidth: '580px', width: '100%', justifyContent: 'center' }}>
+          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((digit) => (
             <button
               key={digit}
               type="button"
-              disabled={isTransitioning || showPindah}
               onClick={() => handleInputDigit(digit)}
               style={{
-                width: '46px',
-                height: '42px',
-                background: isTransitioning || showPindah ? '#F1F5F9' : '#FFFFFF',
-                border: '1.5px solid #E2E8F0',
+                flex: 1,
+                maxWidth: '52px',
+                height: '46px',
+                background: '#F8FAFC',
+                color: '#1E293B',
+                border: '1px solid #E2E8F0',
                 borderRadius: '12px',
-                fontSize: '17px',
+                fontSize: '18px',
                 fontWeight: 800,
-                color: isTransitioning || showPindah ? '#94A3B8' : '#0F172A',
-                cursor: isTransitioning || showPindah ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.1s ease',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                cursor: 'pointer',
+                display: 'grid',
+                placeItems: 'center',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                transition: 'all 0.1s ease'
               }}
-              onMouseOver={(e) => {
-                if (!isTransitioning && !showPindah) {
-                  e.currentTarget.style.borderColor = '#2563EB';
-                  e.currentTarget.style.color = '#2563EB';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'scale(0.95)';
+                e.currentTarget.style.background = '#EFF6FF';
               }}
-              onMouseOut={(e) => {
-                if (!isTransitioning && !showPindah) {
-                  e.currentTarget.style.borderColor = '#E2E8F0';
-                  e.currentTarget.style.color = '#0F172A';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.background = '#F8FAFC';
               }}
             >
               {digit}
@@ -681,6 +636,7 @@ export default function KraepelinTest() {
           ))}
         </div>
       </div>
+
     </div>
   );
 }

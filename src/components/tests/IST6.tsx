@@ -111,7 +111,7 @@ export default function IST6() {
   const q = questions[currentIndex];
 
   return (
-    <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', color: '#333', display: 'flex', alignItems: 'center', position: 'relative' }}>
+    <div style={{ padding: '30px 30px 160px 30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', color: '#333', display: 'flex', alignItems: 'center', position: 'relative' }}>
       {/* Top Left Floating Timer (10 Min, Auto Submit) */}
       <TestTimer durationSeconds={10 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="IST 6" />
 

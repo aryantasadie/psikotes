@@ -173,9 +173,7 @@ export default function DISC() {
   };
 
   return (
-    <div style={{ padding: '40px 20px', fontFamily: '"Inter", sans-serif', background: '#f0f2f5', minHeight: '100vh', position: 'relative' }}>
-      {/* Top Left Floating Timer (15 Min, Mandatory Completion) */}
-      <TestTimer durationSeconds={15 * 60} autoSubmit={false} isActive={!showInstruction} testName="DISC" />
+    <div style={{ padding: '40px 20px 160px 20px', fontFamily: '"Inter", sans-serif', background: '#f0f2f5', minHeight: '100vh', position: 'relative' }}>
 
       {/* In-App Unanswered Modal */}
       <UnansweredModal

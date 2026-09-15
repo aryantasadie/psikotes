@@ -93,7 +93,7 @@ export default function CFIT2() {
         <div style={{ maxWidth: '700px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
           <h2 style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>CFIT Skala 3 - Subtes 2</h2>
           <div style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
-            <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 4 Menit</p>
+            <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 4 Menit (Waktu berjalan otomatis di latar belakang dan tes akan otomatis selesai jika waktu habis)</p>
             <p style={{ margin: '0 0 15px 0' }}>Pilihlah <strong>2 GAMBAR</strong> dari 5 pilihan yang memiliki karakteristik berbeda atau tidak sekelompok dengan gambar lainnya.</p>
           </div>
           <button 
@@ -114,7 +114,7 @@ export default function CFIT2() {
   const currentAnswers = answers[q.id] || [];
 
   return (
-    <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', color: '#333', display: 'flex', alignItems: 'center', position: 'relative' }}>
+    <div style={{ padding: '30px 30px 160px 30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', color: '#333', display: 'flex', alignItems: 'center', position: 'relative' }}>
       {/* Top Left Floating Timer (4 Min, Auto Submit) */}
       <TestTimer durationSeconds={4 * 60} autoSubmit={true} onTimeUp={handleFinish} isActive={!showInstruction} testName="cfit2" />
       <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', gap: '30px', alignItems: 'flex-start', flexWrap: 'wrap', width: '100%' }}>

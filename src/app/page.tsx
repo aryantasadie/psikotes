@@ -128,7 +128,7 @@ export default function LoginPage() {
               onChange={e => setUsername(e.target.value)}
               required
               disabled={loading}
-              placeholder="Contoh: superadmin..."
+              placeholder="Masukkan username atau ID pengguna..."
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-teal-600 focus:bg-white transition-all placeholder-slate-400"
             />
           </div>
@@ -156,14 +156,6 @@ export default function LoginPage() {
             {loading ? 'Memeriksa Otentikasi...' : 'Masuk Portal'}
           </button>
         </form>
-
-        {/* Account Quick Guide Helper */}
-        <div className="pt-4 border-t border-slate-100 text-center text-[11px] text-slate-400 space-y-1">
-          <p className="font-semibold text-slate-500">Akun Pengujian Demo:</p>
-          <p><span className="font-bold text-slate-700">Superadmin:</span> superadmin / 123456</p>
-          <p><span className="font-bold text-slate-700">Client:</span> hrd_perusahaan / 123456</p>
-          <p><span className="font-bold text-slate-700">Kandidat:</span> budi_kandidat / 123456</p>
-        </div>
 
       </div>
     </div>
