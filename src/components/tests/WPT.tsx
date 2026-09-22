@@ -87,14 +87,15 @@ export default function WPT() {
     ))
   );
 
-  // Helper to extract option canonical key (e.g. "1", "2" or "A", "B")
+  // Helper to extract option canonical key (e.g. "1", "2" or "A", "B", "S")
   const getOptionKey = (opt: string, idx: number): string => {
     if (!opt) return String(idx + 1);
     const trimmed = opt.trim();
-    const numMatch = trimmed.match(/^(\d+)/);
-    if (numMatch) return numMatch[1];
+    if (/^[A-Za-z]$/.test(trimmed)) return trimmed.toUpperCase();
     const letterMatch = trimmed.match(/^([A-Za-z])[\.\)]/);
     if (letterMatch) return letterMatch[1].toUpperCase();
+    const numMatch = trimmed.match(/^(\d+)/);
+    if (numMatch) return numMatch[1];
     return String(idx + 1);
   };
 
@@ -109,7 +110,7 @@ export default function WPT() {
     }
     const letter = String.fromCharCode(65 + idx);
     const digit = String(idx + 1);
-    return raw === optKey || raw === letter || raw === digit;
+    return raw.toUpperCase() === optKey.toUpperCase() || raw.toUpperCase() === letter.toUpperCase() || raw === digit;
   };
 
   // Single select handler

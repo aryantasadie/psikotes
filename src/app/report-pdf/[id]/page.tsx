@@ -164,6 +164,7 @@ export const checkAnswerMatch = (userAns: any, correctKey: any, testType?: strin
   const strUser = String(userAns).trim();
   const strKey = String(correctKey).trim();
 
+  // 1. JSON array check
   if (strUser.startsWith('[') && strKey.startsWith('[')) {
     try {
       const uArr = JSON.parse(strUser).map((x: any) => String(x).trim().toLowerCase()).sort();
@@ -172,10 +173,18 @@ export const checkAnswerMatch = (userAns: any, correctKey: any, testType?: strin
     } catch (e) {}
   }
 
+  // 2. Direct string equality (case-insensitive)
   const cleanU = strUser.toLowerCase().replace(/\s+/g, ' ');
   const cleanK = strKey.toLowerCase().replace(/\s+/g, ' ');
   if (cleanU === cleanK) return true;
 
+  // 3. True/False (B / S) and option index equivalence
+  if (cleanK === 's' && (cleanU === '2' || cleanU === 'salah' || cleanU === 's')) return true;
+  if (cleanK === 'b' && (cleanU === '1' || cleanU === 'benar' || cleanU === 'b')) return true;
+  if (cleanK === '2' && (cleanU === 's' || cleanU === 'salah')) return true;
+  if (cleanK === '1' && (cleanU === 'b' || cleanU === 'benar')) return true;
+
+  // 4. Multi-answer match: "2.4" vs "24", "2,4", "4,2", "2 dan 4", "25", "52", "BE"
   if (cleanK.includes('.') || cleanK.includes(',') || cleanK.includes(' ')) {
     const keyParts = cleanK.split(/[\.,\s]+/).filter(Boolean).sort();
     const userParts = cleanU.split(/[\.,\s]+/).filter(Boolean).sort();
@@ -194,13 +203,38 @@ export const checkAnswerMatch = (userAns: any, correctKey: any, testType?: strin
   if (letterToNumStr(cleanU) === combDigitsK && combDigitsK.length > 0) return true;
   if (combDigitsU === letterToNumStr(cleanK) && combDigitsU.length > 0) return true;
 
+  // 5. Clean unit suffixes / currency symbols for numerical questions
+  const cleanUnitAndText = (s: string) => {
+    return s
+      .toLowerCase()
+      .replace(/[\$\u0024\€\£\¥]/g, '')
+      .replace(/\b(sen|dolar|dollar|detik|det|menit|jam|hari|bulan|tahun|cm|meter|m|km|kg|gram|gr|rupiah|rp|orang|persen|%)\b/gi, '')
+      .trim();
+  };
 
+  const strippedU = cleanUnitAndText(cleanU);
+  const strippedK = cleanUnitAndText(cleanK);
+  if (strippedU && strippedK && strippedU === strippedK) return true;
 
+  // Special match for WPT No 27 (1/30 dollar = 3.33 cents / 3 1/3 cents)
+  const isWpt27Key = cleanK === '1/30' || cleanK === '0.03' || cleanK === '0.033' || cleanK === '3 1/3' || cleanK === '3.33' || cleanK === '3,33';
+  if (isWpt27Key) {
+    const validWpt27Answers = ['1/30', '0.03', '0.033', '0.0333', '3 1/3', '3.33', '3,33', '3.3', '3,3', '3', '10/3', '3.333'];
+    if (validWpt27Answers.includes(strippedU) || validWpt27Answers.includes(cleanU)) return true;
+  }
+
+  // 6. Fractions, decimals, and thousand separators
   const parseNumOrFraction = (val: string): number | null => {
-    let s = val.trim().toLowerCase();
-    if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
-    else if (/^\d{1,3}(,\d{3})+$/.test(s)) s = s.replace(/,/g, '');
+    let s = cleanUnitAndText(val);
+    
+    // Thousand separator removal e.g. "1.000" or "25.000" or "1,000"
+    if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+      s = s.replace(/\./g, '');
+    } else if (/^\d{1,3}(,\d{3})+$/.test(s)) {
+      s = s.replace(/,/g, '');
+    }
 
+    // Mixed fraction e.g. "1 1/2" -> 1.5, "3 1/3" -> 3.3333, "2 3/4" -> 2.75
     const mixedMatch = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
     if (mixedMatch) {
       const whole = parseFloat(mixedMatch[1]);
@@ -209,16 +243,18 @@ export const checkAnswerMatch = (userAns: any, correctKey: any, testType?: strin
       if (den !== 0) return whole + (num / den);
     }
 
-    const fracMatch = s.match(/^(\d+(?:[.,]\d+)?)\/(\d+(?:[.,]\d+)?)$/);
+    // Simple fraction e.g. "1/8" -> 0.125, "1/30" -> 0.0333, "1/2" -> 0.5, "3/4" -> 0.75, "1/4" -> 0.25, "13/50" -> 0.26
+    const fracMatch = s.match(/^(\d+(?:[.,]\d+)?)\s*\/\s*(\d+(?:[.,]\d+)?)$/);
     if (fracMatch) {
       const num = parseFloat(fracMatch[1].replace(',', '.'));
       const den = parseFloat(fracMatch[2].replace(',', '.'));
       if (den !== 0) return num / den;
     }
 
+    // Standard decimal with dot or comma e.g. "0.26", "0,26", "175.00", "175,00"
     const dec = s.replace(',', '.');
     const parsed = parseFloat(dec);
-    if (!isNaN(parsed) && String(parsed) === dec || (!isNaN(parsed) && !isNaN(Number(dec)))) {
+    if (!isNaN(parsed) && (String(parsed) === dec || !isNaN(Number(dec)))) {
       return parsed;
     }
     return null;
@@ -227,9 +263,10 @@ export const checkAnswerMatch = (userAns: any, correctKey: any, testType?: strin
   const numUser = parseNumOrFraction(cleanU);
   const numKey = parseNumOrFraction(cleanK);
   if (numUser !== null && numKey !== null) {
-    if (Math.abs(numUser - numKey) < 0.0001) return true;
+    if (Math.abs(numUser - numKey) < 0.001) return true;
   }
 
+  // 7. Inverted / reversed input check (e.g. 42 vs 24 in IST 6 or series numbers)
   const revU = cleanU.split('').reverse().join('');
   if (revU === cleanK) return true;
 
@@ -239,6 +276,7 @@ export const checkAnswerMatch = (userAns: any, correctKey: any, testType?: strin
     if (digitsU.split('').reverse().join('') === digitsK) return true;
   }
 
+  // 8. Option prefix matching: e.g. "1" matches "1. JANUARI"
   if (cleanK.startsWith(cleanU + '.') || cleanK.startsWith(cleanU + ' ') || cleanK.startsWith(cleanU + ')')) {
     return true;
   }
