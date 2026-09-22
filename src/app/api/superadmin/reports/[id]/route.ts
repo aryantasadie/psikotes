@@ -3,15 +3,34 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 
-
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+      return NextResponse.json({ error: 'Unauthorized: Harap login terlebih dahulu' }, { status: 401 });
+    }
+
+    const userRole = (session.user as any).role;
+    if (userRole === 'testee' || userRole === 'user') {
+      return NextResponse.json({ error: 'Forbidden: Akses ditolak' }, { status: 403 });
+    }
+
     const params = await context.params;
     const participantId = parseInt(params.id);
+
     const participant = await prisma.testParticipant.findUnique({
       where: { id: participantId },
       include: {
-        user: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            email: true,
+            role: true,
+            createdAt: true
+          }
+        },
         jobPosition: {
           include: { grayAreas: true, psychographPreset: true }
         },
@@ -40,16 +59,16 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Participant not found' }, { status: 404 });
     }
 
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Client authorization check
+    if (userRole === 'client') {
+      if (participant.test.clientId !== (session.user as any).id) {
+        return NextResponse.json({ error: 'Akses ditolak: Batch bukan milik akun Anda' }, { status: 403 });
+      }
     }
-
-    const userRole = (session.user as any).role;
-    const assignedTestIdsStr = (session.user as any).assignedTestIds;
 
     // Restrict tester and psikolog to their assigned batches
     if (userRole === 'tester' || userRole === 'psikolog') {
+      const assignedTestIdsStr = (session.user as any).assignedTestIds;
       if (!assignedTestIdsStr) {
         return NextResponse.json({ error: 'Akses ditolak: Anda tidak ditugaskan ke batch ini.' }, { status: 403 });
       }
@@ -71,18 +90,18 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
 export async function PUT(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const params = await context.params;
-    const participantId = parseInt(params.id);
-
     const session = await getServerSession(authOptions);
     if (!session || !session.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const userRole = (session.user as any).role;
-    if (userRole === 'tester') {
-      return NextResponse.json({ error: 'Forbidden: Tester tidak diperbolehkan menyimpan evaluasi.' }, { status: 403 });
+    if (!['superadmin', 'psikolog'].includes(userRole)) {
+      return NextResponse.json({ error: 'Forbidden: Hanya Superadmin dan Psikolog yang dapat menyimpan evaluasi.' }, { status: 403 });
     }
+
+    const params = await context.params;
+    const participantId = parseInt(params.id);
 
     if (userRole === 'psikolog') {
       const participant = await prisma.testParticipant.findUnique({
@@ -162,6 +181,11 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'superadmin') {
+      return NextResponse.json({ error: 'Akses ditolak: Hanya Superadmin yang boleh menghapus laporan' }, { status: 403 });
+    }
+
     const params = await context.params;
     const participantId = parseInt(params.id);
     
@@ -174,29 +198,15 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Participant not found' }, { status: 404 });
     }
 
-    // Because of foreign key constraints, we might need to delete answers and raw results first
-    // Prisma will do this automatically if we have onDelete: Cascade in the schema.
-    // Let's delete them explicitly just in case Cascade is not set up.
-    await prisma.answer.deleteMany({
-      where: { participantId }
-    });
-
-    await prisma.testResultRaw.deleteMany({
-      where: { participantId }
-    });
-
-    await prisma.testResultPsychograph.deleteMany({
-      where: { participantId }
-    });
-
-    await prisma.testResultNormalized.deleteMany({
-      where: { participantId }
-    });
-
-    // Delete the participant itself
-    await prisma.testParticipant.delete({
-      where: { id: participantId }
-    });
+    // Use atomic transaction for deleting participant and related data
+    await prisma.$transaction([
+      prisma.answer.deleteMany({ where: { participantId } }),
+      prisma.testResultRaw.deleteMany({ where: { participantId } }),
+      prisma.testResultPsychograph.deleteMany({ where: { participantId } }),
+      prisma.testResultNormalized.deleteMany({ where: { participantId } }),
+      prisma.securityLog.deleteMany({ where: { participantId } }),
+      prisma.testParticipant.delete({ where: { id: participantId } })
+    ]);
 
     return NextResponse.json({ success: true, message: 'Participant deleted successfully' });
   } catch (error: any) {

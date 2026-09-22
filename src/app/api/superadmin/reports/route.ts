@@ -6,69 +6,88 @@ import { authOptions } from '@/lib/authOptions';
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized: Harap login terlebih dahulu' }, { status: 401 });
+    }
+
+    const userRole = (session.user as any).role;
+    if (!['superadmin', 'tester', 'psikolog'].includes(userRole)) {
+      return NextResponse.json({ error: 'Forbidden: Akses khusus penguji' }, { status: 403 });
+    }
+
+    const userId = parseInt((session.user as any).id, 10);
     let whereClause: any = {};
     let assignedTests: any[] = [];
 
-    if (session?.user) {
-      const userRole = (session.user as any).role;
-      const userId = parseInt((session.user as any).id);
+    if (userRole === 'tester' || userRole === 'psikolog') {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { assignedTestIds: true }
+      });
+      const assignedTestIdsStr = dbUser?.assignedTestIds;
 
-      if (userRole === 'tester' || userRole === 'psikolog') {
-        // Fetch fresh assignedTestIds from database to bypass NextAuth token caching
-        const dbUser = await prisma.user.findUnique({
-          where: { id: userId },
-          select: { assignedTestIds: true }
-        });
-        const assignedTestIdsStr = dbUser?.assignedTestIds;
-
-        if (assignedTestIdsStr) {
-          try {
-            const testIds: number[] = JSON.parse(assignedTestIdsStr);
-            if (Array.isArray(testIds) && testIds.length > 0) {
-              whereClause.testId = { in: testIds };
-              
-              // Fetch details of tests assigned to this tester/psychologist
-              assignedTests = await prisma.test.findMany({
-                where: { id: { in: testIds } },
-                include: {
-                  jobPosition: true,
-                  client: true
-                },
-                orderBy: { id: 'desc' }
-              });
-            } else {
-              whereClause.testId = -1; // Block access to everything
-            }
-          } catch (e) {
-            console.error('Failed to parse assignedTestIds:', e);
-            whereClause.testId = -1; // Block access on parse failure
+      if (assignedTestIdsStr) {
+        try {
+          const testIds: number[] = JSON.parse(assignedTestIdsStr);
+          if (Array.isArray(testIds) && testIds.length > 0) {
+            whereClause.testId = { in: testIds };
+            
+            assignedTests = await prisma.test.findMany({
+              where: { id: { in: testIds } },
+              include: {
+                jobPosition: true,
+                client: {
+                  select: { id: true, name: true, username: true, email: true, role: true }
+                }
+              },
+              orderBy: { id: 'desc' }
+            });
+          } else {
+            whereClause.testId = -1;
           }
-        } else {
-          whereClause.testId = -1; // Block access if no test IDs are assigned
+        } catch (e) {
+          console.error('Failed to parse assignedTestIds:', e);
+          whereClause.testId = -1;
         }
       } else {
-        // Superadmin gets all tests
-        assignedTests = await prisma.test.findMany({
-          include: {
-            jobPosition: true,
-            client: true
-          },
-          orderBy: { id: 'desc' }
-        });
+        whereClause.testId = -1;
       }
+    } else {
+      assignedTests = await prisma.test.findMany({
+        include: {
+          jobPosition: true,
+          client: {
+            select: { id: true, name: true, username: true, email: true, role: true }
+          }
+        },
+        orderBy: { id: 'desc' }
+      });
     }
 
     const participants = await prisma.testParticipant.findMany({
       where: whereClause,
       include: {
-        user: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            email: true,
+            phone: true,
+            role: true,
+            status: true,
+            createdAt: true
+          }
+        },
         jobPosition: true,
         psychoResults: true,
         logs: true,
         test: {
           include: {
             jobPosition: true,
-            client: true
+            client: {
+              select: { id: true, name: true, username: true, email: true, role: true }
+            }
           }
         },
         rawResults: true,

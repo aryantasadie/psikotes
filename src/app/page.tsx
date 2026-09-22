@@ -69,6 +69,10 @@ export default function LoginPage() {
           setLoading(false);
           setError('Akses ditolak: Portal Klien dinonaktifkan.');
         } else if (role === 'testee' || role === 'user') {
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('cbt_consent_granted');
+            localStorage.removeItem('cbt_consent_granted');
+          }
           router.push('/testee/session');
           router.refresh();
         } else {

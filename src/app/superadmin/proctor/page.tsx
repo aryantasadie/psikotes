@@ -379,7 +379,7 @@ export default function ProctoringCenterPage() {
                           <div className="text-[11px] font-bold text-slate-500">📷 Kamera Depan (Webcam):</div>
                           {cameraLog ? (
                             <img
-                              src={cameraLog.mediaUrl}
+                              src={cameraLog.mediaUrl.startsWith('/uploads/') ? cameraLog.mediaUrl.replace('/uploads/', '/api/uploads/') : cameraLog.mediaUrl}
                               alt="Webcam Capture"
                               className="w-full h-44 object-cover border border-slate-200 rounded-xl"
                             />
@@ -395,7 +395,7 @@ export default function ProctoringCenterPage() {
                           <div className="text-[11px] font-bold text-slate-500">🖥️ Layar Monitor (Screen Capture):</div>
                           {screenLog ? (
                             <img
-                              src={screenLog.mediaUrl}
+                              src={screenLog.mediaUrl.startsWith('/uploads/') ? screenLog.mediaUrl.replace('/uploads/', '/api/uploads/') : screenLog.mediaUrl}
                               alt="Screen Capture"
                               className="w-full h-44 object-contain border border-slate-200 bg-slate-950 rounded-xl"
                             />

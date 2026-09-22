@@ -5,7 +5,8 @@ import { authOptions } from '@/lib/authOptions';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
-  if (!session || (session.user as any).role !== 'testee') {
+  const userRole = (session?.user as any)?.role;
+  if (!session || (userRole !== 'testee' && userRole !== 'user')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -81,21 +82,24 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || (session.user as any).role !== 'testee') {
+    const userRole = (session?.user as any)?.role;
+    if (!session || (userRole !== 'testee' && userRole !== 'user')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const userId = parseInt((session.user as any).id);
     const { name } = await req.json();
 
-    if (!name || name.trim() === '') {
+    const sanitizedName = String(name || '').replace(/[<>]/g, '').trim();
+
+    if (!sanitizedName) {
       return NextResponse.json({ error: 'Nama wajib diisi' }, { status: 400 });
     }
 
     // Update user's name in the database
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { name: name.trim() }
+      data: { name: sanitizedName }
     });
 
     return NextResponse.json({ success: true, name: updatedUser.name });

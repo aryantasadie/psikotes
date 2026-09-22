@@ -1,9 +1,23 @@
 import { getAllActiveStreams, streamEvents, StreamSession } from '@/lib/streamStore';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/authOptions';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  const userRole = (session?.user as any)?.role;
+  if (!session || !['superadmin', 'tester', 'psikolog'].includes(userRole)) {
+    return new Response(JSON.stringify({ error: 'Unauthorized: Akses stream khusus pengawas' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+
   const encoder = new TextEncoder();
+  let pingInterval: NodeJS.Timeout;
+  let onBatchUpdate: (batch: StreamSession[]) => void;
+  let onSingleUpdate: (single: StreamSession) => void;
 
   const stream = new ReadableStream({
     start(controller) {
@@ -12,44 +26,34 @@ export async function GET() {
       const initialData = `data: ${JSON.stringify({ type: 'INIT', streams: initialStreams })}\n\n`;
       controller.enqueue(encoder.encode(initialData));
 
-      // 2. Listener for high-concurrency batched frame updates
-      const onBatchUpdate = (batchList: StreamSession[]) => {
+      // 2. Event listeners
+      onBatchUpdate = (batchList: StreamSession[]) => {
         try {
-          const payload = `data: ${JSON.stringify({ type: 'BATCH_UPDATE', streams: batchList })}\n\n`;
-          controller.enqueue(encoder.encode(payload));
-        } catch {
-          // Stream closed by client
-        }
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'BATCH_UPDATE', streams: batchList })}\n\n`));
+        } catch {}
       };
-
-      // 3. Listener for single stream update (for focus view)
-      const onSingleUpdate = (updatedSession: StreamSession) => {
+      onSingleUpdate = (updatedSession: StreamSession) => {
         try {
-          const payload = `data: ${JSON.stringify({ type: 'UPDATE', stream: updatedSession })}\n\n`;
-          controller.enqueue(encoder.encode(payload));
-        } catch {
-          // Stream closed by client
-        }
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'UPDATE', stream: updatedSession })}\n\n`));
+        } catch {}
       };
 
       streamEvents.on('batch_update', onBatchUpdate);
       streamEvents.on('stream_update', onSingleUpdate);
 
-      // 4. Heartbeat ping every 10 seconds
-      const pingInterval = setInterval(() => {
+      pingInterval = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(`: ping\n\n`));
         } catch {
           clearInterval(pingInterval);
         }
       }, 10000);
-
-      // 5. Cleanup when client disconnects
-      return () => {
-        clearInterval(pingInterval);
-        streamEvents.off('batch_update', onBatchUpdate);
-        streamEvents.off('stream_update', onSingleUpdate);
-      };
+    },
+    cancel() {
+      // Automatic cleanup when client disconnects
+      if (pingInterval) clearInterval(pingInterval);
+      if (onBatchUpdate) streamEvents.off('batch_update', onBatchUpdate);
+      if (onSingleUpdate) streamEvents.off('stream_update', onSingleUpdate);
     }
   });
 

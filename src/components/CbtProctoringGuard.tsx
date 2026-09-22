@@ -8,12 +8,8 @@ interface CbtProctoringGuardProps {
 
 export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps) {
   const [participantId, setParticipantId] = useState<number | null>(null);
-  const [consentGranted, setConsentGranted] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('cbt_consent_granted') === 'true' || localStorage.getItem('cbt_consent_granted') === 'true';
-    }
-    return false;
-  });
+  const [mounted, setMounted] = useState(false);
+  const [consentGranted, setConsentGranted] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
   const [webcamActive, setWebcamActive] = useState(false);
   const [webcamError, setWebcamError] = useState<string | null>(null);
@@ -34,8 +30,14 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
   const webcamInitializing = useRef(false);
   const screenInitializing = useRef(false);
 
-  // Fetch participant ID
+  // Hydration sync & participant ID fetch
   useEffect(() => {
+    setMounted(true);
+    const hasConsent = sessionStorage.getItem('cbt_consent_granted') === 'true';
+    if (hasConsent) {
+      setConsentGranted(true);
+    }
+
     const savedId = localStorage.getItem('current_participant_id');
     if (savedId) {
       setParticipantId(parseInt(savedId, 10));
@@ -718,6 +720,24 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   const isPermissionGranted = webcamActive && screenActive;
 
+  // Cegah hydration mismatch antara SSR dan Client
+  if (!mounted) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          height: '100%',
+          width: '100%',
+          background: '#f8fafc'
+        }}
+      >
+        <main style={{ minHeight: '100vh' }}>
+          {children}
+        </main>
+      </div>
+    );
+  }
+
   // TAHAP AWAL: Lembar Persetujuan Data & Rekaman (Sebelum Meminta Izin Kamera / Layar)
   if (!consentGranted) {
     return (
@@ -816,7 +836,6 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
                 if (consentChecked) {
                   if (typeof window !== 'undefined') {
                     sessionStorage.setItem('cbt_consent_granted', 'true');
-                    localStorage.setItem('cbt_consent_granted', 'true');
                   }
                   setConsentGranted(true);
                   setupScreenShare();

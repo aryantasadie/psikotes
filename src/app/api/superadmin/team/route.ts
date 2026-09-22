@@ -1,11 +1,17 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/authOptions';
 
 // GET: Fetch team personnel and available Test/Batch list
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'superadmin') {
+      return NextResponse.json({ error: 'Akses ditolak: Hanya Superadmin' }, { status: 401 });
+    }
+
     const [users, tests] = await Promise.all([
       prisma.user.findMany({
         where: {
@@ -13,7 +19,19 @@ export async function GET(req: Request) {
             in: ['superadmin', 'psikolog', 'tester']
           }
         },
-        orderBy: { createdAt: 'desc' }
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          email: true,
+          phone: true,
+          license: true,
+          role: true,
+          status: true,
+          assignedTestIds: true,
+          createdAt: true
+        },
+        orderBy: { id: 'asc' }
       }),
       prisma.test.findMany({
         select: {
@@ -39,6 +57,11 @@ export async function GET(req: Request) {
 // POST: Add new team member with Batch assignment
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'superadmin') {
+      return NextResponse.json({ error: 'Akses ditolak: Hanya Superadmin' }, { status: 401 });
+    }
+
     const body = await req.json();
     let { name, username, email, phone, license, role, status, password, assignedTestIds } = body;
 
@@ -46,12 +69,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Nama Lengkap, Password, dan Role wajib diisi' }, { status: 400 });
     }
 
-    // Set username as name directly to allow full name login
     if (!username || username.trim() === '') {
       username = name.trim();
     }
 
-    // Ensure username uniqueness
     let existing = await prisma.user.findFirst({
       where: { username: { equals: username, mode: 'insensitive' } }
     });
@@ -78,6 +99,18 @@ export async function POST(req: Request) {
         role: role || 'tester',
         status: status || 'active',
         assignedTestIds: formattedAssignedTests
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+        phone: true,
+        license: true,
+        role: true,
+        status: true,
+        assignedTestIds: true,
+        createdAt: true
       }
     });
 
@@ -91,6 +124,11 @@ export async function POST(req: Request) {
 // PUT: Update team member and Batch assignment
 export async function PUT(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'superadmin') {
+      return NextResponse.json({ error: 'Akses ditolak: Hanya Superadmin' }, { status: 401 });
+    }
+
     const body = await req.json();
     let { id, name, username, email, phone, license, role, status, password, assignedTestIds } = body;
 
@@ -123,7 +161,19 @@ export async function PUT(req: Request) {
 
     const updatedUser = await prisma.user.update({
       where: { id: Number(id) },
-      data: updateData
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+        phone: true,
+        license: true,
+        role: true,
+        status: true,
+        assignedTestIds: true,
+        createdAt: true
+      }
     });
 
     return NextResponse.json(updatedUser);
@@ -136,11 +186,20 @@ export async function PUT(req: Request) {
 // DELETE: Delete team member
 export async function DELETE(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'superadmin') {
+      return NextResponse.json({ error: 'Akses ditolak: Hanya Superadmin' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
     if (!id) {
       return NextResponse.json({ error: 'ID wajib diisi' }, { status: 400 });
+    }
+
+    if (Number(id) === Number((session.user as any).id)) {
+      return NextResponse.json({ error: 'Tidak dapat menghapus akun Anda sendiri' }, { status: 400 });
     }
 
     await prisma.user.delete({

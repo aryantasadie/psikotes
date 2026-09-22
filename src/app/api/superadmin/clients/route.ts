@@ -1,14 +1,28 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/authOptions';
 
 // GET: Fetch all Client companies (role = 'client')
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'superadmin') {
+      return NextResponse.json({ error: 'Akses ditolak: Hanya Superadmin' }, { status: 401 });
+    }
+
     const clients = await prisma.user.findMany({
       where: { role: 'client' },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+        phone: true,
+        role: true,
+        status: true,
+        createdAt: true,
         _count: {
           select: { participants: true }
         }
@@ -42,6 +56,11 @@ export async function GET() {
 // POST: Add new Client company
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'superadmin') {
+      return NextResponse.json({ error: 'Akses ditolak: Hanya Superadmin' }, { status: 401 });
+    }
+
     const body = await req.json();
     let { name, username, email, phone, password, status } = body;
 
@@ -65,6 +84,16 @@ export async function POST(req: Request) {
         password: hashedPassword,
         role: 'client',
         status: status || 'active'
+      },
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+        phone: true,
+        role: true,
+        status: true,
+        createdAt: true
       }
     });
 
@@ -78,11 +107,21 @@ export async function POST(req: Request) {
 // PUT: Update Client company
 export async function PUT(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'superadmin') {
+      return NextResponse.json({ error: 'Akses ditolak: Hanya Superadmin' }, { status: 401 });
+    }
+
     const body = await req.json();
     let { id, name, username, email, phone, password, status } = body;
 
     if (!id || !name || !username) {
       return NextResponse.json({ error: 'ID, Nama Perusahaan, dan Username wajib diisi' }, { status: 400 });
+    }
+
+    const target = await prisma.user.findUnique({ where: { id: Number(id) } });
+    if (!target || target.role !== 'client') {
+      return NextResponse.json({ error: 'Target bukan akun klien' }, { status: 400 });
     }
 
     const updateData: any = {
@@ -99,7 +138,17 @@ export async function PUT(req: Request) {
 
     const updatedClient = await prisma.user.update({
       where: { id: Number(id) },
-      data: updateData
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        username: true,
+        email: true,
+        phone: true,
+        role: true,
+        status: true,
+        createdAt: true
+      }
     });
 
     return NextResponse.json(updatedClient);
@@ -112,11 +161,21 @@ export async function PUT(req: Request) {
 // DELETE: Delete Client company
 export async function DELETE(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session || (session.user as any).role !== 'superadmin') {
+      return NextResponse.json({ error: 'Akses ditolak: Hanya Superadmin' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
     if (!id) {
       return NextResponse.json({ error: 'ID wajib diisi' }, { status: 400 });
+    }
+
+    const target = await prisma.user.findUnique({ where: { id: Number(id) } });
+    if (!target || target.role !== 'client') {
+      return NextResponse.json({ error: 'Target bukan akun klien' }, { status: 400 });
     }
 
     await prisma.user.delete({

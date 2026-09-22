@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 
-
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -29,26 +28,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Participant not found' }, { status: 404 });
     }
 
-    // Prepare operations to save answers
-    let ops: any[] = [];
+    if (participant.status === 'completed') {
+      return NextResponse.json({ success: false, error: 'Ujian sudah diselesaikan dan tidak dapat diubah lagi' }, { status: 400 });
+    }
 
     if (testType === 'KRAEPELIN' || testType === 'KREAPELIN') {
       const rawDataStr = typeof answers === 'string' ? answers : JSON.stringify(answers);
-      await prisma.testResultRaw.deleteMany({
-        where: {
-          participantId: participant.id,
-          testType: 'KRAEPELIN'
-        }
-      });
-      await prisma.testResultRaw.create({
-        data: {
-          participantId: participant.id,
-          testType: 'KRAEPELIN',
-          rawData: rawDataStr
-        }
-      });
+      await prisma.$transaction([
+        prisma.testResultRaw.deleteMany({
+          where: {
+            participantId: participant.id,
+            testType: 'KRAEPELIN'
+          }
+        }),
+        prisma.testResultRaw.create({
+          data: {
+            participantId: participant.id,
+            testType: 'KRAEPELIN',
+            rawData: rawDataStr
+          }
+        })
+      ]);
       return NextResponse.json({ success: true });
     }
+
+    let ops: any[] = [];
 
     if (testType === 'DISC') {
       const discAns: Record<number, any> = {};
@@ -82,7 +86,6 @@ export async function POST(req: Request) {
       
       // Khusus untuk WPT, simpan nilai umur peserta (jika ada) ke dalam tabel TestResultRaw
       if (testType === 'WPT' && body.age !== undefined && body.age !== null) {
-        // Hapus dulu data umur WPT yang lama jika ada (agar tidak duplicate saat retake)
         ops.push(
           prisma.testResultRaw.deleteMany({
             where: {
@@ -103,23 +106,21 @@ export async function POST(req: Request) {
       }
     }
 
-    // We first delete any existing answers from this participant for this testType to prevent duplicates
-    await prisma.answer.deleteMany({
-      where: {
-        participantId: participant.id,
-        question: { testType }
-      }
-    });
-
-    // Execute insertion in a transaction
-    await prisma.$transaction(ops);
+    // Execute deletion of existing answers and insertion of new answers in a single transaction
+    await prisma.$transaction([
+      prisma.answer.deleteMany({
+        where: {
+          participantId: participant.id,
+          question: { testType }
+        }
+      }),
+      ...ops
+    ]);
 
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
     console.error("Submit Answer Error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 }

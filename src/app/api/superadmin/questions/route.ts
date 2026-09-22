@@ -1,13 +1,23 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
-
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/authOptions';
 
 export async function GET(request: Request) {
+  const session = await getServerSession(authOptions);
+  const role = (session?.user as any)?.role;
+  if (!session || !['superadmin', 'tester', 'psikolog'].includes(role)) {
+    return NextResponse.json({ error: 'Akses ditolak: Khusus staf penguji' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const testType = searchParams.get('testType');
   
   try {
-    const query: any = {};
+    const query: any = {
+      orderBy: { id: 'asc' },
+      take: 200
+    };
     if (testType) {
       if (testType === 'POWER' || testType === 'POWER LEADER' || testType === 'POWER_LEADER') {
         query.where = { testType: { in: ['POWER', 'POWER LEADER', 'POWER_LEADER'] } };
@@ -25,9 +35,8 @@ export async function GET(request: Request) {
     }
     const questions = await prisma.question.findMany(query);
     
-    // Untuk admin, kita kembalikan kunci jawaban (correct)
     return NextResponse.json({ success: true, questions });
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json({ success: false, error: 'Failed to fetch questions' }, { status: 500 });
   }
 }

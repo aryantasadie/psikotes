@@ -1,10 +1,17 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
-
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/authOptions';
 
 // GET: Fetch all created Test Batches with participants & accounts
 export async function GET() {
   try {
+    const session = await getServerSession(authOptions);
+    const userRole = (session?.user as any)?.role;
+    if (!session || !['superadmin', 'tester', 'psikolog'].includes(userRole)) {
+      return NextResponse.json({ error: 'Unauthorized: Akses ditolak' }, { status: 401 });
+    }
+
     const batches = await prisma.test.findMany({
       include: {
         jobPosition: {
@@ -16,7 +23,7 @@ export async function GET() {
         participants: {
           include: {
             user: {
-              select: { id: true, name: true, username: true }
+              select: { id: true, name: true, username: true, password: true }
             }
           },
           orderBy: { id: 'asc' }
@@ -86,6 +93,12 @@ export async function GET() {
 // PUT: Edit batch session details (title, startDate, clientId, testerId)
 export async function PUT(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    const userRole = (session?.user as any)?.role;
+    if (!session || userRole !== 'superadmin') {
+      return NextResponse.json({ error: 'Unauthorized: Hanya Superadmin yang boleh mengedit batch' }, { status: 401 });
+    }
+
     const { id, title, startDate, clientId, testerId } = await req.json();
 
     if (!id) {
@@ -153,6 +166,12 @@ export async function PUT(req: Request) {
 // DELETE: Delete a batch session & all related participant data cleanly (Cascade)
 export async function DELETE(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    const userRole = (session?.user as any)?.role;
+    if (!session || userRole !== 'superadmin') {
+      return NextResponse.json({ error: 'Unauthorized: Hanya Superadmin yang boleh menghapus batch' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
 
@@ -162,14 +181,7 @@ export async function DELETE(req: Request) {
 
     const testId = Number(id);
 
-    // 1. Find all questions for this test
-    const questions = await prisma.question.findMany({
-      where: { testId },
-      select: { id: true }
-    });
-    const questionIds = questions.map((q) => q.id);
-
-    // 2. Find all participants for this test
+    // 1. Find all participants for this test
     const participants = await prisma.testParticipant.findMany({
       where: { testId },
       select: { id: true, userId: true }
@@ -177,48 +189,35 @@ export async function DELETE(req: Request) {
     const participantIds = participants.map((p) => p.id);
     const userIds = participants.map((p) => p.userId);
 
-    // 3. Delete Answers (by participant OR question)
-    const answerConditions = [];
-    if (participantIds.length > 0) answerConditions.push({ participantId: { in: participantIds } });
-    if (questionIds.length > 0) answerConditions.push({ questionId: { in: questionIds } });
-
-    if (answerConditions.length > 0) {
-      await prisma.answer.deleteMany({
-        where: { OR: answerConditions }
-      });
-    }
-
-    // 4. Delete participant child records (logs, raw, normalized, psychograph)
-    if (participantIds.length > 0) {
-      await prisma.securityLog.deleteMany({ where: { participantId: { in: participantIds } } });
-      await prisma.testResultRaw.deleteMany({ where: { participantId: { in: participantIds } } });
-      await prisma.testResultNormalized.deleteMany({ where: { participantId: { in: participantIds } } });
-      await prisma.testResultPsychograph.deleteMany({ where: { participantId: { in: participantIds } } });
-    }
-
-    // 5. Delete Questions for this test
-    if (questionIds.length > 0) {
-      await prisma.question.deleteMany({ where: { testId } });
-    }
-
-    // 6. Delete TestParticipants for this test
-    await prisma.testParticipant.deleteMany({ where: { testId } });
-
-    // 7. Delete associated Users if they have no other active test participants
+    // 2. Delete associated Users if they have no other active test participants
+    let safeToDeleteUserIds: number[] = [];
     if (userIds.length > 0) {
       const otherParticipants = await prisma.testParticipant.findMany({
-        where: { userId: { in: userIds } },
+        where: { 
+          userId: { in: userIds },
+          testId: { not: testId }
+        },
         select: { userId: true }
       });
       const otherUserIds = new Set(otherParticipants.map((op) => op.userId));
-      const safeToDeleteUserIds = userIds.filter((uid) => !otherUserIds.has(uid));
-
-      if (safeToDeleteUserIds.length > 0) {
-        await prisma.user.deleteMany({ where: { id: { in: safeToDeleteUserIds } } });
-      }
+      safeToDeleteUserIds = userIds.filter((uid) => !otherUserIds.has(uid));
     }
 
-    // 8. Clean up assignedTestIds from Testers/Admins
+    // 3. Execute cascading deletion in an atomic transaction (NEVER delete bank questions)
+    await prisma.$transaction([
+      ...(participantIds.length > 0 ? [
+        prisma.answer.deleteMany({ where: { participantId: { in: participantIds } } }),
+        prisma.securityLog.deleteMany({ where: { participantId: { in: participantIds } } }),
+        prisma.testResultRaw.deleteMany({ where: { participantId: { in: participantIds } } }),
+        prisma.testResultNormalized.deleteMany({ where: { participantId: { in: participantIds } } }),
+        prisma.testResultPsychograph.deleteMany({ where: { participantId: { in: participantIds } } }),
+      ] : []),
+      prisma.testParticipant.deleteMany({ where: { testId } }),
+      ...(safeToDeleteUserIds.length > 0 ? [prisma.user.deleteMany({ where: { id: { in: safeToDeleteUserIds } } })] : []),
+      prisma.test.delete({ where: { id: testId } })
+    ]);
+
+    // 6. Clean up assignedTestIds from Testers/Admins
     const testers = await prisma.user.findMany({
       where: { assignedTestIds: { not: null } },
       select: { id: true, assignedTestIds: true }
@@ -237,9 +236,6 @@ export async function DELETE(req: Request) {
         } catch (e) {}
       }
     }
-
-    // 9. Finally delete the Test
-    await prisma.test.delete({ where: { id: testId } });
 
     return NextResponse.json({ message: 'Batch dan seluruh akun peserta berhasil dihapus' });
   } catch (error: any) {

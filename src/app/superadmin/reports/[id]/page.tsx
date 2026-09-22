@@ -1339,7 +1339,7 @@ export default function ReportDetailPage() {
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>📷 Kamera Webcam:</div>
                         {cameraLog ? (
                           <img 
-                            src={cameraLog.mediaUrl} 
+                            src={cameraLog.mediaUrl.startsWith('/uploads/') ? cameraLog.mediaUrl.replace('/uploads/', '/api/uploads/') : cameraLog.mediaUrl} 
                             alt="Webcam Capture" 
                             style={{ width: '100%', borderRadius: '12px', border: '1px solid #CBD5E1', objectFit: 'cover', height: '220px' }} 
                           />
@@ -1354,7 +1354,7 @@ export default function ReportDetailPage() {
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>🖥️ Tangkapan Layar Desktop:</div>
                         {screenLog ? (
                           <img 
-                            src={screenLog.mediaUrl} 
+                            src={screenLog.mediaUrl.startsWith('/uploads/') ? screenLog.mediaUrl.replace('/uploads/', '/api/uploads/') : screenLog.mediaUrl} 
                             alt="Screen Capture" 
                             style={{ width: '100%', borderRadius: '12px', border: '1px solid #CBD5E1', objectFit: 'contain', height: '220px', background: '#0F172A' }} 
                           />

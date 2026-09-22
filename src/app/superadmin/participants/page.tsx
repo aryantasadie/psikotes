@@ -375,7 +375,7 @@ export default function ParticipantsPage() {
                           <div className="text-[11px] text-slate-400 mt-0.5">
                             ID: <span className="font-mono">{p.user.username}</span>
                             {p.plainPassword && (
-                              <> &bull; Plain Pass: <span className="font-mono text-slate-500 font-semibold">{p.plainPassword}</span></>
+                              <> &bull; Pass: <span className="font-mono text-teal-700 font-bold bg-teal-50 px-1 py-0.5 rounded">{p.plainPassword}</span></>
                             )}
                           </div>
                         </td>

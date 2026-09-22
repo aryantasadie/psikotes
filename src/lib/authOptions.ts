@@ -18,10 +18,7 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.user.findFirst({
           where: {
-            OR: [
-              { username: { equals: credentials.username, mode: 'insensitive' } },
-              { name: { equals: credentials.username, mode: 'insensitive' } }
-            ]
+            username: { equals: credentials.username.trim(), mode: 'insensitive' }
           }
         });
 
@@ -78,5 +75,5 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: 'jwt',
   },
-  secret: process.env.NEXTAUTH_SECRET || "rahasianegara123!@#",
+  secret: process.env.NEXTAUTH_SECRET,
 };

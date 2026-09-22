@@ -2,17 +2,18 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { authOptions } from '@/lib/authOptions';
 
-
-// Generate unique readable random password per participant (alphanumeric, 6 chars)
-function generateRandomPassword(length = 6) {
-  const chars = '23456789abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ';
-  let pass = '';
+// Generate cryptographically secure random password per participant (alphanumeric, 8 chars)
+function generateSecurePassword(length = 8): string {
+  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
+  const bytes = crypto.randomBytes(length);
+  let result = '';
   for (let i = 0; i < length; i++) {
-    pass += chars[Math.floor(Math.random() * chars.length)];
+    result += chars[bytes[i] % chars.length];
   }
-  return pass;
+  return result;
 }
 
 export async function POST(req: Request) {
@@ -163,9 +164,9 @@ export async function POST(req: Request) {
       const username = `${prefix.toLowerCase().trim()}_${numStr}`;
       
       // Ensure unique random password per participant
-      let passwordPlain = generateRandomPassword();
+      let passwordPlain = generateSecurePassword(8);
       while (usedPasswords.has(passwordPlain)) {
-        passwordPlain = generateRandomPassword();
+        passwordPlain = generateSecurePassword(8);
       }
       usedPasswords.add(passwordPlain);
 
