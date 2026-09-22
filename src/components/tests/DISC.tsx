@@ -22,6 +22,20 @@ export default function DISC() {
   const [showUnansweredModal, setShowUnansweredModal] = useState(false);
   const router = useRouter();
 
+  const DURATION_SECONDS = 15 * 60; // 15 menit di awal
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('test_timer_left_disc');
+      if (saved !== null) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed > 0 && parsed <= DURATION_SECONDS) {
+          return parsed;
+        }
+      }
+    }
+    return DURATION_SECONDS;
+  });
+
   useEffect(() => {
     // Restore draft answers if available
     if (typeof window !== 'undefined') {
@@ -131,6 +145,76 @@ export default function DISC() {
     }
   };
 
+  useEffect(() => {
+    if (showInstruction) return;
+
+    if (timeLeft <= 0) {
+      const unansweredNums: number[] = [];
+      questions.forEach((q, idx) => {
+        if (!answers[`${q.id}_most`] || !answers[`${q.id}_least`]) {
+          unansweredNums.push(idx + 1);
+        }
+      });
+      if (unansweredNums.length > 0) {
+        setTimeLeft(300); // Tambah +5 menit
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('test_timer_left_disc', '300');
+        }
+        setUnansweredList(unansweredNums);
+        setShowUnansweredModal(true);
+      } else {
+        handleSubmit();
+      }
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        const next = prev - 1;
+        if (typeof window !== 'undefined') {
+          if (next > 0) localStorage.setItem('test_timer_left_disc', String(next));
+          else localStorage.removeItem('test_timer_left_disc');
+        }
+        if (next <= 0) {
+          clearInterval(interval);
+          const unansweredNums: number[] = [];
+          questions.forEach((q, idx) => {
+            if (!answers[`${q.id}_most`] || !answers[`${q.id}_least`]) unansweredNums.push(idx + 1);
+          });
+          if (unansweredNums.length > 0) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('test_timer_left_disc', '300');
+            }
+            setUnansweredList(unansweredNums);
+            setShowUnansweredModal(true);
+            return 300; // Tambah +5 menit
+          } else {
+            handleSubmit();
+            return 0;
+          }
+        }
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [showInstruction, timeLeft, questions, answers]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const progress = calculateProgress();
+
+  const scrollToQuestion = (num: number) => {
+    const el = document.getElementById(`question-${num}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   if (loading) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: '"Inter", sans-serif' }}>Memuat soal DISC...</div>;
   if (questions.length === 0) return <div style={{ padding: '50px', textAlign: 'center', fontFamily: '"Inter", sans-serif' }}>Tidak ada soal DISC yang tersedia.</div>;
 
@@ -163,17 +247,32 @@ export default function DISC() {
     );
   }
 
-  const progress = calculateProgress();
-
-  const scrollToQuestion = (num: number) => {
-    const el = document.getElementById(`question-${num}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  };
-
   return (
     <div style={{ padding: '40px 20px 160px 20px', fontFamily: '"Inter", sans-serif', background: '#f0f2f5', minHeight: '100vh', position: 'relative' }}>
+
+      {/* Floating Fixed Timer (Top-Left, No Emoji) */}
+      <div 
+        style={{ 
+          position: 'fixed', 
+          top: '20px', 
+          left: '20px', 
+          zIndex: 1000, 
+          background: timeLeft <= 180 ? '#fef2f2' : '#ffffff', 
+          border: `2px solid ${timeLeft <= 180 ? '#ef4444' : '#3b82f6'}`, 
+          padding: '10px 18px', 
+          borderRadius: '12px', 
+          color: timeLeft <= 180 ? '#dc2626' : '#1d4ed8', 
+          fontWeight: 800, 
+          fontSize: '15px', 
+          boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}
+      >
+        <span>Sisa Waktu:</span>
+        <span style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 900 }}>{formatTime(timeLeft)}</span>
+      </div>
 
       {/* In-App Unanswered Modal */}
       <UnansweredModal
@@ -185,6 +284,13 @@ export default function DISC() {
       />
 
       <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', borderRadius: '24px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+        
+        {/* Header */}
+        <div style={{ padding: '18px 30px', background: '#fff', borderBottom: '1px solid #edf2f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '16px', fontWeight: 800, color: '#1e293b' }}>
+            DISC Profile (24 Soal)
+          </div>
+        </div>
         
         {/* Questions List */}
         <div style={{ padding: '40px' }}>

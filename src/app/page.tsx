@@ -98,10 +98,14 @@ export default function LoginPage() {
         
         {/* Header Branding */}
         <div className="text-center space-y-2">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 text-white font-black text-2xl flex items-center justify-center mx-auto shadow-lg shadow-teal-500/30">
-            HR
+          <div className="flex justify-center pb-1">
+            <img 
+              src="/logo.png" 
+              alt="HR Publik Logo" 
+              className="h-16 w-auto object-contain mx-auto"
+            />
           </div>
-          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight pt-1">
+          <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
             HR Publik Engine
           </h1>
           <p className="text-xs text-slate-500 max-w-xs mx-auto">

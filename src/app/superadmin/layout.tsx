@@ -135,11 +135,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
       {/* Brand */}
       <div className="px-5 pt-5 pb-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center shrink-0 shadow-sm">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-          </div>
+          <img src="/logo.png" alt="HR Publik" className="w-9 h-9 object-contain shrink-0" />
           <div>
             <p className="text-slate-900 font-bold text-sm leading-tight">HR Publik</p>
             <p className="text-teal-600 text-[10px] font-semibold tracking-widest uppercase">Assessment Engine</p>
@@ -253,13 +249,17 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
 
           {/* Breadcrumb */}
           <div className="flex-1 min-w-0 hidden md:flex items-center gap-2 text-sm text-slate-400">
+            <img src="/logo.png" alt="HR Publik" className="w-5 h-5 object-contain shrink-0" />
             <span className="font-medium text-slate-500">HR Publik</span>
             <Ico d={P.chevron} size={12} />
             <span className="font-semibold text-slate-800 truncate">{meta.crumb}</span>
           </div>
 
           {/* Mobile: page title */}
-          <p className="flex-1 text-sm font-semibold text-slate-800 truncate md:hidden">{meta.crumb}</p>
+          <div className="flex-1 flex items-center gap-2 md:hidden min-w-0">
+            <img src="/logo.png" alt="HR Publik" className="w-5 h-5 object-contain shrink-0" />
+            <p className="text-sm font-semibold text-slate-800 truncate">{meta.crumb}</p>
+          </div>
 
           {role === 'superadmin' && (
             <>

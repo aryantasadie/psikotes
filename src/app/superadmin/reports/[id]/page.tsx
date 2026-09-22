@@ -930,7 +930,10 @@ export default function ReportDetailPage() {
     <div className="section" style={{ padding: '2rem' }}>
       <div className="section-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <Link href="/superadmin/reports" style={{ display: 'inline-block', marginBottom: '1rem', color: '#3A3F94', textDecoration: 'none', fontWeight: 500 }}>
+          <Link 
+            href={participant?.testId || participant?.test?.id ? `/superadmin/reports/batch/${participant.testId || participant.test.id}` : '/superadmin/reports'} 
+            style={{ display: 'inline-block', marginBottom: '1rem', color: '#3A3F94', textDecoration: 'none', fontWeight: 500 }}
+          >
             &larr; Kembali ke Daftar Laporan
           </Link>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1E293B', marginBottom: '0.25rem' }}>

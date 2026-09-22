@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import UnansweredModal from './UnansweredModal';
 
 type Question = {
   id: string;
@@ -16,7 +17,23 @@ export default function POWER() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showInstruction, setShowInstruction] = useState(true);
+  const [unansweredList, setUnansweredList] = useState<number[]>([]);
+  const [showUnansweredModal, setShowUnansweredModal] = useState(false);
   const router = useRouter();
+
+  const DURATION_SECONDS = 15 * 60; // 15 menit di awal
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('test_timer_left_power') || localStorage.getItem('test_timer_left_powerleader');
+      if (saved !== null) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed > 0 && parsed <= DURATION_SECONDS) {
+          return parsed;
+        }
+      }
+    }
+    return DURATION_SECONDS;
+  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -63,10 +80,16 @@ export default function POWER() {
   };
 
   const handleSubmit = async () => {
-    const unanswered = questions.filter(q => !answers[q.id]);
+    const unansweredNums: number[] = [];
+    questions.forEach((q, idx) => {
+      if (!answers[q.id]) {
+        unansweredNums.push(idx + 1);
+      }
+    });
     
-    if (unanswered.length > 0) {
-      alert(`Masih ada ${unanswered.length} soal yang belum dijawab. Harap jawab semua soal.`);
+    if (unansweredNums.length > 0) {
+      setUnansweredList(unansweredNums);
+      setShowUnansweredModal(true);
       return;
     }
 
@@ -82,6 +105,8 @@ export default function POWER() {
         if (typeof window !== 'undefined') {
           localStorage.setItem('powerResult', JSON.stringify(data));
           localStorage.removeItem('test_draft_answers_power');
+          localStorage.removeItem('test_timer_left_power');
+          localStorage.removeItem('test_timer_left_powerleader');
           localStorage.setItem('test_completed_power', 'true');
           localStorage.setItem('test_completed_powerleader', 'true');
         }
@@ -95,6 +120,74 @@ export default function POWER() {
       console.error("Terjadi kesalahan.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showInstruction) return;
+
+    if (timeLeft <= 0) {
+      const unansweredNums: number[] = [];
+      questions.forEach((q, idx) => {
+        if (!answers[q.id]) {
+          unansweredNums.push(idx + 1);
+        }
+      });
+      if (unansweredNums.length > 0) {
+        setTimeLeft(300); // Tambah +5 menit
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('test_timer_left_power', '300');
+        }
+        setUnansweredList(unansweredNums);
+        setShowUnansweredModal(true);
+      } else {
+        handleSubmit();
+      }
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        const next = prev - 1;
+        if (typeof window !== 'undefined') {
+          if (next > 0) localStorage.setItem('test_timer_left_power', String(next));
+          else localStorage.removeItem('test_timer_left_power');
+        }
+        if (next <= 0) {
+          clearInterval(interval);
+          const unansweredNums: number[] = [];
+          questions.forEach((q, idx) => {
+            if (!answers[q.id]) unansweredNums.push(idx + 1);
+          });
+          if (unansweredNums.length > 0) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('test_timer_left_power', '300');
+            }
+            setUnansweredList(unansweredNums);
+            setShowUnansweredModal(true);
+            return 300; // Tambah +5 menit
+          } else {
+            handleSubmit();
+            return 0;
+          }
+        }
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [showInstruction, timeLeft, questions, answers]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const scrollToQuestion = (num: number) => {
+    const el = document.getElementById(`question-${num}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
 
@@ -112,6 +205,7 @@ export default function POWER() {
               <li>Tes ini terdiri dari <strong>50 pasang pernyataan</strong>.</li>
               <li>Pilihlah salah satu jawaban yang menggambarkan <strong>karakteristik atau kesesuaian dengan diri Anda</strong> dalam mengambil sebuah keputusan.</li>
               <li>Berikan jawaban secara spontan, A atau B.</li>
+              <li>Waktu pengerjaan <strong>15 menit</strong> (Wajib menyelesaikan seluruh soal).</li>
             </ul>
           </div>
           <button 
@@ -128,8 +222,49 @@ export default function POWER() {
   }
 
   return (
-    <div style={{ padding: '40px 20px 160px 20px', fontFamily: 'system-ui, -apple-system, sans-serif', background: '#F8FAFC', minHeight: '100vh' }}>
+    <div style={{ padding: '40px 20px 160px 20px', fontFamily: 'system-ui, -apple-system, sans-serif', background: '#F8FAFC', minHeight: '100vh', position: 'relative' }}>
+
+      {/* Floating Fixed Timer (Top-Left, No Emoji) */}
+      <div 
+        style={{ 
+          position: 'fixed', 
+          top: '20px', 
+          left: '20px', 
+          zIndex: 1000, 
+          background: timeLeft <= 180 ? '#fef2f2' : '#ffffff', 
+          border: `2px solid ${timeLeft <= 180 ? '#ef4444' : '#0d9488'}`, 
+          padding: '10px 18px', 
+          borderRadius: '12px', 
+          color: timeLeft <= 180 ? '#dc2626' : '#0d9488', 
+          fontWeight: 800, 
+          fontSize: '15px', 
+          boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}
+      >
+        <span>Sisa Waktu:</span>
+        <span style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 900 }}>{formatTime(timeLeft)}</span>
+      </div>
+
+      {/* In-App Unanswered Modal */}
+      <UnansweredModal
+        isOpen={showUnansweredModal}
+        unansweredList={unansweredList}
+        testTitle="POWER LEADER"
+        onSelectQuestion={scrollToQuestion}
+        onClose={() => setShowUnansweredModal(false)}
+      />
+
       <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', borderRadius: '20px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+        
+        {/* Header */}
+        <div style={{ padding: '18px 30px', background: '#fff', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
+            POWER LEADER (50 Soal)
+          </div>
+        </div>
         
         <div style={{ padding: '40px' }}>
           {questions.map((q, qIndex) => (

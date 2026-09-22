@@ -611,12 +611,15 @@ export default function ReportPdfPage() {
       {/* Page 1 */}
       <div className="a4-page">
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #0F172A', paddingBottom: '16px', marginBottom: '24px' }}>
-          <div>
-            <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: '0 0 4px 0', textTransform: 'uppercase' }}>LAPORAN HASIL EVALUASI PSIKOLOGIS</h1>
-            <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, letterSpacing: '0.05em' }}>HR PUBLIK ASSESSMENT CENTER & CONSULTING</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0F172A', paddingBottom: '16px', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <img src="/logo.png" alt="HR Publik Logo" style={{ height: '48px', width: 'auto', objectFit: 'contain' }} />
+            <div>
+              <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: '0 0 2px 0', textTransform: 'uppercase' }}>LAPORAN HASIL EVALUASI PSIKOLOGIS</h1>
+              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, letterSpacing: '0.05em' }}>HR PUBLIK ASSESSMENT CENTER & CONSULTING</div>
+            </div>
           </div>
-          <div style={{ textAlign: 'right', fontSize: '13px' }}>
+          <div style={{ textAlign: 'right', fontSize: '12px' }}>
             <div style={{ color: '#64748B' }}>Posisi: <span style={{ color: '#0F172A', fontWeight: 700 }}>{participant.test?.title?.split('-')[0]?.trim() || jobPosition?.name || '-'}</span></div>
             <div style={{ color: '#64748B' }}>Nama Peserta: <span style={{ color: '#0F172A', fontWeight: 700 }}>{participant.user?.name || '-'}</span></div>
           </div>

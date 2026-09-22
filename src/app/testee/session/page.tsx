@@ -31,7 +31,7 @@ export default function TesteeSession() {
             const keysToRemove = [];
             for (let i = 0; i < localStorage.length; i++) {
               const key = localStorage.key(i);
-              if (key && (key.startsWith('test_completed_') || key.endsWith('Result') || key.startsWith('testee_') || key.startsWith('test_draft_') || key.startsWith('kraepelin_draft_') || key.startsWith('test_timer_left_'))) {
+              if (key && (key.startsWith('test_completed_') || key.endsWith('Result') || key.startsWith('testee_') || key.startsWith('test_draft_') || key.startsWith('kraepelin_draft_') || key.startsWith('test_timer_left_') || key === 'cbt_consent_granted')) {
                 keysToRemove.push(key);
               }
             }
@@ -42,6 +42,7 @@ export default function TesteeSession() {
             sessionStorage.removeItem('testee_name');
             sessionStorage.removeItem('testee_age');
             sessionStorage.removeItem('testee_dob');
+            sessionStorage.removeItem('cbt_consent_granted');
           }
         }
 

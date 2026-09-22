@@ -8,6 +8,13 @@ interface CbtProctoringGuardProps {
 
 export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps) {
   const [participantId, setParticipantId] = useState<number | null>(null);
+  const [consentGranted, setConsentGranted] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('cbt_consent_granted') === 'true' || localStorage.getItem('cbt_consent_granted') === 'true';
+    }
+    return false;
+  });
+  const [consentChecked, setConsentChecked] = useState(false);
   const [webcamActive, setWebcamActive] = useState(false);
   const [webcamError, setWebcamError] = useState<string | null>(null);
   const [screenActive, setScreenActive] = useState(false);
@@ -211,6 +218,8 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
   };
 
   useEffect(() => {
+    if (!consentGranted) return;
+
     setupWebcam();
     setupScreenShare();
 
@@ -227,7 +236,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         }
       }
     };
-  }, []);
+  }, [consentGranted]);
 
   const getWebcamBase64 = (): string | null => {
     if (!videoRef.current || !webcamActive) return null;
@@ -599,6 +608,8 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   // Event Listener: Tab Switch & Window Blur Detection
   useEffect(() => {
+    if (!consentGranted) return;
+
     const handleVisibilityChange = () => {
       if (document.hidden) {
         handleViolation('Anda terdeteksi meninggalkan tab/halaman ujian (Alt+Tab / Pindah Tab)!');
@@ -618,10 +629,12 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
     };
-  }, [participantId]);
+  }, [participantId, consentGranted]);
 
   // Event Listener: Anti-Cheat Shortcuts, Right Click, Copy-Paste, DevTools
   useEffect(() => {
+    if (!consentGranted) return;
+
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       handleViolation('Klik kanan (Context Menu) dilarang selama ujian.');
@@ -663,10 +676,12 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       document.removeEventListener('paste', handleCopyPaste);
       document.removeEventListener('keydown', handleKeyDown, true);
     };
-  }, [participantId]);
+  }, [participantId, consentGranted]);
 
   // Fullscreen Change Listener & Initial Enforcement
   useEffect(() => {
+    if (!consentGranted) return;
+
     const handleFullscreenChange = () => {
       const isFS = !!document.fullscreenElement;
       setIsFullscreen(isFS);
@@ -678,9 +693,10 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, [participantId]);
+  }, [participantId, consentGranted]);
 
   const handleViolation = (reason: string) => {
+    if (!consentGranted) return;
     playAlertTone();
     setViolationCount(prev => prev + 1);
     setViolationMessage(reason);
@@ -701,6 +717,133 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
   };
 
   const isPermissionGranted = webcamActive && screenActive;
+
+  // TAHAP AWAL: Lembar Persetujuan Data & Rekaman (Sebelum Meminta Izin Kamera / Layar)
+  if (!consentGranted) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#F8FAFC',
+          color: '#0F172A',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '32px 20px',
+          fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '660px',
+            width: '100%',
+            background: '#FFFFFF',
+            padding: '44px 40px',
+            borderRadius: '16px',
+            border: '1px solid #E2E8F0',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.06)'
+          }}
+        >
+          <h1
+            style={{
+              fontSize: '24px',
+              fontWeight: 800,
+              color: '#0F172A',
+              margin: '0 0 16px 0',
+              letterSpacing: '-0.3px'
+            }}
+          >
+            Sebelum Memulai
+          </h1>
+
+          <p style={{ fontSize: '15px', color: '#334155', margin: '0 0 20px 0', fontWeight: 500 }}>
+            Dalam psikotes ini:
+          </p>
+
+          <ul
+            style={{
+              listStyleType: 'disc',
+              paddingLeft: '22px',
+              margin: '0 0 24px 0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              fontSize: '14.5px',
+              lineHeight: '1.6',
+              color: '#334155'
+            }}
+          >
+            <li>
+              <strong style={{ color: '#0F172A' }}>Kamera dan layar perangkat akan direkam</strong> selama proses berlangsung.
+            </li>
+            <li>
+              Jawaban dan respons akan digunakan untuk <strong style={{ color: '#0F172A' }}>penilaian dan analisis psikologis</strong> sesuai tujuan asesmen.
+            </li>
+            <li>
+              Data pribadi, hasil tes, dan rekaman akan <strong style={{ color: '#0F172A' }}>dijaga kerahasiaannya</strong> dan hanya digunakan sesuai keperluan.
+            </li>
+            <li>
+              Data disimpan secara aman dan <strong style={{ color: '#0F172A' }}>dihapus dari sistem setelah 15 hari</strong>, kecuali terdapat kewajiban hukum yang mengharuskan penyimpanan lebih lama.
+            </li>
+            <li style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', borderLeft: '4px solid #0F172A', padding: '12px 16px', borderRadius: '8px', listStyleType: 'none', marginLeft: '-22px', color: '#1E293B' }}>
+              <span style={{ fontWeight: 800, color: '#0F172A' }}>PENTING (Izin Rekam Layar):</span> Saat jendela izin browser muncul setelah menekan tombol Lanjut, pastikan memilih opsi <strong style={{ color: '#0F172A', textDecoration: 'underline' }}>Entire Screen (Seluruh Layar)</strong> agar sistem asesmen dapat mendeteksi layar ujian dengan benar.
+            </li>
+          </ul>
+
+          <div style={{ marginBottom: '28px', borderTop: '1px solid #E2E8F0', paddingTop: '22px' }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={consentChecked}
+                onChange={(e) => setConsentChecked(e.target.checked)}
+                style={{
+                  width: '19px',
+                  height: '19px',
+                  marginTop: '2px',
+                  cursor: 'pointer',
+                  accentColor: '#0F172A'
+                }}
+              />
+              <span style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A', lineHeight: '1.5' }}>
+                Saya mengerti dan bersedia mengikuti psikotes serta memberikan persetujuan atas pemrosesan data saya.
+              </span>
+            </label>
+          </div>
+
+          <div>
+            <button
+              onClick={() => {
+                if (consentChecked) {
+                  if (typeof window !== 'undefined') {
+                    sessionStorage.setItem('cbt_consent_granted', 'true');
+                    localStorage.setItem('cbt_consent_granted', 'true');
+                  }
+                  setConsentGranted(true);
+                  setupScreenShare();
+                  setupWebcam();
+                }
+              }}
+              disabled={!consentChecked}
+              style={{
+                padding: '13px 36px',
+                background: consentChecked ? '#0F172A' : '#E2E8F0',
+                color: consentChecked ? '#FFFFFF' : '#94A3B8',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: consentChecked ? 'pointer' : 'not-allowed',
+                transition: 'all 0.2s',
+                boxShadow: consentChecked ? '0 4px 12px rgba(15, 23, 42, 0.2)' : 'none'
+              }}
+            >
+              Lanjut
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
