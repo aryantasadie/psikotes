@@ -825,9 +825,16 @@ export default function ReportDetailPage() {
       }
     }
 
-    // Auto-generate standard dynamic interpretation if review fields are blank
+    // Set blank dynamic interpretation if review fields are blank
     if (!pr || !pr.dinamika) {
-      const name = participant.user?.name || 'Kandidat';
+      setReviewDinamika({
+        intelegensi: '',
+        kepribadian: '',
+        sikapKerja: '',
+        kepemimpinan: '',
+        kesimpulan: ''
+      });
+
       const cog = computerScores['IQ / Kapasitas Intelektual'] || 3;
       const logic = computerScores['Logika Berpikir'] || 3;
       const drive = computerScores['Daya Juang'] || 3;
@@ -835,16 +842,6 @@ export default function ReportDetailPage() {
       const leader = computerScores['Kepemimpinan'] || 3;
       const emo = computerScores['Stabilitas Emosi'] || 3;
       const rel = computerScores['Kerjasama'] || 3;
-
-      const autoDinamika = {
-        intelegensi: `${name} memiliki kapasitas intelektual pada taraf ${cog >= 4 ? 'Baik (di atas rata-rata)' : cog === 3 ? 'Cukup (rata-rata populasi)' : 'Kurang'}. Mampu memahami persoalan dan menganalisis hubungan sebab-akibat secara ${logic >= 4 ? 'sistematis dan tajam' : 'memadai'}.`,
-        sikapKerja: `Dalam lingkungan kerja, menunjukkan tempo dan ritme kerja yang ${drive >= 4 ? 'cepat dan berorientasi hasil' : 'stabil'}. Memiliki ketelitian dan sistematika kerja pada kategori ${detail >= 4 ? 'sangat teliti dan rapi' : 'cukup teratur'}.`,
-        kepribadian: `Menampilkan kestabilan emosi yang ${emo >= 4 ? 'sangat baik dan matang' : 'cukup tenang dalam situasi umum'}. Mampu berinteraksi, beradaptasi dengan lingkungan baru, serta menjalin kerjasama tim dengan ${rel >= 4 ? 'kooperatif dan hangat' : 'wajar'}.`,
-        kepemimpinan: `Potensi kepemimpinan dan inisiatif berada pada tingkat ${leader >= 4 ? 'tinggi, mampu mengarahkan dan mengambil keputusan tegas' : 'cukup, dapat memimpin tim kecil dengan arahan yang jelas'}.`,
-        kesimpulan: `Berdasarkan integrasi hasil pemeriksaan psikologis, ${name} dinilai memiliki profil kompetensi yang ${cog >= 3 && drive >= 3 ? 'kompatibel dan potensial untuk menjalankan tanggung jawab pada posisi jabatan yang dituju' : 'memerlukan pembinaan pada beberapa aspek kerja tertentu'}.`
-      };
-
-      setReviewDinamika(autoDinamika);
 
       // Auto recommendation
       const avgScore = (cog + logic + drive + detail + leader + emo + rel) / 7;

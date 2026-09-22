@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
+import { calculateKraepelinFullAnalysis } from '@/lib/kraepelinScoring';
+import { OFFICIAL_KRAEPELIN_MATRIX } from '@/lib/kraepelinMatrix';
 
 export async function POST(req: Request) {
   try {
@@ -33,7 +35,30 @@ export async function POST(req: Request) {
     }
 
     if (testType === 'KRAEPELIN' || testType === 'KREAPELIN') {
-      const rawDataStr = typeof answers === 'string' ? answers : JSON.stringify(answers);
+      let resultPayload: any;
+
+      // Jika client mengirim array jawaban mentah per kolom (arsitektur aman)
+      if (Array.isArray(answers)) {
+        const analysis = calculateKraepelinFullAnalysis(OFFICIAL_KRAEPELIN_MATRIX, answers);
+        resultPayload = {
+          ...analysis,
+          pankerRaw: analysis.panker.raw,
+          tinkerRaw: analysis.tinker.raw,
+          jankerRaw: analysis.janker.raw,
+          pankerNorm: analysis.panker.scale1to5,
+          tinkerNorm: analysis.tinker.scale1to5,
+          jankerNorm: analysis.janker.scale1to5,
+          hankerNorm: analysis.hanker.scale1to5,
+        };
+      } else if (typeof answers === 'object' && answers !== null) {
+        // Fallback kompatibilitas jika masih mengirim format lama
+        resultPayload = answers;
+      } else {
+        return NextResponse.json({ success: false, error: 'Format jawaban Kraepelin tidak valid' }, { status: 400 });
+      }
+
+      const rawDataStr = JSON.stringify(resultPayload);
+
       await prisma.$transaction([
         prisma.testResultRaw.deleteMany({
           where: {
@@ -49,6 +74,7 @@ export async function POST(req: Request) {
           }
         })
       ]);
+
       return NextResponse.json({ success: true });
     }
 

@@ -159,26 +159,14 @@ export default function KraepelinTest() {
 
     try {
       const currentAnswers = userAnswersRef.current.length > 0 ? userAnswersRef.current : userAnswers;
-      const activeMatrix = (matrix && matrix.length > 0) ? matrix : OFFICIAL_KRAEPELIN_MATRIX;
-      const analysis = calculateKraepelinFullAnalysis(activeMatrix, currentAnswers);
 
-      const resultPayload = {
-        ...analysis,
-        pankerRaw: analysis.panker.raw,
-        tinkerRaw: analysis.tinker.raw,
-        jankerRaw: analysis.janker.raw,
-        pankerNorm: analysis.panker.scale1to5,
-        tinkerNorm: analysis.tinker.scale1to5,
-        jankerNorm: analysis.janker.scale1to5,
-        hankerNorm: analysis.hanker.scale1to5,
-      };
-
+      // HANYA KIRIMKAN JAWABAN MENTAH KE SERVER (Kalkulasi skor dilakukan di backend)
       await fetch('/api/answers/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           testType: 'KRAEPELIN',
-          answers: resultPayload
+          answers: currentAnswers
         })
       });
 
