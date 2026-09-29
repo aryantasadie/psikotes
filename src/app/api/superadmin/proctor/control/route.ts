@@ -196,11 +196,13 @@ export async function POST(req: Request) {
         data: { isPaused: false }
       });
 
-      // Also unpause all participants currently waiting
+      // Also unpause all participants currently waiting at this break
       const participants = await prisma.testParticipant.findMany({
         where: { testId: bId },
         include: { user: true }
       });
+
+      const cleanNext = nextTest ? String(nextTest).toUpperCase().replace(/[\s\-_]+/g, '') : '';
 
       for (const p of participants) {
         let unpausedList: string[] = [];
@@ -208,8 +210,17 @@ export async function POST(req: Request) {
           unpausedList = JSON.parse(p.unpausedTests || '[]');
         } catch (e) {}
 
-        if (nextTest && !unpausedList.includes(nextTest)) {
-          unpausedList.push(nextTest);
+        if (nextTest) {
+          if (!unpausedList.includes(nextTest)) unpausedList.push(nextTest);
+          if (cleanNext && !unpausedList.includes(cleanNext)) unpausedList.push(cleanNext);
+        }
+
+        if (p.currentTest) {
+          const cleanCurrent = p.currentTest.toUpperCase().replace(/^JEDA\s+(STLH|SETELAH|SEBELUM)\s+/i, '').replace(/[\s\-_]+/g, '');
+          const breakKey = `BREAK_AFTER_${cleanCurrent}`;
+          if (!unpausedList.includes(breakKey)) {
+            unpausedList.push(breakKey);
+          }
         }
 
         await prisma.testParticipant.update({
@@ -259,24 +270,14 @@ export async function POST(req: Request) {
         unpausedList = JSON.parse(p.unpausedTests || '[]');
       } catch (e) {}
 
-      if (nextTest && !unpausedList.includes(nextTest)) {
-        unpausedList.push(nextTest);
+      if (nextTest) {
+        const cleanNext = String(nextTest).toUpperCase().replace(/[\s\-_]+/g, '');
+        if (!unpausedList.includes(nextTest)) unpausedList.push(nextTest);
+        if (cleanNext && !unpausedList.includes(cleanNext)) unpausedList.push(cleanNext);
       }
       
-      // Also unpause any break keys configured in the test
-      if (p.test?.pausedTests) {
-        try {
-          const pausedKeys: string[] = JSON.parse(p.test.pausedTests);
-          if (Array.isArray(pausedKeys)) {
-            pausedKeys.forEach(pk => {
-              if (!unpausedList.includes(pk)) unpausedList.push(pk);
-            });
-          }
-        } catch (e) {}
-      }
-
       if (p.currentTest) {
-        const cleanCurrent = p.currentTest.toUpperCase().replace(/[\s\-_]+/g, '');
+        const cleanCurrent = p.currentTest.toUpperCase().replace(/^JEDA\s+(STLH|SETELAH|SEBELUM)\s+/i, '').replace(/[\s\-_]+/g, '');
         const breakKey = `BREAK_AFTER_${cleanCurrent}`;
         if (!unpausedList.includes(breakKey)) {
           unpausedList.push(breakKey);
@@ -377,6 +378,25 @@ export async function POST(req: Request) {
       } else {
         // Turn ON: add canonical key
         updatedList = [...currentPaused, canonicalKey];
+
+        // Reset canonicalKey from unpausedTests of participants in this batch so they will hit this break
+        const allParticipants = await prisma.testParticipant.findMany({
+          where: { testId: bId }
+        });
+        for (const p of allParticipants) {
+          if (p.unpausedTests) {
+            try {
+              const uList: string[] = JSON.parse(p.unpausedTests);
+              const filtered = uList.filter(k => k.toUpperCase() !== canonicalKey && k.toUpperCase() !== cleanPrev);
+              if (filtered.length !== uList.length) {
+                await prisma.testParticipant.update({
+                  where: { id: p.id },
+                  data: { unpausedTests: JSON.stringify(filtered) }
+                });
+              }
+            } catch (e) {}
+          }
+        }
       }
 
       await prisma.test.update({

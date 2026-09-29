@@ -84,15 +84,26 @@ export async function GET() {
     let unpausedList: string[] = [];
     try { unpausedList = JSON.parse(participant.unpausedTests || '[]'); } catch (e) {}
 
-    const lastCompletedTest = completedTests.length > 0 ? completedTests[completedTests.length - 1] : null;
+    const nextIdx = sequence.indexOf(nextTest);
+    const precedingTest = nextIdx > 0 ? sequence[nextIdx - 1] : null;
+    const lastCompletedTest = completedTests.length > 0 ? completedTests[completedTests.length - 1] : precedingTest;
     const cleanLast = lastCompletedTest ? lastCompletedTest.toUpperCase().replace(/[\s\-_]+/g, '') : '';
+    const cleanPrev = precedingTest ? precedingTest.toUpperCase().replace(/[\s\-_]+/g, '') : '';
 
-    const breakKey = cleanLast ? `BREAK_AFTER_${cleanLast}` : null;
+    const targetKey = cleanLast || cleanPrev;
+    const breakKey = targetKey ? `BREAK_AFTER_${targetKey}` : null;
+    
     const isTestSpecificallyPaused = Boolean(
-      breakKey && pausedTestsList.some(pt => pt.toUpperCase() === breakKey)
+      breakKey && pausedTestsList.some(pt => {
+        const u = pt.toUpperCase().replace(/[\s\-_]+/g, '');
+        return u === breakKey.replace(/[\s\-_]+/g, '') || (targetKey && u.startsWith(targetKey + '::'));
+      })
     );
     const isTestUnpaused = Boolean(
-      breakKey && unpausedList.some(ut => ut.toUpperCase() === breakKey)
+      breakKey && unpausedList.some(ut => {
+        const u = ut.toUpperCase().replace(/[\s\-_]+/g, '');
+        return u === breakKey.replace(/[\s\-_]+/g, '') || (targetKey && u === targetKey);
+      })
     );
 
     const shouldPause = isDirectlyPaused || (isTestSpecificallyPaused && !isTestUnpaused);
