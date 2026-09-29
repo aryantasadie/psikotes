@@ -40,15 +40,16 @@ let batchTimer: NodeJS.Timeout | null = null;
 
 export function updateStreamSession(session: StreamSession) {
   const existing = globalStreamStore.get(session.participantId);
+  const isOffline = session.status === 'offline';
   
   const updated: StreamSession = {
     participantId: session.participantId,
     name: session.name || existing?.name || `Participant ${session.participantId}`,
     username: session.username || existing?.username || `user_${session.participantId}`,
     testTitle: session.testTitle || existing?.testTitle || 'Psikotes Ujian',
-    cameraFrameUrl: session.cameraFrameUrl || existing?.cameraFrameUrl || null,
-    screenFrameUrl: session.screenFrameUrl || existing?.screenFrameUrl || null,
-    lastActive: Date.now(),
+    cameraFrameUrl: isOffline ? null : (session.cameraFrameUrl !== undefined ? session.cameraFrameUrl : (existing?.cameraFrameUrl || null)),
+    screenFrameUrl: isOffline ? null : (session.screenFrameUrl !== undefined ? session.screenFrameUrl : (existing?.screenFrameUrl || null)),
+    lastActive: isOffline ? 0 : Date.now(),
     violationCount: session.violationCount !== undefined ? session.violationCount : (existing?.violationCount || 0),
     latestViolationReason: session.latestViolationReason !== undefined ? session.latestViolationReason : existing?.latestViolationReason,
     currentTestName: session.currentTestName !== undefined ? session.currentTestName : existing?.currentTestName,

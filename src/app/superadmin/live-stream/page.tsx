@@ -203,12 +203,30 @@ export default function MonitoringPesertaPage() {
   // Live timer tick & real-time online status refresh every 1s
   useEffect(() => {
     const tickInterval = setInterval(() => {
-      setNowTime(Date.now());
+      const now = Date.now();
+      setNowTime(now);
       setStreamsMap(prev => {
         let changed = false;
         const newMap = new Map(prev);
         newMap.forEach((stream, pId) => {
-          if (typeof stream.timerRemaining === 'number' && stream.timerRemaining > 0 && !stream.isPaused) {
+          // Strictly verify that candidate is actively streaming/online right now
+          const isOnline = Boolean(
+            stream.lastActive && (now - stream.lastActive <= 40000) &&
+            stream.status !== 'completed' &&
+            stream.status !== 'stopped' &&
+            stream.status !== 'offline'
+          );
+
+          // ONLY tick down if candidate is actively online, not paused, not stopped, not completed
+          if (
+            isOnline &&
+            typeof stream.timerRemaining === 'number' &&
+            stream.timerRemaining > 0 &&
+            !stream.isPaused &&
+            stream.status !== 'stopped' &&
+            stream.status !== 'completed' &&
+            stream.status !== 'offline'
+          ) {
             newMap.set(pId, { ...stream, timerRemaining: stream.timerRemaining - 1 });
             changed = true;
           }
@@ -222,12 +240,9 @@ export default function MonitoringPesertaPage() {
 
   // Strict Online Detector (heartbeat within 40s or active streaming frame)
   const isParticipantOnline = (p: ParticipantEntry | { lastActive?: number; cameraFrameUrl?: string | null; screenFrameUrl?: string | null; status?: string }): boolean => {
-    if (p.status === 'completed') return false;
+    if (p.status === 'completed' || p.status === 'stopped' || p.status === 'offline') return false;
     const now = nowTime;
     if (p.lastActive && (now - p.lastActive <= 40000)) {
-      return true;
-    }
-    if ((p.cameraFrameUrl || p.screenFrameUrl) && p.lastActive && (now - p.lastActive <= 60000)) {
       return true;
     }
     return false;

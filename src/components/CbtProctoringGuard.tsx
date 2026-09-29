@@ -692,7 +692,22 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       } catch (e) {}
     }, 1500);
 
-    return () => clearInterval(streamInterval);
+    const handleUnload = () => {
+      const currentPId = participantId || (typeof window !== 'undefined' && localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : null);
+      if (currentPId && typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        navigator.sendBeacon('/api/stream/broadcast', JSON.stringify({
+          participantId: currentPId,
+          status: 'offline'
+        }));
+      }
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearInterval(streamInterval);
+      window.removeEventListener('beforeunload', handleUnload);
+    };
   }, [participantId, webcamActive, screenActive, violationCount, isStopped, isPaused]);
 
   // Audio beep on violation (disabled per request)
