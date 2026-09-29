@@ -337,6 +337,23 @@ export default function ProctoringCenterPage() {
                 {groupedLogs.map((group, idx) => {
                   const cameraLog = group.logs.find(l => l.logType.startsWith('camera'));
                   const screenLog = group.logs.find(l => l.logType.startsWith('screen'));
+                  const proctorNoteLog = group.logs.find(l => l.logType === 'proctor_note');
+                  if (proctorNoteLog) {
+                    return (
+                      <div key={idx} className="bg-amber-50/60 border border-amber-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[12px] font-bold text-amber-900">Catatan Khusus Pengawas • {group.time}</span>
+                          <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                            Catatan Khusus
+                          </span>
+                        </div>
+                        <p className="text-[13px] text-slate-800 font-medium pl-1 border-l-2 border-amber-400">
+                          {proctorNoteLog.mediaUrl}
+                        </p>
+                      </div>
+                    );
+                  }
+
                   const isViolation = group.logs.some(l => 
                     l.logType.includes('tab_switch') || 
                     l.logType.includes('fullscreen') || 
@@ -358,16 +375,16 @@ export default function ProctoringCenterPage() {
                       {/* Log Header */}
                       <div className="flex justify-between items-center flex-wrap gap-2">
                         <div>
-                          <span className="text-[13px] font-extrabold text-slate-900">⏱️ {group.time}</span>
+                          <span className="text-[13px] font-extrabold text-slate-900">{group.time}</span>
                           <div className="text-[11px] text-slate-500 font-semibold mt-0.5">Kategori: {uniqueLabels}</div>
                         </div>
                         {isViolation ? (
                           <span className="bg-amber-100 text-amber-800 border border-amber-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">
-                            🚨 Pelanggaran Keamanan
+                            Pelanggaran Keamanan
                           </span>
                         ) : (
                           <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">
-                            ✓ Pengawasan Rutin
+                            Pengawasan Rutin
                           </span>
                         )}
                       </div>

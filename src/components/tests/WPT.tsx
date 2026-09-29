@@ -174,8 +174,22 @@ export default function WPT() {
           </div>
           <button 
             type="button"
-            onClick={() => setShowInstruction(false)}
-            style={{ padding: '18px 45px', fontSize: '18px', background: 'linear-gradient(to right, #3498db, #2980b9)', color: 'white', border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 10px 20px rgba(52, 152, 219, 0.3)', transition: 'transform 0.2s' }}
+            onClick={() => {
+              if (typeof window !== 'undefined' && ((window as any).__CBT_IS_PAUSED__ || (window as any).__CBT_IS_STOPPED__)) return;
+              setShowInstruction(false);
+            }}
+            style={{ 
+              padding: '18px 45px', 
+              fontSize: '18px', 
+              background: 'linear-gradient(to right, #3498db, #2980b9)', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '50px', 
+              cursor: 'pointer', 
+              fontWeight: 'bold', 
+              boxShadow: '0 10px 20px rgba(52, 152, 219, 0.3)', 
+              transition: 'transform 0.2s' 
+            }}
             onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
             onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
           >

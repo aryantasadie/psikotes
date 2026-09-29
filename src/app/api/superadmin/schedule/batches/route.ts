@@ -60,6 +60,17 @@ export async function GET() {
       const assignedTesterObjs = testerMap[b.id] || [];
       const assignedTesters = assignedTesterObjs.map(t => t.name);
 
+      let parsedSequence: string[] = [];
+      try { parsedSequence = b.sequence ? JSON.parse(b.sequence) : []; } catch (e) {}
+
+      let parsedPausedTests: string[] = [];
+      try {
+        if (b.pausedTests) {
+          const parsed = JSON.parse(b.pausedTests);
+          parsedPausedTests = Array.isArray(parsed) ? parsed : [b.pausedTests];
+        }
+      } catch (e) {}
+
       return {
         id: b.id,
         title: b.title,
@@ -72,14 +83,26 @@ export async function GET() {
         assignedTesterId: assignedTesterObjs.length > 0 ? assignedTesterObjs[0].id : null,
         totalParticipants: totalCount,
         completedParticipants: completedCount,
-        participants: b.participants.map((p) => ({
-          id: p.id,
-          userId: p.userId,
-          username: p.user.username,
-          name: p.user.name,
-          status: p.status,
-          password: p.plainPassword || '123456'
-        }))
+        sequence: parsedSequence,
+        pausedTests: parsedPausedTests,
+        isPaused: Boolean(b.isPaused),
+        pauseMessage: b.pauseMessage || null,
+        participants: b.participants.map((p) => {
+          let unpausedArr: string[] = [];
+          try { unpausedArr = p.unpausedTests ? JSON.parse(p.unpausedTests) : []; } catch (e) {}
+
+          return {
+            id: p.id,
+            userId: p.userId,
+            username: p.user.username,
+            name: p.user.name,
+            status: p.status,
+            isPaused: Boolean(p.isPaused),
+            currentTest: p.currentTest || null,
+            unpausedTests: unpausedArr,
+            password: p.plainPassword || '123456'
+          };
+        })
       };
     });
 

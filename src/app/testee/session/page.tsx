@@ -8,6 +8,9 @@ export default function TesteeSession() {
   const [sequence, setSequence] = useState<string[]>([]);
   const [completedTests, setCompletedTests] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isStopped, setIsStopped] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [pausedMessage, setPausedMessage] = useState('');
   
   // Onboarding States
   const [onboardingStage, setOnboardingStage] = useState(0); // 0 = Loading, 1 = Form, 2 = Briefing, 3 = Ready for Test
@@ -16,11 +19,19 @@ export default function TesteeSession() {
   
   const router = useRouter();
 
-  useEffect(() => {
-    // Fetch sequence from DB
+  const fetchSessionData = () => {
     fetch('/api/testee/session')
       .then(res => res.json())
       .then(data => {
+        if (data.isStopped) {
+          setIsStopped(true);
+          setLoading(false);
+          return;
+        }
+
+        setIsPaused(Boolean(data.isPaused));
+        if (data.pausedMessage) setPausedMessage(data.pausedMessage);
+
         if (data.sequence) {
           setSequence(data.sequence);
         }
@@ -100,7 +111,51 @@ export default function TesteeSession() {
         console.error(err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchSessionData();
   }, []);
+
+  // Real-time listener for pause and stop events
+  useEffect(() => {
+    const handlePauseEvent = (e: any) => {
+      const nextPaused = Boolean(e.detail?.isPaused);
+      setIsPaused(nextPaused);
+      if (e.detail?.message) setPausedMessage(e.detail.message);
+    };
+    const handleStopEvent = (e: any) => {
+      setIsStopped(Boolean(e.detail?.isStopped));
+    };
+    window.addEventListener('cbt:pause-changed', handlePauseEvent);
+    window.addEventListener('cbt:stop-changed', handleStopEvent);
+    return () => {
+      window.removeEventListener('cbt:pause-changed', handlePauseEvent);
+      window.removeEventListener('cbt:stop-changed', handleStopEvent);
+    };
+  }, []);
+
+  // Fast poll (1.2s) for break room unpause if currently paused
+  useEffect(() => {
+    if (!isPaused) return;
+
+    const interval = setInterval(() => {
+      fetch('/api/testee/session')
+        .then(r => r.json())
+        .then(data => {
+          if (data.isStopped) {
+            setIsStopped(true);
+            setIsPaused(false);
+          } else if (!data.isPaused) {
+            setIsPaused(false);
+            if (data.completedTests) setCompletedTests(data.completedTests);
+          }
+        })
+        .catch(console.error);
+    }, 1200);
+
+    return () => clearInterval(interval);
+  }, [isPaused]);
 
   // Calculate next test
   const nextTestIndex = sequence.findIndex(t => !completedTests.includes(t));
@@ -108,15 +163,15 @@ export default function TesteeSession() {
   const nextTest = isAllCompleted || sequence.length === 0 ? null : sequence[nextTestIndex];
 
   useEffect(() => {
-    // HANYA redirect jika loading selesai, ada nextTest, DAN onboarding sudah tahap 3
-    if (!loading && sequence.length > 0 && nextTest && onboardingStage === 3) {
+    // HANYA redirect jika loading selesai, ada nextTest, onboarding sudah tahap 3, TIDAK dijeda, dan TIDAK distop
+    if (!loading && sequence.length > 0 && nextTest && onboardingStage === 3 && !isPaused && !isStopped) {
       let slug = nextTest.toLowerCase().replace(/[\s\-_]+/g, '');
       if (slug.includes('power')) slug = 'power';
       else if (slug.includes('papi')) slug = 'papikostick';
       else if (slug.includes('kraepelin') || slug.includes('kreapelin')) slug = 'kraepelin';
       router.replace(`/tes/${slug}`);
     }
-  }, [loading, sequence.length, nextTest, router, onboardingStage]);
+  }, [loading, sequence.length, nextTest, router, onboardingStage, isPaused, isStopped]);
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,12 +226,96 @@ export default function TesteeSession() {
     return <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>Memuat Sesi...</div>;
   }
 
+  if (isStopped) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#F8FAFC', padding: '40px 20px', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ maxWidth: '480px', width: '100%', background: 'white', padding: '40px 32px', borderRadius: '16px', border: '1px solid #FEE2E2', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', textAlign: 'center' }}>
+          <div style={{ width: '64px', height: '64px', background: '#FEE2E2', color: '#DC2626', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: 'bold', margin: '0 auto 16px' }}>
+            ✕
+          </div>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', margin: '0 0 8px' }}>Ujian Dihentikan</h2>
+          <p style={{ fontSize: '0.9rem', color: '#64748B', margin: '0 0 24px', lineHeight: 1.5 }}>
+            Pengerjaan ujian Anda telah dihentikan oleh pengawas. Silakan hubungi pengawas atau panitia jika ada pertanyaan.
+          </p>
+          <button 
+            onClick={() => signOut({ callbackUrl: '/' })} 
+            style={{ width: '100%', padding: '12px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '14px', cursor: 'pointer' }}
+          >
+            Keluar dari Aplikasi
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isPaused) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#0F172A', padding: '40px 20px', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ maxWidth: '540px', width: '100%', background: '#1E293B', padding: '44px 36px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', textAlign: 'center', color: '#F8FAFC' }}>
+          
+          {/* Vertical gray JEDA badge icon */}
+          <div style={{ 
+            width: '68px', 
+            height: '68px', 
+            background: '#334155', 
+            color: '#F8FAFC', 
+            borderRadius: '20px', 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            fontSize: '11px', 
+            fontWeight: 900, 
+            letterSpacing: '3px',
+            margin: '0 auto 20px',
+            border: '2px solid #475569',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+          }}>
+            <span>J</span>
+            <span>E</span>
+            <span>D</span>
+            <span>A</span>
+          </div>
+          
+          <span style={{ display: 'inline-block', background: '#0284C7', color: '#FFFFFF', padding: '5px 14px', borderRadius: '20px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
+            ☕ Jeda Istirahat Antar Tes
+          </span>
+
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 12px' }}>
+            Sesi Sedang Dijeda Pengawas
+          </h2>
+
+          <p style={{ fontSize: '0.92rem', color: '#94A3B8', margin: '0 0 24px', lineHeight: 1.6 }}>
+            {pausedMessage || 'Silakan istirahat sejenak. Seluruh jawaban dari subtes sebelumnya telah tersimpan dengan aman. Pengawas akan segera membuka akses ke modul ujian berikutnya.'}
+          </p>
+
+          {nextTest && (
+            <div style={{ background: '#0F172A', border: '1px solid #334155', borderRadius: '16px', padding: '18px 22px', marginBottom: '24px', textAlign: 'left' }}>
+              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Modul Tes Berikutnya
+              </div>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: '#38BDF8', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>{nextTest}</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#10B981', background: '#064E3B', padding: '4px 10px', borderRadius: '12px' }}>Siap Dimulai</span>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontSize: '12px', color: '#CBD5E1', padding: '12px 18px', background: '#334155', borderRadius: '12px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+            <span>Menunggu arahan pengawas... Halaman akan otomatis terbuka begitu sesi dilanjutkan.</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (sequence.length === 0) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', padding: '20px', fontFamily: 'Inter, sans-serif' }}>
         <div style={{ maxWidth: '440px', width: '100%', background: '#FFFFFF', padding: '36px 28px', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', textAlign: 'center' }}>
-          <div style={{ width: '64px', height: '64px', background: '#FEF3C7', color: '#D97706', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', margin: '0 auto 16px' }}>
-            📅
+          <div style={{ width: '64px', height: '64px', background: '#F1F5F9', color: '#475569', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 800, margin: '0 auto 16px' }}>
+            INFO
           </div>
           <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0F172A', margin: '0 0 8px 0' }}>Tidak Ada Jadwal Ujian</h2>
           <p style={{ fontSize: '0.9rem', color: '#475569', margin: '0 0 24px 0', lineHeight: 1.5 }}>

@@ -233,20 +233,27 @@ export default function KraepelinTest() {
   useEffect(() => {
     if (phase !== 'practice' && phase !== 'test') return;
 
-    let secondsRemaining = COLUMN_DURATION;
-    setTimeLeft(COLUMN_DURATION);
-
     const timer = setInterval(() => {
-      secondsRemaining -= 1;
-      setTimeLeft(secondsRemaining);
-
-      if (secondsRemaining <= 0) {
-        advanceColumn();
+      if (typeof window !== 'undefined') {
+        const isPaused = Boolean((window as any).__CBT_IS_PAUSED__);
+        const isStopped = Boolean((window as any).__CBT_IS_STOPPED__);
+        if (isPaused || isStopped) {
+          return;
+        }
       }
+
+      setTimeLeft(prev => {
+        const next = prev - 1;
+        if (next <= 0) {
+          advanceColumn();
+          return COLUMN_DURATION;
+        }
+        return next;
+      });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [phase, currentCol, advanceColumn]);
+  }, [phase, advanceColumn]);
 
   // Auto-scroll keeping active pair centered in workspace viewport
   useEffect(() => {
@@ -271,6 +278,11 @@ export default function KraepelinTest() {
   }, [currentCol, currentPairIdx, phase]);
 
   const handleInputDigit = (digit: number) => {
+    if (typeof window !== 'undefined') {
+      const isPaused = Boolean((window as any).__CBT_IS_PAUSED__);
+      const isStopped = Boolean((window as any).__CBT_IS_STOPPED__);
+      if (isPaused || isStopped) return;
+    }
     if ((phase !== 'practice' && phase !== 'test') || matrix.length === 0 || showPindah || isTransitioningRef.current || isTransitioning) {
       return;
     }
@@ -352,7 +364,14 @@ export default function KraepelinTest() {
 
           <button
             type="button"
-            onClick={startPractice}
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                const isPaused = Boolean((window as any).__CBT_IS_PAUSED__);
+                const isStopped = Boolean((window as any).__CBT_IS_STOPPED__);
+                if (isPaused || isStopped) return;
+              }
+              startPractice();
+            }}
             style={{
               width: '100%',
               padding: '16px 32px',
@@ -394,7 +413,14 @@ export default function KraepelinTest() {
           <div>
             <button
               type="button"
-              onClick={startOfficialTest}
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  const isPaused = Boolean((window as any).__CBT_IS_PAUSED__);
+                  const isStopped = Boolean((window as any).__CBT_IS_STOPPED__);
+                  if (isPaused || isStopped) return;
+                }
+                startOfficialTest();
+              }}
               style={{
                 width: '100%',
                 padding: '16px 32px',

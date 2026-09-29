@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { signOut } from 'next-auth/react';
 
 interface CbtProctoringGuardProps {
   children: React.ReactNode;
@@ -20,6 +21,9 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
   const [showViolationModal, setShowViolationModal] = useState(false);
   const [violationMessage, setViolationMessage] = useState('');
   const [showFullscreenModal, setShowFullscreenModal] = useState(false);
+  const [isStopped, setIsStopped] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [pausedMessage, setPausedMessage] = useState('');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const screenVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -52,6 +56,40 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         })
         .catch(console.error);
     }
+  }, []);
+
+  // Real-time proctor status listener (heartbeat every 1.2s)
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkProctorStatus = async () => {
+      try {
+        const res = await fetch('/api/testee/session');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!isMounted) return;
+
+        const stopped = Boolean(data.isStopped);
+        const paused = Boolean(data.isPaused);
+
+        if (typeof window !== 'undefined') {
+          (window as any).__CBT_IS_STOPPED__ = stopped;
+          (window as any).__CBT_IS_PAUSED__ = stopped ? false : paused;
+        }
+
+        setIsStopped(stopped);
+        setIsPaused(stopped ? false : paused);
+        if (data.pausedMessage) setPausedMessage(data.pausedMessage);
+      } catch (e) {}
+    };
+
+    const interval = setInterval(checkProctorStatus, 1200);
+    checkProctorStatus();
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   // Helper to detect if device is mobile (phone/tablet)
@@ -575,8 +613,6 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   // Live Stream Broadcast every 1.5s
   useEffect(() => {
-    if (!webcamActive) return;
-
     const streamInterval = setInterval(async () => {
       try {
         const testeeName = sessionStorage.getItem('testee_name') || localStorage.getItem('testee_name') || undefined;
@@ -584,26 +620,80 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         
         if (!currentPId) return;
 
-        const cameraFrame = getWebcamWebPBase64();
-        const screenFrame = await getScreenWebPBase64();
-        if (cameraFrame || screenFrame) {
-          await fetch('/api/stream/broadcast', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              participantId: currentPId,
-              name: testeeName,
-              cameraFrame,
-              screenFrame,
-              violationCount
-            })
-          });
+        const cameraFrame = webcamActive ? getWebcamWebPBase64() : null;
+        const screenFrame = screenActive ? await getScreenWebPBase64() : null;
+
+        // Determine active test name
+        let activeTestName = localStorage.getItem('cbt_active_test');
+        if (!activeTestName && typeof window !== 'undefined') {
+          const path = window.location.pathname.toLowerCase();
+          if (path.includes('/tes/')) {
+            const slug = path.split('/tes/')[1] || '';
+            if (slug.includes('cfit1')) activeTestName = 'CFIT 1';
+            else if (slug.includes('cfit2')) activeTestName = 'CFIT 2';
+            else if (slug.includes('cfit3')) activeTestName = 'CFIT 3';
+            else if (slug.includes('cfit4')) activeTestName = 'CFIT 4';
+            else if (slug.includes('ist2')) activeTestName = 'IST 2';
+            else if (slug.includes('ist3')) activeTestName = 'IST 3';
+            else if (slug.includes('ist6')) activeTestName = 'IST 6';
+            else if (slug.includes('ist7')) activeTestName = 'IST 7';
+            else if (slug.includes('tiki1')) activeTestName = 'TIKI 1';
+            else if (slug.includes('tiki2')) activeTestName = 'TIKI 2';
+            else if (slug.includes('tiki3')) activeTestName = 'TIKI 3';
+            else if (slug.includes('tiki4')) activeTestName = 'TIKI 4';
+            else if (slug.includes('tiki6')) activeTestName = 'TIKI 6';
+            else if (slug.includes('wpt')) activeTestName = 'WPT';
+            else if (slug.includes('papi')) activeTestName = 'PAPI Kostick';
+            else if (slug.includes('disc')) activeTestName = 'DISC';
+            else if (slug.includes('msdt')) activeTestName = 'MSDT';
+            else if (slug.includes('power')) activeTestName = 'Power Leader';
+            else if (slug.includes('kraepelin') || slug.includes('kreapelin')) activeTestName = 'Kraepelin';
+          }
         }
+
+        // Determine timer remaining
+        let timerRemaining: number | null = null;
+        const savedTimer = localStorage.getItem('cbt_active_timer_left');
+        if (savedTimer !== null) {
+          const parsedTimer = parseInt(savedTimer, 10);
+          if (!isNaN(parsedTimer) && parsedTimer >= 0) {
+            timerRemaining = parsedTimer;
+          }
+        }
+
+        // Completed tests list
+        const completedTests: string[] = [];
+        if (typeof window !== 'undefined') {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('test_completed_') && localStorage.getItem(k) === 'true') {
+              const rawSlug = k.replace('test_completed_', '').toUpperCase();
+              completedTests.push(rawSlug);
+            }
+          }
+        }
+
+        await fetch('/api/stream/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            participantId: currentPId,
+            name: testeeName,
+            cameraFrame,
+            screenFrame,
+            violationCount,
+            currentTestName: activeTestName,
+            timerRemaining,
+            completedTests,
+            status: isStopped ? 'stopped' : 'in_progress',
+            isPaused: isPaused
+          })
+        });
       } catch (e) {}
     }, 1500);
 
     return () => clearInterval(streamInterval);
-  }, [participantId, webcamActive, violationCount]);
+  }, [participantId, webcamActive, screenActive, violationCount, isStopped, isPaused]);
 
   // Audio beep on violation (disabled per request)
   const playAlertTone = () => {};
@@ -1129,6 +1219,158 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
             >
               Saya Mengerti & Lanjutkan Fullscreen (Oke)
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* UJIAN DIHENTIKAN MODAL (IMAGE 1) */}
+      {isStopped && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(248, 250, 252, 0.98)',
+          zIndex: 9999999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          fontFamily: 'Inter, sans-serif'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '24px',
+            maxWidth: '460px',
+            width: '100%',
+            padding: '44px 32px',
+            textAlign: 'center',
+            boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.08)',
+            border: '1px solid #fee2e2'
+          }}>
+            <div style={{
+              width: '68px',
+              height: '68px',
+              borderRadius: '50%',
+              backgroundColor: '#fee2e2',
+              color: '#ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '28px',
+              fontWeight: 800,
+              margin: '0 auto 20px auto'
+            }}>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </div>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', marginBottom: '12px' }}>
+              Ujian Dihentikan
+            </h2>
+            <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.6, marginBottom: '28px' }}>
+              Pengerjaan ujian Anda telah dihentikan oleh pengawas. Silakan hubungi pengawas atau panitia jika ada pertanyaan.
+            </p>
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  localStorage.clear();
+                  sessionStorage.clear();
+                }
+                signOut({ callbackUrl: '/' });
+              }}
+              style={{
+                width: '100%',
+                padding: '14px',
+                backgroundColor: '#ef4444',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '12px',
+                fontWeight: 700,
+                fontSize: '15px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)',
+                transition: 'background 0.2s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
+            >
+              Keluar dari Aplikasi
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* UJIAN SEDANG DIJEDA MODAL */}
+      {isPaused && !isStopped && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          zIndex: 999999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          fontFamily: 'Inter, sans-serif'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '24px',
+            maxWidth: '500px',
+            width: '100%',
+            padding: '40px 32px',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{
+              width: '72px',
+              height: '72px',
+              borderRadius: '50%',
+              backgroundColor: '#fef3c7',
+              color: '#d97706',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '32px',
+              margin: '0 auto 24px auto'
+            }}>
+              ⏸️
+            </div>
+            <h3 style={{ fontSize: '24px', fontWeight: 800, color: '#1e293b', marginBottom: '12px' }}>
+              Ujian Sedang Dijeda
+            </h3>
+            <p style={{ fontSize: '15px', color: '#64748b', lineHeight: 1.6, marginBottom: '24px' }}>
+              {pausedMessage || 'Pengawas sedang menjeda jalannya tes ini. Waktu tes dan pengerjaan Anda dibekukan sementara hingga pengawas melanjutkan tes.'}
+            </p>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '10px 20px',
+              background: '#f1f5f9',
+              borderRadius: '12px',
+              fontSize: '13px',
+              color: '#475569',
+              fontWeight: 600
+            }}>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: '#3b82f6',
+                display: 'inline-block'
+              }}></span>
+              Menunggu instruksi pengawas...
+            </div>
           </div>
         </div>
       )}

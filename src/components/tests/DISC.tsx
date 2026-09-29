@@ -169,11 +169,22 @@ export default function DISC() {
     }
 
     const interval = setInterval(() => {
+      if (typeof window !== 'undefined' && ((window as any).__CBT_IS_PAUSED__ || (window as any).__CBT_IS_STOPPED__)) {
+        return;
+      }
+
       setTimeLeft(prev => {
         const next = prev - 1;
         if (typeof window !== 'undefined') {
-          if (next > 0) localStorage.setItem('test_timer_left_disc', String(next));
-          else localStorage.removeItem('test_timer_left_disc');
+          if (next > 0) {
+            localStorage.setItem('test_timer_left_disc', String(next));
+            localStorage.setItem('cbt_active_timer_left', String(next));
+            localStorage.setItem('cbt_active_test', 'DISC');
+          } else {
+            localStorage.removeItem('test_timer_left_disc');
+            localStorage.removeItem('cbt_active_timer_left');
+            localStorage.removeItem('cbt_active_test');
+          }
         }
         if (next <= 0) {
           clearInterval(interval);
@@ -184,6 +195,8 @@ export default function DISC() {
           if (unansweredNums.length > 0) {
             if (typeof window !== 'undefined') {
               localStorage.setItem('test_timer_left_disc', '300');
+              localStorage.setItem('cbt_active_timer_left', '300');
+              localStorage.setItem('cbt_active_test', 'DISC');
             }
             setUnansweredList(unansweredNums);
             setShowUnansweredModal(true);
@@ -235,8 +248,23 @@ export default function DISC() {
             </ol>
           </div>
           <button 
-            onClick={() => setShowInstruction(false)}
-            style={{ padding: '18px 45px', fontSize: '18px', background: 'linear-gradient(to right, #3498db, #2980b9)', color: 'white', border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 10px 20px rgba(52, 152, 219, 0.3)', transition: 'transform 0.2s' }}
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined' && ((window as any).__CBT_IS_PAUSED__ || (window as any).__CBT_IS_STOPPED__)) return;
+              setShowInstruction(false);
+            }}
+            style={{ 
+              padding: '18px 45px', 
+              fontSize: '18px', 
+              background: 'linear-gradient(to right, #3498db, #2980b9)', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '50px', 
+              cursor: 'pointer', 
+              fontWeight: 'bold', 
+              boxShadow: '0 10px 20px rgba(52, 152, 219, 0.3)', 
+              transition: 'transform 0.2s' 
+            }}
             onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
             onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
           >

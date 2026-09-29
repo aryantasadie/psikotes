@@ -40,16 +40,16 @@ const SECTIONS = [
   {
     label: 'Manajemen Proyek',
     items: [
-      { label: 'Setting Psikogram',    path: '/superadmin/job-positions', icon: 'intake' },
+      { label: 'Penjadwalan & Sesi',    path: '/superadmin/schedule',      icon: 'schedule' },
+      { label: 'Psikogram',             path: '/superadmin/job-positions', icon: 'intake' },
       { label: 'Kompetensi & Alat Tes', path: '/superadmin/psychograph',  icon: 'tes' },
-      { label: 'Sesi & Penjadwalan',    path: '/superadmin/schedule',      icon: 'schedule', badge: 'Aktif' },
     ],
   },
   {
     label: 'Hasil & Evaluasi',
     items: [
-      { label: 'Laporan & QC Review',   path: '/superadmin/reports',     icon: 'report' },
-      { label: 'Live Stream CCTV',      path: '/superadmin/live-stream', icon: 'proctor', badge: 'Live', live: true },
+      { label: 'Hasil & Laporan',       path: '/superadmin/reports',     icon: 'report' },
+      { label: 'Monitoring Tes',        path: '/superadmin/live-stream', icon: 'proctor' },
       { label: 'Log Pengawasan',        path: '/superadmin/proctor',     icon: 'proctor' },
     ],
   },
@@ -64,11 +64,11 @@ const SECTIONS = [
 
 const PAGE_META: Record<string, { title: string; crumb: string }> = {
   '/superadmin':               { title: 'Dashboard Utama',             crumb: 'Dashboard' },
-  '/superadmin/job-positions': { title: 'Setting Psikogram Posisi',    crumb: 'Setting Psikogram' },
-  '/superadmin/psychograph':   { title: 'Master Kompetensi & Alat Tes',crumb: 'Kompetensi & Alat Tes' },
-  '/superadmin/schedule':      { title: 'Sesi Ujian & Penjadwalan',    crumb: 'Penjadwalan' },
-  '/superadmin/reports':       { title: 'Laporan & QC Review',         crumb: 'Laporan' },
-  '/superadmin/live-stream':   { title: 'Live Stream CCTV Control Room', crumb: 'Live Stream CCTV' },
+  '/superadmin/schedule':      { title: 'Penjadwalan & Sesi Ujian',    crumb: 'Penjadwalan & Sesi' },
+  '/superadmin/job-positions': { title: 'Daftar Standar Psikogram',    crumb: 'Psikogram' },
+  '/superadmin/psychograph':   { title: 'Kompetensi & Alat Tes',       crumb: 'Kompetensi & Alat Tes' },
+  '/superadmin/reports':       { title: 'Hasil & Laporan',             crumb: 'Hasil & Laporan' },
+  '/superadmin/live-stream':   { title: 'Monitoring Peserta Tes',      crumb: 'Monitoring Tes' },
   '/superadmin/proctor':       { title: 'Log Pengawasan',              crumb: 'Log Pengawasan' },
   '/superadmin/clients':       { title: 'Klien Perusahaan',            crumb: 'Klien' },
   '/superadmin/team':          { title: 'Manajemen Tim',               crumb: 'Tim' },
@@ -103,7 +103,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
       {
         label: 'Hasil & Evaluasi',
         items: [
-          { label: 'Laporan & QC Review', path: '/superadmin/reports', icon: 'report' },
+          { label: 'Hasil & Laporan', path: '/superadmin/reports', icon: 'report' },
         ],
       },
     ];
@@ -113,7 +113,7 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
         label: 'Hasil & Evaluasi',
         items: [
           { label: 'Daftar Peserta', path: '/superadmin/participants', icon: 'report' },
-          { label: 'Live Stream CCTV', path: '/superadmin/live-stream', icon: 'proctor', badge: 'Live', live: true },
+          { label: 'Monitoring Tes', path: '/superadmin/live-stream', icon: 'proctor' },
           { label: 'Log Pengawasan', path: '/superadmin/proctor', icon: 'proctor' },
         ],
       },
@@ -263,16 +263,6 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
 
           {role === 'superadmin' && (
             <>
-              {/* Search */}
-              <div className="hidden sm:flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-xl px-3 py-2 w-52 lg:w-64 focus-within:border-teal-400 focus-within:bg-white transition-all">
-                <span className="text-slate-400"><Ico d={P.search} size={14} /></span>
-                <input
-                  type="text" value={q} onChange={e => setQ(e.target.value)}
-                  placeholder="Cari kandidat, token, proyek…"
-                  className="flex-1 bg-transparent text-[13px] text-slate-700 outline-none placeholder-slate-400"
-                />
-              </div>
-
               {/* Role switcher */}
               <div className="flex items-center gap-2 border border-slate-200 bg-slate-50 rounded-xl px-3 py-2">
                 <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide hidden sm:inline">Peran:</span>

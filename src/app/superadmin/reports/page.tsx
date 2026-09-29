@@ -26,8 +26,15 @@ export default function ReportsPage() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    if (status === 'authenticated' && (session?.user as any)?.role === 'tester') {
-      router.replace('/superadmin/participants');
+    if (status === 'authenticated') {
+      const userRole = (session?.user as any)?.role;
+      if (!['superadmin', 'psikolog'].includes(userRole)) {
+        if (userRole === 'tester') {
+          router.replace('/superadmin/participants');
+        } else {
+          router.replace('/');
+        }
+      }
     }
   }, [session, status, router]);
 
@@ -52,12 +59,12 @@ export default function ReportsPage() {
   };
 
   useEffect(() => {
-    if (status === 'authenticated' && (session?.user as any)?.role !== 'tester') {
+    if (status === 'authenticated' && ['superadmin', 'psikolog'].includes((session?.user as any)?.role)) {
       fetchParticipants();
     }
   }, [status, session]);
 
-  if (status === 'loading' || (session?.user as any)?.role === 'tester') {
+  if (status === 'loading' || !['superadmin', 'psikolog'].includes((session?.user as any)?.role)) {
     return <div style={{ padding: '3rem', textAlign: 'center' }}>Memuat...</div>;
   }
 

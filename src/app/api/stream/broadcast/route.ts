@@ -11,7 +11,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized: Harap login terlebih dahulu' }, { status: 401 });
     }
 
-    const { participantId, name, username, testTitle, cameraFrame, screenFrame, violationCount, latestViolationReason } = await req.json();
+    const { 
+      participantId, 
+      name, 
+      username, 
+      testTitle, 
+      cameraFrame, 
+      screenFrame, 
+      violationCount, 
+      latestViolationReason,
+      currentTestName,
+      timerRemaining,
+      completedTests,
+      status,
+      isPaused
+    } = await req.json();
 
     if (!participantId) {
       return NextResponse.json({ error: 'Missing participant ID' }, { status: 400 });
@@ -25,13 +39,20 @@ export async function POST(req: Request) {
     const userId = parseInt((session.user as any).id, 10);
     const userRole = (session.user as any).role;
 
-    // Validate ownership for testees
+    let finalStatus = status;
+    let finalIsPaused = isPaused;
+
+    // Validate ownership for testees & check authoritative DB status
     if (userRole === 'testee' || userRole === 'user') {
       const participant = await prisma.testParticipant.findFirst({
         where: { id: pId, userId }
       });
       if (!participant) {
         return NextResponse.json({ error: 'Forbidden: ID Peserta tidak valid untuk sesi Anda' }, { status: 403 });
+      }
+      if (participant.status === 'stopped') {
+        finalStatus = 'stopped';
+        finalIsPaused = false;
       }
     }
 
@@ -44,7 +65,12 @@ export async function POST(req: Request) {
       screenFrameUrl: screenFrame || null,
       lastActive: Date.now(),
       violationCount: violationCount || 0,
-      latestViolationReason: latestViolationReason || undefined
+      latestViolationReason: latestViolationReason || undefined,
+      currentTestName: currentTestName || undefined,
+      timerRemaining: timerRemaining !== undefined ? timerRemaining : undefined,
+      completedTests: Array.isArray(completedTests) ? completedTests : undefined,
+      status: finalStatus || undefined,
+      isPaused: finalIsPaused !== undefined ? finalIsPaused : undefined
     });
 
     return NextResponse.json({ success: true, timestamp: Date.now() });

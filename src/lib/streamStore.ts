@@ -10,6 +10,11 @@ export interface StreamSession {
   lastActive: number;
   violationCount: number;
   latestViolationReason?: string;
+  currentTestName?: string | null;
+  timerRemaining?: number | null;
+  completedTests?: string[];
+  status?: string;
+  isPaused?: boolean;
 }
 
 declare global {
@@ -37,10 +42,20 @@ export function updateStreamSession(session: StreamSession) {
   const existing = globalStreamStore.get(session.participantId);
   
   const updated: StreamSession = {
-    ...session,
+    participantId: session.participantId,
+    name: session.name || existing?.name || `Participant ${session.participantId}`,
+    username: session.username || existing?.username || `user_${session.participantId}`,
+    testTitle: session.testTitle || existing?.testTitle || 'Psikotes Ujian',
     cameraFrameUrl: session.cameraFrameUrl || existing?.cameraFrameUrl || null,
     screenFrameUrl: session.screenFrameUrl || existing?.screenFrameUrl || null,
-    lastActive: Date.now()
+    lastActive: Date.now(),
+    violationCount: session.violationCount !== undefined ? session.violationCount : (existing?.violationCount || 0),
+    latestViolationReason: session.latestViolationReason !== undefined ? session.latestViolationReason : existing?.latestViolationReason,
+    currentTestName: session.currentTestName !== undefined ? session.currentTestName : existing?.currentTestName,
+    timerRemaining: session.timerRemaining !== undefined ? session.timerRemaining : existing?.timerRemaining,
+    completedTests: session.completedTests !== undefined ? session.completedTests : existing?.completedTests,
+    status: session.status !== undefined ? session.status : (existing?.status || 'in_progress'),
+    isPaused: session.isPaused !== undefined ? session.isPaused : (existing?.isPaused || false)
   };
   
   globalStreamStore.set(session.participantId, updated);

@@ -58,6 +58,9 @@ model Test {
   specification    String?
   aspect           String?
   sequence         String?  // JSON array of test types (e.g. ["CFIT 1", "WPT"])
+  pausedTests      String?  // JSON array of test types to pause BEFORE starting, e.g. ["PAPI_KOSTICK", "KRAEPELIN"]
+  pauseMessage     String?  // Optional custom message shown during emergency pause
+  isPaused         Boolean  @default(false) // Emergency pause status for entire batch
   startDate        DateTime?
   endDate          DateTime?
   clientId         Int?
@@ -75,8 +78,11 @@ model TestParticipant {
   userId        Int
   testId        Int
   jobPositionId Int?
-  status        String   @default("pending") // "pending", "in_progress", "completed"
+  status        String   @default("pending") // "pending", "in_progress", "completed", "stopped"
   plainPassword String?  // Password awal saat akun digenerate
+  unpausedTests String?  // JSON array tes yang telah di-unpause untuk peserta ini
+  isPaused      Boolean  @default(false) // Individual participant pause status
+  currentTest   String?  // Module currently being taken (e.g. "PAPI_KOSTICK")
   startTime     DateTime?
   endTime       DateTime?
 

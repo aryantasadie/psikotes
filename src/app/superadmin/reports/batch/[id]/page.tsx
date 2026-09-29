@@ -1,17 +1,33 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 
 export default function BatchParticipantsReportPage() {
   const params = useParams();
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const id = params.id as string;
 
   const [test, setTest] = useState<any>(null);
   const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      const userRole = (session?.user as any)?.role;
+      if (!['superadmin', 'psikolog'].includes(userRole)) {
+        if (userRole === 'tester') {
+          router.replace('/superadmin/participants');
+        } else {
+          router.replace('/');
+        }
+      }
+    }
+  }, [session, status, router]);
 
   const fetchBatchData = () => {
     setLoading(true);

@@ -384,7 +384,21 @@ export default function ReportDetailPage() {
     }
   }, [selectedTest]);
 
-    const [savingReview, setSavingReview] = useState(false);
+  // Role check: Only superadmin and psikolog
+  useEffect(() => {
+    if (session?.user) {
+      const userRole = (session.user as any)?.role;
+      if (!['superadmin', 'psikolog'].includes(userRole)) {
+        if (userRole === 'tester') {
+          router.replace('/superadmin/participants');
+        } else {
+          router.replace('/');
+        }
+      }
+    }
+  }, [session, router]);
+
+  const [savingReview, setSavingReview] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   
   // Review form states
@@ -399,6 +413,28 @@ export default function ReportDetailPage() {
     kepemimpinan: '',
     kesimpulan: ''
   });
+  
+  // Psychologist Credentials & Signature
+  const [psychologistName, setPsychologistName] = useState('');
+  const [psychologistSipp, setPsychologistSipp] = useState('');
+  const [signatureUrl, setSignatureUrl] = useState('');
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Ukuran file tanda tangan maksimal 2MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setSignatureUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
   
   // The modified scores map
   const [modifiedScores, setModifiedScores] = useState<Record<string, number>>({});
@@ -842,7 +878,19 @@ export default function ReportDetailPage() {
       setReviewKelemahan(pr.kelemahan || '');
       
       if (pr.dinamika) {
-        try { setReviewDinamika(JSON.parse(pr.dinamika)); } catch(e){}
+        try {
+          const parsed = JSON.parse(pr.dinamika);
+          setReviewDinamika({
+            intelegensi: parsed.intelegensi || '',
+            kepribadian: parsed.kepribadian || '',
+            sikapKerja: parsed.sikapKerja || '',
+            kepemimpinan: parsed.kepemimpinan || '',
+            kesimpulan: parsed.kesimpulan || ''
+          });
+          if (parsed.psychologistName) setPsychologistName(parsed.psychologistName);
+          if (parsed.psychologistSipp) setPsychologistSipp(parsed.psychologistSipp);
+          if (parsed.signatureUrl) setSignatureUrl(parsed.signatureUrl);
+        } catch(e){}
       }
       if (pr.modifiedScores) {
         try { setModifiedScores(JSON.parse(pr.modifiedScores)); } catch(e){}
@@ -858,6 +906,13 @@ export default function ReportDetailPage() {
         kepemimpinan: '',
         kesimpulan: ''
       });
+
+      if (!psychologistName && session?.user?.name) {
+        setPsychologistName(session.user.name);
+      }
+      if (!psychologistSipp && (session?.user as any)?.license) {
+        setPsychologistSipp((session?.user as any)?.license || '');
+      }
 
       const cog = computerScores['IQ / Kapasitas Intelektual'] || 3;
       const logic = computerScores['Logika Berpikir'] || 3;
@@ -882,8 +937,14 @@ export default function ReportDetailPage() {
   const sequence = participant.test?.sequence ? JSON.parse(participant.test.sequence) : [];
   const normalizedTestType = selectedTest === 'PAPI KOSTICK' ? 'PAPI_KOSTICK' : selectedTest;
   
-  // Filter answers by the currently selected test type
-  const currentAnswers = (participant.answers || []).filter((a: any) => a.question && a.question.testType === normalizedTestType);
+  // Filter answers by the currently selected test type (supporting composite names like IST, TIKI, CFIT)
+  const currentAnswers = (participant.answers || []).filter((a: any) => {
+    if (!a.question) return false;
+    if (normalizedTestType === 'IST') return a.question.testType.startsWith('IST');
+    if (normalizedTestType === 'TIKI') return a.question.testType.startsWith('TIKI');
+    if (normalizedTestType === 'CFIT') return a.question.testType.startsWith('CFIT');
+    return a.question.testType === normalizedTestType;
+  });
 
   // Group by question number logic
   currentAnswers.sort((a: any, b: any) => a.questionId - b.questionId);
@@ -904,7 +965,10 @@ export default function ReportDetailPage() {
           kelebihan: reviewKelebihan,
           kelemahan: reviewKelemahan,
           modifiedScores: newScores,
-          jobPositionId: (participant.jobPosition?.id || participant.test?.jobPosition?.id)
+          jobPositionId: (participant.jobPosition?.id || participant.test?.jobPosition?.id),
+          psychologistName,
+          psychologistSipp,
+          signatureUrl
         })
       });
     } catch (e) {
@@ -927,7 +991,10 @@ export default function ReportDetailPage() {
           kelebihan: reviewKelebihan,
           kelemahan: reviewKelemahan,
           modifiedScores: modifiedScores,
-          jobPositionId: (participant.jobPosition?.id || participant.test?.jobPosition?.id)
+          jobPositionId: (participant.jobPosition?.id || participant.test?.jobPosition?.id),
+          psychologistName,
+          psychologistSipp,
+          signatureUrl
         })
       });
       if (res.ok) {
@@ -976,7 +1043,7 @@ export default function ReportDetailPage() {
               {sequence.map((testName: string) => (
                 <option key={testName} value={testName}>{testName}</option>
               ))}
-              <option value="Proctoring">📷 Log Pengawasan & Keamanan</option>
+              <option value="Proctoring">Log Pengawasan & Keamanan</option>
             </select>
           </div>
       </div>
@@ -1013,7 +1080,7 @@ export default function ReportDetailPage() {
                   }}
                   title="Hitung ulang otomatis skor psikogram dari jawaban peserta & preset terbaru"
                 >
-                  <span>🔄 Hitung Ulang & Sync Psikogram</span>
+                  <span>Hitung Ulang & Sync Psikogram</span>
                 </button>
               </div>
               <div style={{ overflowX: 'auto' }}>
@@ -1214,6 +1281,93 @@ export default function ReportDetailPage() {
                 </div>
             </div>
 
+            {/* Pengesahan & Kredensial Psikolog Pemeriksa */}
+            <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', padding: '24px', borderLeft: '4px solid #4F46E5' }}>
+                <div style={{ marginBottom: '16px' }}>
+                    <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#1E293B' }}>Pengesahan & Kredensial Psikolog Pemeriksa</h4>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#64748B' }}>Identitas resmi dan tanda tangan digital untuk dicantumkan pada Laporan Akhir (PDF & Word).</p>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#334155' }}>
+                            Nama Lengkap & Gelar Psikolog
+                        </label>
+                        <input 
+                            type="text"
+                            value={psychologistName}
+                            onChange={(e) => setPsychologistName(e.target.value)}
+                            disabled={role === 'tester'}
+                            placeholder="cth: Dr. Rian Pratama, M.Psi., Psikolog"
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', background: role === 'tester' ? '#F8FAFC' : 'white' }}
+                        />
+                    </div>
+
+                    <div>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#334155' }}>
+                            Nomor SIPP / Izin Praktik Psikolog
+                        </label>
+                        <input 
+                            type="text"
+                            value={psychologistSipp}
+                            onChange={(e) => setPsychologistSipp(e.target.value)}
+                            disabled={role === 'tester'}
+                            placeholder="cth: 1234-56-7-8 atau SIPP-HIMPSI"
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', background: role === 'tester' ? '#F8FAFC' : 'white' }}
+                        />
+                    </div>
+
+                    <div style={{ gridColumn: '1 / -1' }}>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#334155' }}>
+                            Tanda Tangan Digital (Upload Foto / Gambar)
+                        </label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                            {signatureUrl ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', background: '#F8FAFC', padding: '12px 16px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                                    <div style={{ background: 'white', padding: '6px 12px', borderRadius: '6px', border: '1px dashed #CBD5E1' }}>
+                                        <img 
+                                            src={signatureUrl} 
+                                            alt="Tanda Tangan" 
+                                            style={{ maxHeight: '60px', maxWidth: '180px', objectFit: 'contain' }} 
+                                        />
+                                    </div>
+                                    {role !== 'tester' && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setSignatureUrl('')}
+                                            style={{ background: '#FEE2E2', color: '#B91C1C', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                                        >
+                                            Hapus Tanda Tangan
+                                        </button>
+                                    )}
+                                </div>
+                            ) : null}
+
+                            {role !== 'tester' && (
+                                <div>
+                                    <input 
+                                        type="file" 
+                                        accept="image/png, image/jpeg, image/webp"
+                                        id="signature-upload"
+                                        onChange={handleSignatureUpload}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <label 
+                                        htmlFor="signature-upload"
+                                        style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: '#EEF2FF', color: '#4338CA', padding: '10px 16px', borderRadius: '8px', border: '1px dashed #6366F1', fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}
+                                    >
+                                        {signatureUrl ? 'Ganti Foto Tanda Tangan' : 'Upload Foto Tanda Tangan'}
+                                    </label>
+                                    <span style={{ display: 'block', fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>
+                                        Format PNG/JPG transparan/putih (maks 2MB).
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* Action Buttons */}
             <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px', borderTop: '4px solid #3A3F94' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1227,9 +1381,9 @@ export default function ReportDetailPage() {
                         disabled={role === 'tester'}
                         style={{ padding: '12px 20px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', fontWeight: 700, minWidth: '250px', background: '#F8FAFC', cursor: role === 'tester' ? 'not-allowed' : 'pointer' }}
                     >
-                        <option value="DISARANKAN">[✓] DISARANKAN</option>
-                        <option value="DIPERTIMBANGKAN">[?] DIPERTIMBANGKAN</option>
-                        <option value="TIDAK DISARANKAN">[X] TIDAK DISARANKAN</option>
+                        <option value="DISARANKAN">DISARANKAN</option>
+                        <option value="DIPERTIMBANGKAN">DIPERTIMBANGKAN</option>
+                        <option value="TIDAK DISARANKAN">TIDAK DISARANKAN</option>
                     </select>
                 </div>
                 
@@ -1241,46 +1395,123 @@ export default function ReportDetailPage() {
                         <div style={{ fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px',
                           color: reviewStatus === 'RELEASED' ? '#047857' : reviewStatus === 'WAITING_QC' ? '#D97706' : '#334155'
                         }}>
-                            {reviewStatus === 'RELEASED' ? '✅ Dirilis ke Klien' : reviewStatus === 'WAITING_QC' ? '⏳ Menunggu Persetujuan QC' : '📝 Draft (Proses Psikolog)'}
+                            {reviewStatus === 'RELEASED' ? 'Telah Diperiksa & Dirilis' : reviewStatus === 'WAITING_QC' ? 'Selesai Evaluasi (Menunggu QC)' : 'Draft (Proses Evaluasi)'}
                         </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', position: 'relative' }}>
                         {saveMessage && <span style={{ fontSize: '14px', color: '#047857', fontWeight: 600 }}>{saveMessage}</span>}
                         
-                        <Link href={`/report-pdf/${id}`} target="_blank" style={{ background: '#F1F5F9', color: '#334155', padding: '10px 20px', borderRadius: '8px', textDecoration: 'none', fontWeight: 700, fontSize: '14px' }}>
-                            Lihat Preview PDF
-                        </Link>
+                        {/* 1 Tombol Unduh Laporan dengan Opsi Bersih */}
+                        <div style={{ position: 'relative' }}>
+                            <button
+                                type="button"
+                                onClick={() => setShowDownloadMenu(prev => !prev)}
+                                style={{
+                                    background: '#2563EB',
+                                    color: 'white',
+                                    padding: '10px 18px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    fontWeight: 700,
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                <span>Unduh Laporan</span>
+                                <span style={{ fontSize: '10px' }}>▼</span>
+                            </button>
+
+                            {showDownloadMenu && (
+                                <div style={{
+                                    position: 'absolute',
+                                    right: 0,
+                                    bottom: '100%',
+                                    marginBottom: '8px',
+                                    width: '180px',
+                                    background: 'white',
+                                    border: '1px solid #CBD5E1',
+                                    borderRadius: '8px',
+                                    boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
+                                    zIndex: 50,
+                                    overflow: 'hidden'
+                                }}>
+                                    <Link
+                                        href={`/report-pdf/${id}`}
+                                        target="_blank"
+                                        onClick={() => setShowDownloadMenu(false)}
+                                        style={{
+                                            display: 'block',
+                                            padding: '10px 16px',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            color: '#1E293B',
+                                            textDecoration: 'none',
+                                            borderBottom: '1px solid #F1F5F9'
+                                        }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = '#F8FAFC')}
+                                        onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
+                                    >
+                                        Unduh PDF
+                                    </Link>
+                                    <a
+                                        href={`/api/superadmin/reports/${id}/export-docx`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        download={`Laporan_Psikotes_${(participant.user?.name || 'Kandidat').replace(/\s+/g, '_')}.docx`}
+                                        onClick={() => setShowDownloadMenu(false)}
+                                        style={{
+                                            display: 'block',
+                                            padding: '10px 16px',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            color: '#1E293B',
+                                            textDecoration: 'none'
+                                        }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = '#F8FAFC')}
+                                        onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
+                                    >
+                                        Unduh Word (.docx)
+                                    </a>
+                                </div>
+                            )}
+                        </div>
                         
                         {role !== 'tester' && (
                           <>
+                            {/* Tombol Simpan Draft */}
                             <button 
                                 onClick={() => handleSaveReview('DRAFT')}
                                 disabled={savingReview}
-                                style={{ background: '#F8FAFC', color: '#334155', padding: '10px 20px', borderRadius: '8px', border: '1px solid #CBD5E1', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
+                                style={{ background: '#F8FAFC', color: '#334155', padding: '10px 18px', borderRadius: '8px', border: '1px solid #CBD5E1', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
                                 {savingReview ? '...' : 'Simpan Draft'}
                             </button>
 
+                            {/* Tombol Tandai Selesai */}
                             <button 
                                 onClick={() => {
-                                    if (confirm('Kirim ke QC sekarang? Status akan berubah menjadi Waiting QC.')) {
+                                    if (confirm('Tandai evaluasi ini selesai? Status akan diteruskan untuk verifikasi.')) {
                                         handleSaveReview('WAITING_QC');
                                     }
                                 }}
                                 disabled={savingReview || reviewStatus === 'WAITING_QC' || reviewStatus === 'RELEASED'}
-                                style={{ background: '#D97706', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: (reviewStatus === 'WAITING_QC' || reviewStatus === 'RELEASED') ? 'not-allowed' : 'pointer', fontSize: '14px', opacity: (reviewStatus === 'WAITING_QC' || reviewStatus === 'RELEASED') ? 0.5 : 1 }}>
-                                Kirim ke QC
+                                style={{ background: '#D97706', color: 'white', padding: '10px 18px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: (reviewStatus === 'WAITING_QC' || reviewStatus === 'RELEASED') ? 'not-allowed' : 'pointer', fontSize: '14px', opacity: (reviewStatus === 'WAITING_QC' || reviewStatus === 'RELEASED') ? 0.5 : 1 }}>
+                                Tandai Selesai
                             </button>
 
+                            {/* Tombol Tandai Telah Diperiksa (Khusus Superadmin) */}
                             {role !== 'psikolog' && (
                               <button 
                                   onClick={() => {
-                                      if (confirm('Yakin ingin menandai laporan ini selesai dan siap rilis ke klien?')) {
+                                      if (confirm('Yakin ingin menandai laporan ini telah diperiksa dan siap dirilis?')) {
                                           handleSaveReview('RELEASED');
                                       }
                                   }}
                                   disabled={savingReview}
-                                  style={{ background: '#0D9488', color: 'white', padding: '10px 20px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
-                                  Setujui & Rilis (QC)
+                                  style={{ background: '#0D9488', color: 'white', padding: '10px 18px', borderRadius: '8px', border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}>
+                                  Tandai Telah Diperiksa
                               </button>
                             )}
                           </>
@@ -1295,10 +1526,10 @@ export default function ReportDetailPage() {
           
           <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', padding: '24px' }}>
             <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
-              📷 Log Pengawasan & Rekaman Layar (Proctoring)
+              Log Pengawasan & Rekaman Layar (Proctoring)
             </h3>
             <p style={{ margin: 0, fontSize: '13px', color: '#64748B' }}>
-              Rangkaian foto webcam kamera peserta dan tangkapan layar desktop (screen capture) yang terekam secara realtime selama ujian berlangsung.
+              Rangkaian foto kamera peserta dan tangkapan layar desktop yang terekam selama ujian berlangsung.
             </p>
           </div>
 
@@ -1309,6 +1540,32 @@ export default function ReportDetailPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {groupedLogs.map((group: any, idx: number) => {
+                const proctorNoteLog = group.logs.find((l: any) => l.logType === 'proctor_note');
+                if (proctorNoteLog) {
+                  return (
+                    <div key={idx} style={{
+                      background: '#FFFBEB',
+                      borderRadius: '16px',
+                      border: '1.5px solid #FDE68A',
+                      padding: '20px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#92400E' }}>Catatan Khusus Pengawas • {group.time}</span>
+                        <span style={{ background: '#FEF3C7', color: '#B45309', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 700 }}>
+                          Catatan Khusus
+                        </span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: '13px', color: '#78350F', fontWeight: 500, paddingLeft: '8px', borderLeft: '3px solid #F59E0B' }}>
+                        {proctorNoteLog.mediaUrl}
+                      </p>
+                    </div>
+                  );
+                }
+
                 const cameraLog = group.logs.find((l: any) => l.logType.startsWith('camera'));
                 const screenLog = group.logs.find((l: any) => l.logType.startsWith('screen'));
                 const isViolation = group.logs.some((l: any) => 
@@ -1339,29 +1596,29 @@ export default function ReportDetailPage() {
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                       <div>
-                        <span style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>⏱️ {group.time}</span>
+                        <span style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>{group.time}</span>
                         <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px', fontWeight: 600 }}>
                           Kategori: {uniqueLabels}
                         </div>
                       </div>
                       {isViolation ? (
                         <span style={{ background: '#FEF3C7', color: '#D97706', border: '1px solid #FDE68A', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 800 }}>
-                          🚨 Pelanggaran Keamanan
+                          Pelanggaran Keamanan
                         </span>
                       ) : (
                         <span style={{ background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 800 }}>
-                          ✓ Pengawasan Rutin
+                          Pengawasan Rutin
                         </span>
                       )}
                     </div>
                     
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '20px', minHeight: '200px' }}>
                       <div>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>📷 Kamera Webcam:</div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Kamera Peserta:</div>
                         {cameraLog ? (
                           <img 
                             src={cameraLog.mediaUrl.startsWith('/uploads/') ? cameraLog.mediaUrl.replace('/uploads/', '/api/uploads/') : cameraLog.mediaUrl} 
-                            alt="Webcam Capture" 
+                            alt="Kamera" 
                             style={{ width: '100%', borderRadius: '12px', border: '1px solid #CBD5E1', objectFit: 'cover', height: '220px' }} 
                           />
                         ) : (
@@ -1372,11 +1629,11 @@ export default function ReportDetailPage() {
                       </div>
                       
                       <div>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>🖥️ Tangkapan Layar Desktop:</div>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Tangkapan Layar:</div>
                         {screenLog ? (
                           <img 
                             src={screenLog.mediaUrl.startsWith('/uploads/') ? screenLog.mediaUrl.replace('/uploads/', '/api/uploads/') : screenLog.mediaUrl} 
-                            alt="Screen Capture" 
+                            alt="Layar" 
                             style={{ width: '100%', borderRadius: '12px', border: '1px solid #CBD5E1', objectFit: 'contain', height: '220px', background: '#0F172A' }} 
                           />
                         ) : (
@@ -1468,7 +1725,7 @@ export default function ReportDetailPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
                       <h3 style={{ margin: 0, color: '#0F172A', fontSize: '1.25rem', fontWeight: 800 }}>
-                        📈 Grafik Hasil Tes Kraepelin (Kurva Kecepatan & Ketahanan Kerja 50 Kolom)
+                        Grafik Hasil Tes Kraepelin (Kurva Kecepatan & Ketahanan Kerja 50 Kolom)
                       </h3>
                       <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
                         Grafik lembar kerja standar psikologi 50 kolom dengan garis nilai tengah (midpoint tertinggi & terendah).
@@ -1649,7 +1906,7 @@ export default function ReportDetailPage() {
                 {/* Column Details Table & Detailed Equation Inspector */}
                 <div style={{ background: '#FFFFFF', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
                   <h3 style={{ margin: '0 0 1rem 0', color: '#0F172A', fontSize: '1.1rem', fontWeight: 700 }}>
-                    📋 Rekapitulasi Pengerjaan Per Kolom (1–50)
+                    Rekapitulasi Pengerjaan Per Kolom (1–50)
                   </h3>
                   <div style={{ overflowX: 'auto', marginBottom: '1.5rem' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'center' }}>
@@ -1684,14 +1941,14 @@ export default function ReportDetailPage() {
                     </table>
                   </div>
 
-                  {/* 🔎 Rincian Transparan Soal & Jawaban (All 50 Columns Centered & Displayed Directly) */}
+                  {/* Rincian Transparan Soal & Jawaban (All 50 Columns Centered & Displayed Directly) */}
                   <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
                       <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>🔎 Rincian Transparan Soal & Jawaban (50 Kolom Centered)</span>
+                        <span>Rincian Transparan Soal & Jawaban (50 Kolom Centered)</span>
                       </div>
                       <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B' }}>
-                        ↔ Geser horisontal untuk mengecek seluruh 50 kolom
+                        Geser horizontal untuk mengecek seluruh 50 kolom
                       </span>
                     </div>
 
@@ -1781,11 +2038,11 @@ export default function ReportDetailPage() {
                                         }}
                                       >
                                         <div style={{ fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap' }}>
-                                          {dTop} + {dBottom} = {sum} → Kunci: <strong style={{ color: '#2563EB' }}>{expectedSum}</strong>
+                                          {dTop} + {dBottom} = {sum} | Kunci: <strong style={{ color: '#2563EB' }}>{expectedSum}</strong>
                                         </div>
                                         <div style={{ marginTop: '2px', fontWeight: 900, color: isCorrect ? '#047857' : '#DC2626', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10.5px' }}>
                                           <span>Jwb: <strong>{uAns !== null && uAns !== undefined ? uAns : '-'}</strong></span>
-                                          <span>{isCorrect ? '✓ BENAR' : '✕ SALAH'}</span>
+                                          <span>{isCorrect ? 'BENAR' : 'SALAH'}</span>
                                         </div>
                                       </div>
                                     );
@@ -2187,8 +2444,8 @@ export default function ReportDetailPage() {
                           <div style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Skor Mentah</div>
                           <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A' }}>{rawScore} <span style={{fontSize:'1.2rem', color:'#94A3B8', fontWeight: 500}}>/ {questions.length}</span></div>
                           <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', marginTop: '0.75rem' }}>
-                            <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, background: '#D1FAE5', padding: '4px 10px', borderRadius: '12px' }}>✓ BENAR: {rawScore}</span>
-                            <span style={{ fontSize: '0.75rem', color: '#B91C1C', fontWeight: 700, background: '#FEE2E2', padding: '4px 10px', borderRadius: '12px' }}>✕ SALAH: {questions.length - rawScore}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, background: '#D1FAE5', padding: '4px 10px', borderRadius: '12px' }}>BENAR: {rawScore}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#B91C1C', fontWeight: 700, background: '#FEE2E2', padding: '4px 10px', borderRadius: '12px' }}>SALAH: {questions.length - rawScore}</span>
                           </div>
                         </div>
                         <div style={{ flex: '1 1 200px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>
@@ -2234,8 +2491,8 @@ export default function ReportDetailPage() {
                           </div>
                           
                           <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', marginTop: '0.75rem' }}>
-                            <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, background: '#D1FAE5', padding: '4px 10px', borderRadius: '12px' }}>✓ BENAR ASLI: {rawScore}</span>
-                            <span style={{ fontSize: '0.75rem', color: '#B91C1C', fontWeight: 700, background: '#FEE2E2', padding: '4px 10px', borderRadius: '12px' }}>✕ SALAH: {questions.length - rawScore}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, background: '#D1FAE5', padding: '4px 10px', borderRadius: '12px' }}>BENAR ASLI: {rawScore}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#B91C1C', fontWeight: 700, background: '#FEE2E2', padding: '4px 10px', borderRadius: '12px' }}>SALAH: {questions.length - rawScore}</span>
                           </div>
                         </div>
                         <div style={{ flex: '1 1 200px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>
@@ -2258,8 +2515,8 @@ export default function ReportDetailPage() {
                           <div style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Skor Mentah</div>
                           <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A' }}>{rawScore} <span style={{fontSize:'1.2rem', color:'#94A3B8', fontWeight: 500}}>/ {questions.length}</span></div>
                           <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', marginTop: '0.75rem' }}>
-                            <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, background: '#D1FAE5', padding: '4px 10px', borderRadius: '12px' }}>✓ BENAR: {rawScore}</span>
-                            <span style={{ fontSize: '0.75rem', color: '#B91C1C', fontWeight: 700, background: '#FEE2E2', padding: '4px 10px', borderRadius: '12px' }}>✕ SALAH: {questions.length - rawScore}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, background: '#D1FAE5', padding: '4px 10px', borderRadius: '12px' }}>BENAR: {rawScore}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#B91C1C', fontWeight: 700, background: '#FEE2E2', padding: '4px 10px', borderRadius: '12px' }}>SALAH: {questions.length - rawScore}</span>
                           </div>
                         </div>
                         <div style={{ flex: '1 1 200px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>

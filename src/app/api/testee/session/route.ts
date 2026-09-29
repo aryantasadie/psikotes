@@ -26,6 +26,16 @@ export async function GET() {
     return NextResponse.json({ sequence: [], completedTests: [] });
   }
 
+  if (participant.status === 'stopped') {
+    return NextResponse.json({
+      isStopped: true,
+      participantId: participant.id,
+      sequence: [],
+      completedTests: [],
+      message: 'Ujian Anda telah dihentikan oleh pengawas.'
+    });
+  }
+
   let sequence: string[] = [];
   try {
     sequence = JSON.parse(participant.test?.sequence || '[]');
@@ -57,6 +67,69 @@ export async function GET() {
     }
   }
 
+  // Next test computation
+  const nextTestIndex = sequence.findIndex(t => !completedTests.includes(t));
+  const isAllCompleted = sequence.length > 0 && nextTestIndex === -1;
+  const nextTest = isAllCompleted || sequence.length === 0 ? null : sequence[nextTestIndex];
+
+  // Pause / Breakpoint check
+  const isDirectlyPaused = Boolean(participant.isPaused) || Boolean(participant.test?.isPaused);
+  let isPaused = isDirectlyPaused;
+  let pausedMessage = participant.test?.pauseMessage || 'Ujian sedang dijeda oleh pengawas. Harap menunggu instruksi selanjutnya.';
+
+  if (nextTest && !isAllCompleted) {
+    let pausedTestsList: string[] = [];
+    try { pausedTestsList = JSON.parse(participant.test?.pausedTests || '[]'); } catch (e) {}
+
+    let unpausedList: string[] = [];
+    try { unpausedList = JSON.parse(participant.unpausedTests || '[]'); } catch (e) {}
+
+    const lastCompletedTest = completedTests.length > 0 ? completedTests[completedTests.length - 1] : null;
+    const cleanLast = lastCompletedTest ? lastCompletedTest.toUpperCase().replace(/[\s\-_]+/g, '') : '';
+
+    const breakKey = cleanLast ? `BREAK_AFTER_${cleanLast}` : null;
+    const isTestSpecificallyPaused = Boolean(
+      breakKey && pausedTestsList.some(pt => pt.toUpperCase() === breakKey)
+    );
+    const isTestUnpaused = Boolean(
+      breakKey && unpausedList.some(ut => ut.toUpperCase() === breakKey)
+    );
+
+    const shouldPause = isDirectlyPaused || (isTestSpecificallyPaused && !isTestUnpaused);
+
+    if (shouldPause) {
+      isPaused = true;
+      const pauseTitle = lastCompletedTest 
+        ? `Jeda setelah ${lastCompletedTest}` 
+        : (participant.test?.isPaused ? 'Ujian Dijeda' : `Jeda sebelum ${nextTest}`);
+
+      pausedMessage = participant.test?.pauseMessage || (lastCompletedTest 
+        ? `Jeda setelah tes ${lastCompletedTest}. Harap istirahat sejenak dan menunggu arahan pengawas untuk melanjutkan ke tes berikutnya.`
+        : 'Sesi pengerjaan sedang dijeda oleh pengawas. Harap menunggu instruksi selanjutnya.');
+
+      if (!participant.isPaused || participant.currentTest !== pauseTitle) {
+        prisma.testParticipant.update({
+          where: { id: participant.id },
+          data: {
+            isPaused: true,
+            currentTest: pauseTitle
+          }
+        }).catch(() => {});
+      }
+    } else {
+      isPaused = false;
+      if (participant.isPaused) {
+        prisma.testParticipant.update({
+          where: { id: participant.id },
+          data: {
+            isPaused: false,
+            currentTest: nextTest
+          }
+        }).catch(() => {});
+      }
+    }
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { name: true, username: true }
@@ -75,7 +148,12 @@ export async function GET() {
     username: username,
     isDefaultName,
     sequence,
-    completedTests
+    completedTests,
+    nextTest,
+    isAllCompleted,
+    isPaused,
+    pausedMessage,
+    isStopped: false
   });
 }
 

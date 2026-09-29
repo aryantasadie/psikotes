@@ -68,19 +68,36 @@ export default function TestTimer({
     }
 
     const interval = setInterval(() => {
+      // Freeze countdown if test is paused or stopped by proctor
+      if (typeof window !== 'undefined') {
+        const isPaused = Boolean((window as any).__CBT_IS_PAUSED__);
+        const isStopped = Boolean((window as any).__CBT_IS_STOPPED__);
+        if (isPaused || isStopped) {
+          return;
+        }
+      }
+
       setTimeLeft(prev => {
         const next = prev - 1;
         if (timerStorageKey && typeof window !== 'undefined') {
           if (next > 0) {
             localStorage.setItem(timerStorageKey, String(next));
+            localStorage.setItem('cbt_active_timer_left', String(next));
+            if (testName) localStorage.setItem('cbt_active_test', testName);
           } else {
             localStorage.removeItem(timerStorageKey);
+            localStorage.removeItem('cbt_active_timer_left');
+            localStorage.removeItem('cbt_active_test');
           }
         }
         if (next <= 0) {
           clearInterval(interval);
           if (!isExpired) {
             setIsExpired(true);
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('cbt_active_timer_left');
+              localStorage.removeItem('cbt_active_test');
+            }
             if (autoSubmit && onTimeUp) {
               onTimeUp();
             }
@@ -92,9 +109,8 @@ export default function TestTimer({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isActive, timeLeft, isExpired, autoSubmit, onTimeUp, timerStorageKey]);
+  }, [isActive, timeLeft, isExpired, autoSubmit, onTimeUp, timerStorageKey, testName]);
 
   // Timer runs silently in background (UI hidden per requirement)
   return null;
 }
-
