@@ -87,8 +87,18 @@ export async function POST(req: Request) {
           cat.aspects?.forEach((asp: any) => {
             if (asp.checked && Array.isArray(asp.instruments)) {
               asp.instruments.forEach((inst: string) => {
-                let clean = inst.replace(/Subtes \d+/g, '').replace(/Skala [A-Z]/g, '').trim();
-                if (clean) instrumentsSet.add(clean);
+                if (!inst) return;
+                const instLower = inst.toLowerCase().trim();
+                if (inst === "WPT") instrumentsSet.add("WPT");
+                else if (instLower.startsWith("tiki")) instrumentsSet.add(inst);
+                else if (instLower.startsWith("ist subtes")) instrumentsSet.add(inst.replace(/subtes\s+/i, ""));
+                else if (instLower.startsWith("ist")) instrumentsSet.add(inst);
+                else if (instLower.startsWith("papi")) instrumentsSet.add("PAPI KOSTICK");
+                else if (instLower.startsWith("disc")) instrumentsSet.add("DISC");
+                else if (instLower.startsWith("cfit")) instrumentsSet.add(inst);
+                else if (instLower.startsWith("kraepelin") || instLower.startsWith("kreapelin")) instrumentsSet.add("Kraepelin");
+                else if (instLower.startsWith("wartegg")) instrumentsSet.add("Wartegg");
+                else instrumentsSet.add(inst);
               });
             }
           });
@@ -103,16 +113,26 @@ export async function POST(req: Request) {
       baseSequence = ["WPT", "DISC", "PAPI KOSTICK"];
     }
 
-    // 2. Combine base sequence with customSequence (if provided) without duplicates
-    let finalSequenceArr = [...baseSequence];
-    if (Array.isArray(customSequence) && customSequence.length > 0) {
-      customSequence.forEach((tool: string) => {
-        if (!finalSequenceArr.includes(tool)) {
-          finalSequenceArr.push(tool);
-        }
-      });
-    }
+    // 2. Normalize and combine base sequence with customSequence (if provided) without duplicates
+    const combinedRaw = [...baseSequence, ...(Array.isArray(customSequence) ? customSequence : [])];
+    const finalSet = new Set<string>();
+    combinedRaw.forEach((tool: string) => {
+      if (!tool) return;
+      const tLower = tool.toLowerCase().trim();
+      if (tLower.startsWith("kraepelin") || tLower.startsWith("kreapelin")) {
+        finalSet.add("Kraepelin");
+      } else if (tLower.startsWith("papi")) {
+        finalSet.add("PAPI KOSTICK");
+      } else if (tLower.startsWith("ist subtes")) {
+        finalSet.add(tool.replace(/subtes\s+/i, ""));
+      } else if (tLower.startsWith("wartegg")) {
+        finalSet.add("Wartegg");
+      } else {
+        finalSet.add(tool);
+      }
+    });
 
+    const finalSequenceArr = Array.from(finalSet);
     const testSequence = JSON.stringify(finalSequenceArr);
 
     const startDate = sessionDate ? new Date(sessionDate) : new Date();

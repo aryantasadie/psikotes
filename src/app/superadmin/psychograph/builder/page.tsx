@@ -85,16 +85,41 @@ const ALL_TEST_MODULE_OPTIONS = [
   "Kraepelin", "Wartegg", "Tes Grafis"
 ];
 
+function normalizeSequence(seq: string[]): string[] {
+  const s = new Set<string>();
+  (seq || []).forEach(item => {
+    if (!item) return;
+    const itemLower = item.toLowerCase().trim();
+    if (itemLower.startsWith("kraepelin") || itemLower.startsWith("kreapelin")) {
+      s.add("Kraepelin");
+    } else if (itemLower.startsWith("papi")) {
+      s.add("PAPI KOSTICK");
+    } else if (itemLower.startsWith("ist subtes")) {
+      s.add(item.replace(/subtes\s+/i, ""));
+    } else if (itemLower.startsWith("wartegg")) {
+      s.add("Wartegg");
+    } else {
+      s.add(item);
+    }
+  });
+  return Array.from(s);
+}
+
 function getParentTests(mapping: CategoryGroup[]): string[] {
   const s = new Set<string>();
   mapping.forEach(cat => cat.aspects.forEach((asp: AspectItem) => {
     if (asp.checked && Array.isArray(asp.instruments)) asp.instruments.forEach((inst: string) => {
+      if (!inst) return;
+      const instLower = inst.toLowerCase().trim();
       if (inst === "WPT") s.add("WPT");
-      else if (inst.startsWith("TIKI")) s.add(inst);
-      else if (inst.startsWith("IST Subtes")) s.add(inst.replace("Subtes ", ""));
-      else if (inst.startsWith("PAPI")) s.add("PAPI KOSTICK");
-      else if (inst.startsWith("DISC")) s.add("DISC");
-      else if (inst.startsWith("CFIT")) s.add(inst);
+      else if (instLower.startsWith("tiki")) s.add(inst);
+      else if (instLower.startsWith("ist subtes")) s.add(inst.replace(/subtes\s+/i, ""));
+      else if (instLower.startsWith("ist")) s.add(inst);
+      else if (instLower.startsWith("papi")) s.add("PAPI KOSTICK");
+      else if (instLower.startsWith("disc")) s.add("DISC");
+      else if (instLower.startsWith("cfit")) s.add(inst);
+      else if (instLower.startsWith("kraepelin") || instLower.startsWith("kreapelin")) s.add("Kraepelin");
+      else if (instLower.startsWith("wartegg")) s.add("Wartegg");
       else s.add(inst);
     });
   }));
@@ -132,7 +157,7 @@ function InstrumentSelect({ selected, onChange }: { selected: string[]; onChange
             {filtered.length > 0 ? filtered.map(item => (
               <button key={item} type="button" onClick={() => { onChange([...selected, item]); setQ(''); }}
                 className="w-full text-left px-3.5 py-2 text-[12px] text-slate-700 hover:bg-teal-50 hover:text-teal-700 transition-colors">
-                {item}
+              {item}
               </button>
             )) : (
               <p className="px-3.5 py-2.5 text-[12px] text-slate-400">Tidak ditemukan</p>
@@ -195,18 +220,23 @@ export default function PsychographBuilder() {
                 setMapping(parsed);
               }
             } catch {}
-            try { if (d.testSequence) setSequence(JSON.parse(d.testSequence)); } catch {}
+            try { 
+              if (d.testSequence) {
+                setSequence(normalizeSequence(JSON.parse(d.testSequence)));
+              }
+            } catch {}
           }
         });
     } else {
-      setSequence(getParentTests(DEFAULT_MAPPING));
+      setSequence(normalizeSequence(getParentTests(DEFAULT_MAPPING)));
     }
   }, []);
 
   const handleAutoSync = () => {
     const required = getParentTests(mapping);
     setSequence(prev => {
-      const nextSeq = [...prev];
+      const cleanedPrev = normalizeSequence(prev);
+      const nextSeq = [...cleanedPrev];
       required.forEach(t => {
         if (!nextSeq.includes(t)) nextSeq.push(t);
       });
@@ -216,9 +246,16 @@ export default function PsychographBuilder() {
 
   const handleAddManualModule = (moduleName: string) => {
     if (!moduleName) return;
-    if (!sequence.includes(moduleName)) {
-      setSequence(prev => [...prev, moduleName]);
-    }
+    const cleanMod = (moduleName.toLowerCase().startsWith("kraepelin") || moduleName.toLowerCase().startsWith("kreapelin"))
+      ? "Kraepelin"
+      : moduleName;
+    setSequence(prev => {
+      const cleaned = normalizeSequence(prev);
+      if (!cleaned.includes(cleanMod)) {
+        return [...cleaned, cleanMod];
+      }
+      return cleaned;
+    });
   };
 
   const handleRemoveModule = (idxToRemove: number) => {
