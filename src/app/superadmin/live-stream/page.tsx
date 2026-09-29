@@ -65,6 +65,8 @@ export default function MonitoringPesertaPage() {
   const [allNotes, setAllNotes] = useState<ProctorNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [filterOnlineOnly, setFilterOnlineOnly] = useState<boolean>(false);
+  const [nowTime, setNowTime] = useState<number>(() => Date.now());
   const [displayMode, setDisplayMode] = useState<'table' | 'grid'>('table');
   const [viewMode, setViewMode] = useState<'camera' | 'screen' | 'dual'>('dual');
   const [isSseConnected, setIsSseConnected] = useState(false);
@@ -198,9 +200,10 @@ export default function MonitoringPesertaPage() {
     };
   }, []);
 
-  // Live timer tick interval (client-side countdown every 1s)
+  // Live timer tick & real-time online status refresh every 1s
   useEffect(() => {
     const tickInterval = setInterval(() => {
+      setNowTime(Date.now());
       setStreamsMap(prev => {
         let changed = false;
         const newMap = new Map(prev);
@@ -217,7 +220,20 @@ export default function MonitoringPesertaPage() {
     return () => clearInterval(tickInterval);
   }, []);
 
-  // Build unified list of participants across all active sessions + live streams
+  // Strict Online Detector (heartbeat within 40s or active streaming frame)
+  const isParticipantOnline = (p: ParticipantEntry | { lastActive?: number; cameraFrameUrl?: string | null; screenFrameUrl?: string | null; status?: string }): boolean => {
+    if (p.status === 'completed') return false;
+    const now = nowTime;
+    if (p.lastActive && (now - p.lastActive <= 40000)) {
+      return true;
+    }
+    if ((p.cameraFrameUrl || p.screenFrameUrl) && p.lastActive && (now - p.lastActive <= 60000)) {
+      return true;
+    }
+    return false;
+  };
+
+  // Build unified list of participants strictly isolated by selected batch
   const participantsList: ParticipantEntry[] = [];
   const processedIds = new Set<number>();
 
@@ -256,34 +272,44 @@ export default function MonitoringPesertaPage() {
     });
   });
 
-  // Add any active streams that might not be in the current batch list
-  streamsMap.forEach((stream, pId) => {
-    if (!processedIds.has(pId)) {
-      const pNotes = allNotes.filter(n => n.participantId === pId);
-      participantsList.push({
-        participantId: pId,
-        name: stream.name,
-        username: stream.username,
-        status: stream.status || 'in_progress',
-        testTitle: stream.testTitle || 'Sesi Ujian',
-        batchId: 0,
-        cameraFrameUrl: stream.cameraFrameUrl,
-        screenFrameUrl: stream.screenFrameUrl,
-        violationCount: stream.violationCount,
-        lastActive: stream.lastActive,
-        notes: pNotes,
-        currentTest: stream.currentTestName || null,
-        timerRemaining: stream.timerRemaining || null,
-        completedTests: stream.completedTests || [],
-        sequence: [],
-        nextTest: null,
-        isPaused: Boolean(stream.isPaused)
-      });
-    }
-  });
+  // STRICT ISOLATION:
+  // Only add unmatched streams if viewing 'all' batches, NEVER when a specific batch is selected!
+  if (selectedBatchId === 'all') {
+    streamsMap.forEach((stream, pId) => {
+      if (!processedIds.has(pId)) {
+        const pNotes = allNotes.filter(n => n.participantId === pId);
+        participantsList.push({
+          participantId: pId,
+          name: stream.name,
+          username: stream.username,
+          status: stream.status || 'in_progress',
+          testTitle: stream.testTitle || 'Sesi Ujian',
+          batchId: 0,
+          cameraFrameUrl: stream.cameraFrameUrl,
+          screenFrameUrl: stream.screenFrameUrl,
+          violationCount: stream.violationCount,
+          lastActive: stream.lastActive,
+          notes: pNotes,
+          currentTest: stream.currentTestName || null,
+          timerRemaining: stream.timerRemaining || null,
+          completedTests: stream.completedTests || [],
+          sequence: [],
+          nextTest: null,
+          isPaused: Boolean(stream.isPaused)
+        });
+      }
+    });
+  }
 
-  // Filter by search
+  // Live Counts for the current batch selection
+  const totalInBatchCount = participantsList.length;
+  const onlineInBatchCount = participantsList.filter(p => isParticipantOnline(p)).length;
+
+  // Filter by search & online filter
   const filteredParticipants = participantsList.filter(p => {
+    if (filterOnlineOnly && !isParticipantOnline(p)) {
+      return false;
+    }
     const q = search.toLowerCase();
     return (
       p.name.toLowerCase().includes(q) ||
@@ -550,10 +576,9 @@ export default function MonitoringPesertaPage() {
 
       {/* ── Main Container Card ── */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-4">
-        
-        {/* Toolbar: Filter Sesi, Cari, & Emergency Controls */}
+        {/* Toolbar: Filter Sesi, Filter Online, Cari, & Emergency Controls */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 flex-1">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 flex-1 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="text-[12px] text-slate-500 font-medium shrink-0">Sesi:</span>
               <select
@@ -568,7 +593,34 @@ export default function MonitoringPesertaPage() {
               </select>
             </div>
 
-            <div className="w-full sm:w-64">
+            {/* Filter Online Selector */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setFilterOnlineOnly(false)}
+                className={`px-3 py-1 rounded-lg text-[12px] font-semibold transition-all ${
+                  !filterOnlineOnly 
+                    ? 'bg-white text-slate-900 shadow-xs' 
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Semua ({totalInBatchCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterOnlineOnly(true)}
+                className={`px-3 py-1 rounded-lg text-[12px] font-semibold transition-all flex items-center gap-1.5 ${
+                  filterOnlineOnly 
+                    ? 'bg-emerald-600 text-white shadow-xs' 
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${onlineInBatchCount > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+                <span>Hanya Online ({onlineInBatchCount})</span>
+              </button>
+            </div>
+
+            <div className="w-full sm:w-56">
               <input
                 type="text"
                 placeholder="Cari nama atau username…"
@@ -738,11 +790,14 @@ export default function MonitoringPesertaPage() {
                       colSpan={tableSequence.length * 2 + 2}
                       className="px-4 py-10 text-center text-slate-400 italic text-[12px]"
                     >
-                      {search ? 'Tidak ada peserta yang cocok dengan kata kunci pencarian.' : 'Belum ada peserta pada sesi ini.'}
+                      {filterOnlineOnly 
+                        ? 'Tidak ada peserta yang sedang online pada sesi ini.' 
+                        : (search ? 'Tidak ada peserta yang cocok dengan kata kunci pencarian.' : 'Belum ada peserta pada sesi ini.')}
                     </td>
                   </tr>
                 ) : (
                   filteredParticipants.map(p => {
+                    const isOnline = isParticipantOnline(p);
                     const isStopped = p.status === 'stopped';
                     const isCompleted = p.status === 'completed';
 
@@ -752,11 +807,19 @@ export default function MonitoringPesertaPage() {
                         <td className="sticky left-0 z-10 bg-white border-r border-slate-200 px-4 py-2.5 shadow-[1px_0_3px_rgba(0,0,0,0.03)]">
                           <div className="space-y-0.5">
                             <div className="flex items-center justify-between gap-1.5">
-                              <span className="font-bold text-slate-900 text-[13px]">{p.name}</span>
-                              <span className="text-slate-400 font-mono text-[10px]">#{p.participantId}</span>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span
+                                  className={`w-2 h-2 rounded-full shrink-0 ${
+                                    isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
+                                  }`}
+                                  title={isOnline ? 'Online / Sedang Aktif' : 'Offline'}
+                                />
+                                <span className="font-bold text-slate-900 text-[13px] truncate">{p.name}</span>
+                              </div>
+                              <span className="text-slate-400 font-mono text-[10px] shrink-0">#{p.participantId}</span>
                             </div>
-                            <p className="text-[11px] text-slate-400 font-mono">@{p.username}</p>
-                            <div className="pt-0.5">
+                            <p className="text-[11px] text-slate-400 font-mono pl-3.5">@{p.username}</p>
+                            <div className="pt-0.5 pl-3.5 flex items-center gap-1.5 flex-wrap">
                               {isStopped ? (
                                 <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded inline-block">
                                   Dihentikan
@@ -772,6 +835,11 @@ export default function MonitoringPesertaPage() {
                               ) : (
                                 <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded inline-block">
                                   {p.currentTest ? `Menyiapkan ${p.currentTest}` : 'Menyiapkan Ujian'}
+                                </span>
+                              )}
+                              {isOnline && !isCompleted && !isStopped && (
+                                <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-300">
+                                  Online
                                 </span>
                               )}
                             </div>
@@ -918,107 +986,120 @@ export default function MonitoringPesertaPage() {
              GRID KAMERA & LAYAR DENGAN LOOK PROFESIONAL DAN TOMBOL HENTIKAN DI SEMUA KARTU
              ══════════════════════════════════════════════════════════════════════════ */
           <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))' }}>
-            {filteredParticipants.map(participant => {
-              const isViolation = (participant.violationCount || 0) > 0;
-              const isStopped = participant.status === 'stopped';
-              const isCompleted = participant.status === 'completed';
+            {filteredParticipants.length === 0 ? (
+              <div className="col-span-full py-14 text-center text-slate-400 text-[13px] bg-slate-50 border border-dashed border-slate-200 rounded-2xl">
+                {filterOnlineOnly 
+                  ? 'Tidak ada peserta yang sedang online pada sesi ini.' 
+                  : (search ? 'Tidak ada peserta yang cocok dengan kata kunci pencarian.' : 'Belum ada peserta pada sesi ini.')}
+              </div>
+            ) : (
+              filteredParticipants.map(participant => {
+                const isOnline = isParticipantOnline(participant);
+                const isViolation = (participant.violationCount || 0) > 0;
+                const isStopped = participant.status === 'stopped';
+                const isCompleted = participant.status === 'completed';
 
-              return (
-                <div
-                  key={participant.participantId}
-                  className={`bg-white rounded-2xl border overflow-hidden flex flex-col shadow-xs hover:shadow-md transition-all duration-200 ${
-                    isStopped 
-                      ? 'border-rose-200 ring-1 ring-rose-200' 
-                      : participant.isPaused 
-                        ? 'border-amber-200 ring-1 ring-amber-100' 
-                        : isViolation 
-                          ? 'border-rose-300 ring-1 ring-rose-200' 
-                          : 'border-slate-200'
-                  }`}
-                >
-                  {/* Video Monitor Frame: 16:10 aspect ratio, sleek dark canvas */}
-                  <div className="relative bg-slate-950 aspect-[16/10] overflow-hidden flex items-center justify-center border-b border-slate-100">
-                    {viewMode === 'camera' && (
-                      participant.cameraFrameUrl ? (
-                        <img src={participant.cameraFrameUrl} alt={participant.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center gap-1.5 text-slate-400 select-none">
-                          <svg className="w-7 h-7 text-slate-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
-                          </svg>
-                          <span className="text-[11px] font-medium text-slate-400 tracking-wide">Kamera Siaga</span>
+                return (
+                  <div
+                    key={participant.participantId}
+                    className={`bg-white rounded-2xl border overflow-hidden flex flex-col shadow-xs hover:shadow-md transition-all duration-200 ${
+                      isStopped 
+                        ? 'border-rose-200 ring-1 ring-rose-200' 
+                        : participant.isPaused 
+                          ? 'border-amber-200 ring-1 ring-amber-100' 
+                          : isViolation 
+                            ? 'border-rose-300 ring-1 ring-rose-200' 
+                            : 'border-slate-200'
+                    }`}
+                  >
+                    {/* Video Monitor Frame: 16:10 aspect ratio, sleek dark canvas */}
+                    <div className="relative bg-slate-950 aspect-[16/10] overflow-hidden flex items-center justify-center border-b border-slate-100">
+                      {viewMode === 'camera' && (
+                        participant.cameraFrameUrl ? (
+                          <img src={participant.cameraFrameUrl} alt={participant.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-1.5 text-slate-400 select-none">
+                            <svg className="w-7 h-7 text-slate-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                            </svg>
+                            <span className="text-[11px] font-medium text-slate-400 tracking-wide">Kamera Siaga</span>
+                          </div>
+                        )
+                      )}
+
+                      {viewMode === 'screen' && (
+                        participant.screenFrameUrl ? (
+                          <img src={participant.screenFrameUrl} alt={participant.name} className="w-full h-full object-contain bg-slate-950" />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center gap-1.5 text-slate-400 select-none">
+                            <svg className="w-7 h-7 text-slate-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0H3" />
+                            </svg>
+                            <span className="text-[11px] font-medium text-slate-400 tracking-wide">Layar Siaga</span>
+                          </div>
+                        )
+                      )}
+
+                      {viewMode === 'dual' && (
+                        <div className="grid grid-cols-2 w-full h-full divide-x divide-slate-800">
+                          {/* Camera Left Half */}
+                          <div className="relative bg-slate-950 flex items-center justify-center overflow-hidden">
+                            {participant.cameraFrameUrl ? (
+                              <img src={participant.cameraFrameUrl} alt="Kamera" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-slate-500 text-[10px]">Kamera</span>
+                            )}
+                            <span className="absolute bottom-1.5 left-1.5 bg-black/75 text-slate-300 text-[8px] font-bold px-1.5 py-0.2 rounded">
+                              KAMERA
+                            </span>
+                          </div>
+
+                          {/* Screen Right Half */}
+                          <div className="relative bg-slate-950 flex items-center justify-center overflow-hidden">
+                            {participant.screenFrameUrl ? (
+                              <img src={participant.screenFrameUrl} alt="Layar" className="w-full h-full object-contain" />
+                            ) : (
+                              <span className="text-slate-500 text-[10px]">Layar</span>
+                            )}
+                            <span className="absolute bottom-1.5 right-1.5 bg-black/75 text-slate-300 text-[8px] font-bold px-1.5 py-0.2 rounded">
+                              LAYAR
+                            </span>
+                          </div>
                         </div>
-                      )
-                    )}
+                      )}
 
-                    {viewMode === 'screen' && (
-                      participant.screenFrameUrl ? (
-                        <img src={participant.screenFrameUrl} alt={participant.name} className="w-full h-full object-contain bg-slate-950" />
-                      ) : (
-                        <div className="flex flex-col items-center justify-center gap-1.5 text-slate-400 select-none">
-                          <svg className="w-7 h-7 text-slate-600" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0H3" />
-                          </svg>
-                          <span className="text-[11px] font-medium text-slate-400 tracking-wide">Layar Siaga</span>
-                        </div>
-                      )
-                    )}
-
-                    {viewMode === 'dual' && (
-                      <div className="grid grid-cols-2 w-full h-full divide-x divide-slate-800">
-                        {/* Camera Left Half */}
-                        <div className="relative bg-slate-950 flex items-center justify-center overflow-hidden">
-                          {participant.cameraFrameUrl ? (
-                            <img src={participant.cameraFrameUrl} alt="Kamera" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-slate-500 text-[10px]">Kamera</span>
-                          )}
-                          <span className="absolute bottom-1.5 left-1.5 bg-black/75 text-slate-300 text-[8px] font-bold px-1.5 py-0.2 rounded">
-                            KAMERA
+                      {/* Floating Pill: Status (Top-Left, inset 10px so never clipped) */}
+                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 z-10">
+                        {isStopped ? (
+                          <span className="bg-rose-950/85 backdrop-blur-xs text-rose-300 border border-rose-700/60 text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-xs">
+                            Dihentikan
                           </span>
-                        </div>
-
-                        {/* Screen Right Half */}
-                        <div className="relative bg-slate-950 flex items-center justify-center overflow-hidden">
-                          {participant.screenFrameUrl ? (
-                            <img src={participant.screenFrameUrl} alt="Layar" className="w-full h-full object-contain" />
-                          ) : (
-                            <span className="text-slate-500 text-[10px]">Layar</span>
-                          )}
-                          <span className="absolute bottom-1.5 right-1.5 bg-black/75 text-slate-300 text-[8px] font-bold px-1.5 py-0.2 rounded">
-                            LAYAR
+                        ) : participant.isPaused ? (
+                          <span className="bg-slate-900/85 backdrop-blur-xs text-amber-300 border border-amber-600/50 text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-xs">
+                            Jeda
                           </span>
-                        </div>
+                        ) : isCompleted ? (
+                          <span className="bg-slate-900/85 backdrop-blur-xs text-slate-300 border border-slate-700/60 text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-xs">
+                            Selesai
+                          </span>
+                        ) : isOnline ? (
+                          <span className="bg-slate-900/85 backdrop-blur-xs text-emerald-400 border border-emerald-600/50 text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            Online
+                          </span>
+                        ) : (
+                          <span className="bg-slate-900/85 backdrop-blur-xs text-slate-400 border border-slate-700/50 text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                            Offline
+                          </span>
+                        )}
+
+                        {isViolation && !isStopped && (
+                          <span className="bg-rose-950/90 text-rose-300 border border-rose-800 text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-xs">
+                            {participant.violationCount}x
+                          </span>
+                        )}
                       </div>
-                    )}
-
-                    {/* Floating Pill: Status (Top-Left, inset 10px so never clipped) */}
-                    <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 z-10">
-                      {isStopped ? (
-                        <span className="bg-rose-950/85 backdrop-blur-xs text-rose-300 border border-rose-700/60 text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-xs">
-                          Dihentikan
-                        </span>
-                      ) : participant.isPaused ? (
-                        <span className="bg-slate-900/85 backdrop-blur-xs text-amber-300 border border-amber-600/50 text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-xs">
-                          Jeda
-                        </span>
-                      ) : isCompleted ? (
-                        <span className="bg-slate-900/85 backdrop-blur-xs text-slate-300 border border-slate-700/60 text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-xs">
-                          Selesai
-                        </span>
-                      ) : (
-                        <span className="bg-slate-900/85 backdrop-blur-xs text-emerald-400 border border-emerald-600/50 text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                          Aktif
-                        </span>
-                      )}
-
-                      {isViolation && !isStopped && (
-                        <span className="bg-rose-950/90 text-rose-300 border border-rose-800 text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-xs">
-                          {participant.violationCount}x
-                        </span>
-                      )}
-                    </div>
 
                     {/* Floating Pill: ID Peserta (Top-Right) */}
                     <div className="absolute top-2.5 right-2.5 z-10">
@@ -1130,7 +1211,7 @@ export default function MonitoringPesertaPage() {
                   </div>
                 </div>
               );
-            })}
+            }))}
           </div>
         )}
       </div>
