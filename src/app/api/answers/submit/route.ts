@@ -130,6 +130,22 @@ export async function POST(req: Request) {
           })
         );
       }
+      // Ensure TestResultRaw marker is stored for this test type so it is guaranteed to be detected as completed
+      ops.push(
+        prisma.testResultRaw.deleteMany({
+          where: {
+            participantId: participant.id,
+            testType: String(testType)
+          }
+        }),
+        prisma.testResultRaw.create({
+          data: {
+            participantId: participant.id,
+            testType: String(testType),
+            rawData: JSON.stringify(answers || {})
+          }
+        })
+      );
     }
 
     // Execute deletion of existing answers and insertion of new answers in a single transaction
