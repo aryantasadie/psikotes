@@ -92,17 +92,18 @@ export async function GET() {
 
     const targetKey = cleanLast || cleanPrev;
     const breakKey = targetKey ? `BREAK_AFTER_${targetKey}` : null;
+    const cleanBreakKey = breakKey ? breakKey.replace(/[\s\-_]+/g, '') : '';
     
     const isTestSpecificallyPaused = Boolean(
-      breakKey && pausedTestsList.some(pt => {
+      cleanBreakKey && pausedTestsList.some(pt => {
         const u = pt.toUpperCase().replace(/[\s\-_]+/g, '');
-        return u === breakKey.replace(/[\s\-_]+/g, '') || (targetKey && u.startsWith(targetKey + '::'));
+        return u === cleanBreakKey;
       })
     );
     const isTestUnpaused = Boolean(
-      breakKey && unpausedList.some(ut => {
+      cleanBreakKey && unpausedList.some(ut => {
         const u = ut.toUpperCase().replace(/[\s\-_]+/g, '');
-        return u === breakKey.replace(/[\s\-_]+/g, '') || (targetKey && u === targetKey);
+        return u === cleanBreakKey;
       })
     );
 
