@@ -1303,32 +1303,26 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
             <p style={{ fontSize: '14px', color: '#64748b', lineHeight: 1.6, marginBottom: '28px' }}>
               Pengerjaan ujian Anda telah dihentikan oleh pengawas. Silakan hubungi pengawas atau panitia jika ada pertanyaan.
             </p>
-            <button
-              onClick={() => {
-                if (typeof window !== 'undefined') {
-                  localStorage.clear();
-                  sessionStorage.clear();
-                }
-                signOut({ callbackUrl: '/' });
-              }}
-              style={{
-                width: '100%',
-                padding: '14px',
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '12px 20px',
+              background: '#fef2f2',
+              borderRadius: '12px',
+              fontSize: '13px',
+              color: '#991b1b',
+              fontWeight: 600
+            }}>
+              <span style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
                 backgroundColor: '#ef4444',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '12px',
-                fontWeight: 700,
-                fontSize: '15px',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)',
-                transition: 'background 0.2s'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
-              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
-            >
-              Keluar dari Aplikasi
-            </button>
+                display: 'inline-block'
+              }}></span>
+              Menunggu arahan pengawas...
+            </div>
           </div>
         </div>
       )}

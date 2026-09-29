@@ -237,12 +237,10 @@ export default function TesteeSession() {
           <p style={{ fontSize: '0.9rem', color: '#64748B', margin: '0 0 24px', lineHeight: 1.5 }}>
             Pengerjaan ujian Anda telah dihentikan oleh pengawas. Silakan hubungi pengawas atau panitia jika ada pertanyaan.
           </p>
-          <button 
-            onClick={() => signOut({ callbackUrl: '/' })} 
-            style={{ width: '100%', padding: '12px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '14px', cursor: 'pointer' }}
-          >
-            Keluar dari Aplikasi
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontSize: '13px', color: '#991B1B', padding: '12px 18px', background: '#FEE2E2', borderRadius: '12px', fontWeight: 600 }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444', display: 'inline-block' }} />
+            <span>Menunggu arahan pengawas...</span>
+          </div>
         </div>
       </div>
     );
