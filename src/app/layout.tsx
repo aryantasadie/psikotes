@@ -7,9 +7,12 @@ export const metadata: Metadata = {
   title: "HR Publik - Portal Psikotes & Assessment Center Engine",
   description: "Platform Pengelolaan Assessment Psikologi, Test Online, dan Quality Control Psikogram HR Publik",
   icons: {
-    icon: "/logo.png",
-    shortcut: "/logo.png",
-    apple: "/logo.png",
+    icon: [
+      { url: '/icon.png', type: 'image/png' },
+      { url: '/logo.png', type: 'image/png' }
+    ],
+    shortcut: '/icon.png',
+    apple: '/icon.png',
   },
 };
 
