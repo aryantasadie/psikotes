@@ -36,20 +36,23 @@ export default function TestTimer({
   const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
+    let initialLeft = durationSeconds;
     if (timerStorageKey && typeof window !== 'undefined') {
       const saved = localStorage.getItem(timerStorageKey);
       if (saved !== null) {
         const parsed = parseInt(saved, 10);
         if (!isNaN(parsed) && parsed > 0 && parsed <= durationSeconds) {
-          setTimeLeft(parsed);
-          setIsExpired(false);
-          return;
+          initialLeft = parsed;
         }
       }
     }
-    setTimeLeft(durationSeconds);
+    setTimeLeft(initialLeft);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cbt_active_timer_left', String(initialLeft));
+      if (testName) localStorage.setItem('cbt_active_test', testName);
+    }
     setIsExpired(false);
-  }, [durationSeconds, timerStorageKey]);
+  }, [durationSeconds, timerStorageKey, testName]);
 
   useEffect(() => {
     if (!isActive) return;

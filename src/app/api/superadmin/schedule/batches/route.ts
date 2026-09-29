@@ -12,7 +12,34 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized: Akses ditolak' }, { status: 401 });
     }
 
+    const userId = parseInt((session.user as any).id, 10);
+    let whereClause: any = {};
+
+    if (userRole === 'tester' || userRole === 'psikolog') {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { assignedTestIds: true }
+      });
+      const assignedTestIdsStr = dbUser?.assignedTestIds;
+
+      if (assignedTestIdsStr) {
+        try {
+          const testIds: number[] = JSON.parse(assignedTestIdsStr);
+          if (Array.isArray(testIds) && testIds.length > 0) {
+            whereClause.id = { in: testIds };
+          } else {
+            whereClause.id = -1;
+          }
+        } catch (e) {
+          whereClause.id = -1;
+        }
+      } else {
+        whereClause.id = -1;
+      }
+    }
+
     const batches = await prisma.test.findMany({
+      where: whereClause,
       include: {
         jobPosition: {
           select: { id: true, name: true }

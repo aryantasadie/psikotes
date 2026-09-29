@@ -244,6 +244,10 @@ export default function KraepelinTest() {
 
       setTimeLeft(prev => {
         const next = prev - 1;
+        if (typeof window !== 'undefined' && phaseRef.current === 'test') {
+          localStorage.setItem('cbt_active_timer_left', String(next > 0 ? next : COLUMN_DURATION));
+          localStorage.setItem('cbt_active_test', 'Kraepelin');
+        }
         if (next <= 0) {
           advanceColumn();
           return COLUMN_DURATION;

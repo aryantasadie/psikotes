@@ -150,8 +150,15 @@ export default function POWER() {
       setTimeLeft(prev => {
         const next = prev - 1;
         if (typeof window !== 'undefined') {
-          if (next > 0) localStorage.setItem('test_timer_left_power', String(next));
-          else localStorage.removeItem('test_timer_left_power');
+          if (next > 0) {
+            localStorage.setItem('test_timer_left_power', String(next));
+            localStorage.setItem('cbt_active_timer_left', String(next));
+            localStorage.setItem('cbt_active_test', 'POWER');
+          } else {
+            localStorage.removeItem('test_timer_left_power');
+            localStorage.removeItem('cbt_active_timer_left');
+            localStorage.removeItem('cbt_active_test');
+          }
         }
         if (next <= 0) {
           clearInterval(interval);
@@ -162,6 +169,8 @@ export default function POWER() {
           if (unansweredNums.length > 0) {
             if (typeof window !== 'undefined') {
               localStorage.setItem('test_timer_left_power', '300');
+              localStorage.setItem('cbt_active_timer_left', '300');
+              localStorage.setItem('cbt_active_test', 'POWER');
             }
             setUnansweredList(unansweredNums);
             setShowUnansweredModal(true);

@@ -279,6 +279,10 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
   }, [consentGranted]);
 
   const getWebcamBase64 = (): string | null => {
+    if (videoRef.current && streamRef.current && videoRef.current.srcObject !== streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
     if (!videoRef.current || !webcamActive) return null;
     const video = videoRef.current;
     if (video.readyState < 2) return null;
@@ -294,6 +298,10 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
   };
 
   const getWebcamWebPBase64 = (): string | null => {
+    if (videoRef.current && streamRef.current && videoRef.current.srcObject !== streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
     if (!videoRef.current || !webcamActive) return null;
     const video = videoRef.current;
     if (video.readyState < 2) return null;
@@ -542,6 +550,13 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   const getScreenWebPBase64 = async (): Promise<string | null> => {
     try {
+      if (screenVideoRef.current) {
+        const targetStream = screenStreamRef.current || (typeof window !== 'undefined' ? (window as any).__cbtScreenStream : null);
+        if (targetStream && screenVideoRef.current.srcObject !== targetStream) {
+          screenVideoRef.current.srcObject = targetStream;
+          screenVideoRef.current.play().catch(() => {});
+        }
+      }
       if (screenVideoRef.current && screenVideoRef.current.readyState >= 2) {
         const video = screenVideoRef.current;
         const canvas = document.createElement('canvas');
@@ -620,8 +635,8 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         
         if (!currentPId) return;
 
-        const cameraFrame = webcamActive ? getWebcamWebPBase64() : null;
-        const screenFrame = screenActive ? await getScreenWebPBase64() : null;
+        const cameraFrame = getWebcamWebPBase64();
+        const screenFrame = await getScreenWebPBase64();
 
         // Determine active test name
         let activeTestName = localStorage.getItem('cbt_active_test');
