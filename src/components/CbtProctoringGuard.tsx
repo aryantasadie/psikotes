@@ -158,6 +158,25 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       }
 
       streamRef.current = stream;
+
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.onended = () => {
+          setWebcamActive(false);
+          streamRef.current = null;
+          sendViolationLog('camera_stopped', 'Kamera Dimatikan / Terputus oleh Peserta');
+        };
+
+        videoTrack.onmute = () => {
+          console.warn('[CBT] Camera track muted/closed');
+          sendViolationLog('camera_muted', 'Feed Kamera Terhenti / Ditutup (Muted)');
+        };
+
+        videoTrack.onunmute = () => {
+          setWebcamActive(true);
+        };
+      }
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         try {
