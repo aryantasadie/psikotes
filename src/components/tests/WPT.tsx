@@ -108,9 +108,21 @@ export default function WPT() {
       const digit = String(idx + 1);
       return raw.includes(optKey) || raw.includes(letter) || raw.includes(digit);
     }
+    
+    const cleanRaw = raw.toUpperCase();
+    const cleanKey = optKey.toUpperCase();
+
+    // Exact match (e.g. "B" === "B", "S" === "S", "1" === "1")
+    if (cleanRaw === cleanKey) return true;
+
+    // For 2-option Benar/Salah questions, strictly compare key to prevent collision with index letter (B)
+    if (q && q.options && q.options.length === 2 && (cleanKey === 'B' || cleanKey === 'S')) {
+      return cleanRaw === cleanKey;
+    }
+
     const letter = String.fromCharCode(65 + idx);
     const digit = String(idx + 1);
-    return raw.toUpperCase() === optKey.toUpperCase() || raw.toUpperCase() === letter.toUpperCase() || raw === digit;
+    return cleanRaw === letter || cleanRaw === digit;
   };
 
   // Single select handler
