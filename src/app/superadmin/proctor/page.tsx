@@ -405,32 +405,17 @@ export default function ProctoringCenterPage() {
                       </div>
 
                       {/* Photo Image Card */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Webcam Capture */}
-                        <div className="space-y-2">
-                          <div className="text-[11px] font-bold text-slate-500">📷 Kamera Depan (Webcam):</div>
-                          {cameraLog ? (
-                            <img
-                              src={cameraLog.mediaUrl.startsWith('/uploads/') ? cameraLog.mediaUrl.replace('/uploads/', '/api/uploads/') : cameraLog.mediaUrl}
-                              alt="Webcam Capture"
-                              className="w-full h-48 object-cover border border-slate-200 rounded-xl shadow-inner"
-                            />
-                          ) : (
-                            <div className="h-48 bg-slate-50 border border-slate-200 border-dashed rounded-xl flex items-center justify-center text-[11px] text-slate-400">
-                              Foto wajah tidak tersedia
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Screen Capture (if any) */}
-                        {screenLog && (
-                          <div className="space-y-2">
-                            <div className="text-[11px] font-bold text-slate-500">🖥️ Layar Monitor (Screen Capture):</div>
-                            <img
-                              src={screenLog.mediaUrl.startsWith('/uploads/') ? screenLog.mediaUrl.replace('/uploads/', '/api/uploads/') : screenLog.mediaUrl}
-                              alt="Screen Capture"
-                              className="w-full h-48 object-contain border border-slate-200 bg-slate-950 rounded-xl"
-                            />
+                      <div className="max-w-md space-y-2">
+                        <div className="text-[11px] font-bold text-slate-500">📷 Foto Wajah Peserta (Webcam):</div>
+                        {cameraLog ? (
+                          <img
+                            src={cameraLog.mediaUrl.startsWith('/uploads/') ? cameraLog.mediaUrl.replace('/uploads/', '/api/uploads/') : cameraLog.mediaUrl}
+                            alt="Webcam Capture"
+                            className="w-full max-h-72 object-cover border border-slate-200 rounded-xl shadow-sm"
+                          />
+                        ) : (
+                          <div className="h-48 bg-slate-50 border border-slate-200 border-dashed rounded-xl flex items-center justify-center text-[11px] text-slate-400">
+                            Foto wajah tidak tersedia
                           </div>
                         )}
                       </div>
