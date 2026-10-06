@@ -764,7 +764,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   // Live Stream Broadcast every 1.5s
   useEffect(() => {
-    const streamInterval = setInterval(async () => {
+    const broadcastNow = async () => {
       try {
         const testeeName = sessionStorage.getItem('testee_name') || localStorage.getItem('testee_name') || undefined;
         const currentPId = participantId || (localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : (sessionStorage.getItem('current_participant_id') ? parseInt(sessionStorage.getItem('current_participant_id')!, 10) : null));
@@ -841,7 +841,10 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
           })
         });
       } catch (e) {}
-    }, 1500);
+    };
+
+    broadcastNow();
+    const streamInterval = setInterval(broadcastNow, 1500);
 
     const handleUnload = () => {
       const currentPId = participantId || (typeof window !== 'undefined' && localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : null);
