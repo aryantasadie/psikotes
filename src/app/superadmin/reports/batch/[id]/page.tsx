@@ -79,22 +79,53 @@ export default function BatchParticipantsReportPage() {
   const clientName = test?.client?.name || 'Umum / Internal';
   const positionName = test?.jobPosition?.name || test?.title?.split('-')[0]?.trim() || 'General';
 
+  const handleDeleteBatch = async () => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus permanen Batch "${test?.title || 'ini'}"?\n\nSeluruh data (${participants.length} peserta, jawaban tes, rekaman kamera/keamanan, dan hasil psikogram) akan dihapus permanen.`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/superadmin/schedule/batches?id=${id}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || 'Batch berhasil dihapus');
+        router.push('/superadmin/reports');
+      } else {
+        alert(`Gagal menghapus batch: ${data.error || 'Terjadi kesalahan'}`);
+      }
+    } catch (e: any) {
+      console.error('Failed to delete batch:', e);
+      alert('Terjadi kesalahan saat menghapus batch.');
+    }
+  };
+
   return (
     <div className="section p-6 space-y-6">
       {/* Back Link & Header */}
-      <div>
-        <Link
-          href="/superadmin/reports"
-          className="text-[12px] font-bold text-teal-700 hover:text-teal-800 flex items-center gap-1 mb-2 text-decoration-none"
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <Link
+            href="/superadmin/reports"
+            className="text-[12px] font-bold text-teal-700 hover:text-teal-800 flex items-center gap-1 mb-2 text-decoration-none"
+          >
+            ← Kembali ke Daftar Batch Ujian
+          </Link>
+          <h2 className="text-[20px] font-bold text-slate-900">
+            Daftar Akun Peserta: {test?.title || 'Memuat Batch…'}
+          </h2>
+          <p className="text-[13px] text-slate-500 mt-0.5">
+            Klien: <span className="font-semibold text-slate-700">{clientName}</span> | Total <span className="font-bold text-slate-900">{participants.length} Peserta</span>
+          </p>
+        </div>
+
+        <button
+          onClick={handleDeleteBatch}
+          className="self-start sm:self-auto text-[12px] font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 px-3.5 py-2 rounded-xl transition-colors shadow-sm flex items-center gap-1.5"
         >
-          ← Kembali ke Daftar Batch Ujian
-        </Link>
-        <h2 className="text-[20px] font-bold text-slate-900">
-          Daftar Akun Peserta: {test?.title || 'Memuat Batch…'}
-        </h2>
-        <p className="text-[13px] text-slate-500 mt-0.5">
-          Klien: <span className="font-semibold text-slate-700">{clientName}</span> | Total <span className="font-bold text-slate-900">{participants.length} Peserta</span>
-        </p>
+          🗑️ Hapus Batch Ini
+        </button>
       </div>
 
       {/* Main Table Card */}

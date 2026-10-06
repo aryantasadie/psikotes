@@ -58,6 +58,33 @@ export default function ReportsPage() {
       });
   };
 
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const handleDeleteBatch = async (batch: BatchSessionGroup) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus permanen Batch "${batch.title}"?\n\nSemua data terkait (${batch.totalParticipants} peserta, seluruh jawaban tes, rekaman kamera/keamanan, dan hasil psikogram) akan dihapus permanen.`)) {
+      return;
+    }
+
+    setDeletingId(batch.id);
+    try {
+      const res = await fetch(`/api/superadmin/schedule/batches?id=${batch.id}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || 'Batch dan seluruh data peserta berhasil dihapus');
+        fetchParticipants();
+      } else {
+        alert(`Gagal menghapus batch: ${data.error || 'Terjadi kesalahan'}`);
+      }
+    } catch (e: any) {
+      console.error('Failed to delete batch:', e);
+      alert('Terjadi kesalahan saat menghapus batch.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   useEffect(() => {
     if (status === 'authenticated' && ['superadmin', 'psikolog'].includes((session?.user as any)?.role)) {
       fetchParticipants();
@@ -236,14 +263,23 @@ export default function ReportsPage() {
                       <p className="text-[11px] text-slate-400">{b.completedParticipants}/{b.totalParticipants} Selesai</p>
                     </td>
 
-                    {/* Aksi: Navigate to Dedicated Route /superadmin/reports/batch/[id] */}
+                    {/* Aksi: Navigate to Dedicated Route /superadmin/reports/batch/[id] & Delete */}
                     <td className="px-4 py-3.5 text-right">
-                      <Link
-                        href={`/superadmin/reports/batch/${b.id}`}
-                        className="inline-block text-[11px] font-bold bg-teal-600 hover:bg-teal-700 text-white px-3.5 py-1.5 rounded-lg transition-colors shadow-sm text-decoration-none"
-                      >
-                        Lihat Akun
-                      </Link>
+                      <div className="inline-flex items-center gap-1.5 justify-end">
+                        <Link
+                          href={`/superadmin/reports/batch/${b.id}`}
+                          className="inline-block text-[11px] font-bold bg-teal-600 hover:bg-teal-700 text-white px-3.5 py-1.5 rounded-lg transition-colors shadow-sm text-decoration-none"
+                        >
+                          Lihat Akun
+                        </Link>
+                        <button
+                          onClick={() => handleDeleteBatch(b)}
+                          disabled={deletingId === b.id}
+                          className="text-[11px] font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          {deletingId === b.id ? 'Menghapus…' : 'Hapus'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

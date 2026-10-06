@@ -218,8 +218,8 @@ export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role;
-    if (!session || userRole !== 'superadmin') {
-      return NextResponse.json({ error: 'Unauthorized: Hanya Superadmin yang boleh menghapus batch' }, { status: 401 });
+    if (!session || !['superadmin', 'psikolog'].includes(userRole)) {
+      return NextResponse.json({ error: 'Unauthorized: Hanya Superadmin/Psikolog yang boleh menghapus batch' }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);
