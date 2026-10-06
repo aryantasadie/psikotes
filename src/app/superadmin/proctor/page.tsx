@@ -341,7 +341,7 @@ export default function ProctoringCenterPage() {
                     const timeStr = logTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ', ' + logTime.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
 
                     const isProctorNote = log.logType === 'proctor_note';
-                    const isPhoto = log.mediaUrl.startsWith('/api/uploads/') || log.mediaUrl.startsWith('/uploads/') || log.mediaUrl.endsWith('.jpg') || log.mediaUrl.endsWith('.png') || log.mediaUrl.endsWith('.webp');
+                    const isPhoto = log.logType.includes('camera') || log.logType.includes('initial') || log.logType.includes('photo') || log.mediaUrl.startsWith('data:image') || log.mediaUrl.startsWith('/api/uploads/') || log.mediaUrl.startsWith('/uploads/') || log.mediaUrl.endsWith('.jpg') || log.mediaUrl.endsWith('.png') || log.mediaUrl.endsWith('.webp');
 
                     if (isProctorNote) {
                       return (

@@ -65,35 +65,37 @@ export async function POST(req: Request) {
         }
       }
 
-      // Strip the base64 prefix
-      const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
-      const buffer = Buffer.from(base64Data, 'base64');
+      // Strip the base64 prefix if needed
+      const rawBase64 = image.includes('base64,') ? image.split('base64,')[1] : image;
+      const buffer = Buffer.from(rawBase64, 'base64');
 
       // Enforce 2MB size limit
       if (buffer.length > 2 * 1024 * 1024) {
         return NextResponse.json({ error: 'Ukuran gambar melebihi batas 2MB' }, { status: 400 });
       }
 
-      // Simpan di luar public agar tidak bisa dibuka lewat URL publik (private_uploads)
-      const uploadDir = path.join(process.cwd(), 'private_uploads', 'keamanan');
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
+      // Format as standard data URL so it works seamlessly on Vercel and VPS
+      const mediaDataUrl = `data:image/jpeg;base64,${rawBase64}`;
+
+      // Best effort optional disk write for VPS/local dev (never throw on read-only serverless)
+      try {
+        const uploadDir = path.join(process.cwd(), 'private_uploads', 'keamanan');
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        const filename = `${safeParticipantId}_${safeLogType}_${Date.now()}.jpg`;
+        const filepath = path.join(uploadDir, filename);
+        fs.writeFileSync(filepath, buffer);
+      } catch (fsErr) {
+        // Expected on Vercel read-only filesystem, silently continue using database mediaDataUrl
       }
-
-      const filename = `${safeParticipantId}_${safeLogType}_${Date.now()}.jpg`;
-      const filepath = path.join(uploadDir, filename);
-
-      // Save image to private local disk
-      fs.writeFileSync(filepath, buffer);
-
-      const mediaUrl = `/api/uploads/keamanan/${filename}`;
 
       // Save log to Prisma database
       const log = await prisma.securityLog.create({
         data: {
           participantId: safeParticipantId,
           logType: safeLogType,
-          mediaUrl
+          mediaUrl: mediaDataUrl
         }
       });
 
