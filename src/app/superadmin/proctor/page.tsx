@@ -328,104 +328,92 @@ export default function ProctoringCenterPage() {
           
           /* ── LEVEL 3: TIMELINE VIEW ── */
           <div className="space-y-4">
-            
-            {groupedLogs.length === 0 ? (
+            {(!currentParticipant?.logs || currentParticipant.logs.length === 0) ? (
               <div className="py-12 text-center text-slate-400 border border-slate-200 border-dashed rounded-2xl text-sm">
-                Belum ada rekaman layar dan kamera yang tersimpan untuk peserta ini.
+                Belum ada rekaman foto kamera dan log pelanggaran yang tersimpan untuk peserta ini.
               </div>
             ) : (
               <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                {groupedLogs.map((group, idx) => {
-                  const proctorNoteLog = group.logs.find(l => l.logType === 'proctor_note');
-                  if (proctorNoteLog) {
+                {[...currentParticipant.logs]
+                  .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .map((log: any, idx: number) => {
+                    const logTime = new Date(log.createdAt);
+                    const timeStr = logTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ', ' + logTime.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+
+                    const isProctorNote = log.logType === 'proctor_note';
+                    const isPhoto = log.mediaUrl.startsWith('/api/uploads/') || log.mediaUrl.startsWith('/uploads/') || log.mediaUrl.endsWith('.jpg') || log.mediaUrl.endsWith('.png') || log.mediaUrl.endsWith('.webp');
+
+                    if (isProctorNote) {
+                      return (
+                        <div key={log.id || idx} className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[12px] font-bold text-amber-900">📝 Catatan Khusus Pengawas • {timeStr}</span>
+                            <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                              Catatan Khusus
+                            </span>
+                          </div>
+                          <p className="text-[13px] text-slate-800 font-medium pl-1 border-l-2 border-amber-400">
+                            {log.mediaUrl}
+                          </p>
+                        </div>
+                      );
+                    }
+
+                    if (!isPhoto) {
+                      // Text-only Violation Log
+                      return (
+                        <div key={log.id || idx} className="bg-rose-50/50 border border-rose-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[12px] font-bold text-rose-900">⚠️ Log Pelanggaran Ujian • {timeStr}</span>
+                            <span className="bg-rose-100 text-rose-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">
+                              Pelanggaran
+                            </span>
+                          </div>
+                          <div className="bg-white/80 border border-rose-100 rounded-xl p-3 text-[13px] text-slate-800 font-semibold flex items-center gap-2">
+                            <span className="text-rose-500 text-base">⚠️</span>
+                            <span>{log.mediaUrl}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Photo Log (Foto Awal / Foto 10 Menit)
+                    const isInitial = log.logType.includes('awal') || log.logType.includes('initial');
+                    const is10Min = log.logType.includes('10min');
+
+                    let photoBadge = '📷 Foto Wajah Peserta';
+                    if (isInitial) photoBadge = '📷 Foto Awal (Submit Identitas)';
+                    else if (is10Min) photoBadge = '📷 Foto Menit ke-10 (Monitoring)';
+
+                    const imgUrl = log.mediaUrl.startsWith('/uploads/') ? log.mediaUrl.replace('/uploads/', '/api/uploads/') : log.mediaUrl;
+
                     return (
-                      <div key={idx} className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[12px] font-bold text-amber-900">📝 Catatan Khusus Pengawas • {group.time}</span>
-                          <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                            Catatan Khusus
+                      <div key={log.id || idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col gap-4">
+                        {/* Log Header */}
+                        <div className="flex justify-between items-center flex-wrap gap-2">
+                          <div>
+                            <span className="text-[13px] font-extrabold text-slate-900">{timeStr}</span>
+                            <div className="text-[11px] text-teal-600 font-semibold mt-0.5">{photoBadge}</div>
+                          </div>
+                          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">
+                            {isInitial ? 'Verifikasi Identitas' : is10Min ? 'Verifikasi 10 Menit' : 'Pengawasan Kamera'}
                           </span>
                         </div>
-                        <p className="text-[13px] text-slate-800 font-medium pl-1 border-l-2 border-amber-400">
-                          {proctorNoteLog.mediaUrl}
-                        </p>
-                      </div>
-                    );
-                  }
 
-                  // Check if this group contains a text-only violation log
-                  const textViolationLog = group.logs.find(l => 
-                    !l.mediaUrl.startsWith('/api/uploads/') && 
-                    !l.mediaUrl.startsWith('/uploads/') &&
-                    !l.mediaUrl.endsWith('.jpg') &&
-                    !l.mediaUrl.endsWith('.png') &&
-                    !l.mediaUrl.endsWith('.webp')
-                  );
-
-                  if (textViolationLog) {
-                    return (
-                      <div key={idx} className="bg-rose-50/50 border border-rose-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[12px] font-bold text-rose-900">⚠️ Log Pelanggaran Ujian • {group.time}</span>
-                          <span className="bg-rose-100 text-rose-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">
-                            Pelanggaran
-                          </span>
-                        </div>
-                        <div className="bg-white/80 border border-rose-100 rounded-xl p-3 text-[13px] text-slate-800 font-semibold flex items-center gap-2">
-                          <span className="text-rose-500 text-base">⚠️</span>
-                          <span>{textViolationLog.mediaUrl}</span>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  // Image Capture Logs (Foto Awal & Foto 10 Menit)
-                  const cameraLog = group.logs.find(l => l.logType.startsWith('camera'));
-                  const screenLog = group.logs.find(l => l.logType.startsWith('screen'));
-
-                  const isInitial = group.logs.some(l => l.logType.includes('awal') || l.logType.includes('initial'));
-                  const is10Min = group.logs.some(l => l.logType.includes('10min'));
-
-                  let photoBadge = '📷 Foto Wajah Peserta';
-                  if (isInitial) photoBadge = '📷 Foto Awal (Submit Identitas)';
-                  else if (is10Min) photoBadge = '📷 Foto Menit ke-10 (Monitoring)';
-
-                  return (
-                    <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col gap-4">
-                      
-                      {/* Log Header */}
-                      <div className="flex justify-between items-center flex-wrap gap-2">
-                        <div>
-                          <span className="text-[13px] font-extrabold text-slate-900">{group.time}</span>
-                          <div className="text-[11px] text-teal-600 font-semibold mt-0.5">{photoBadge}</div>
-                        </div>
-                        <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">
-                          {isInitial ? 'Verifikasi Identitas' : is10Min ? 'Verifikasi 10 Menit' : 'Pengawasan Kamera'}
-                        </span>
-                      </div>
-
-                      {/* Photo Image Card */}
-                      <div className="max-w-md space-y-2">
-                        <div className="text-[11px] font-bold text-slate-500">📷 Foto Wajah Peserta (Webcam):</div>
-                        {cameraLog ? (
+                        {/* Photo Image Card */}
+                        <div className="max-w-md space-y-2">
+                          <div className="text-[11px] font-bold text-slate-500">📷 Foto Wajah Peserta (Webcam):</div>
                           <img
-                            src={cameraLog.mediaUrl.startsWith('/uploads/') ? cameraLog.mediaUrl.replace('/uploads/', '/api/uploads/') : cameraLog.mediaUrl}
+                            src={imgUrl}
                             alt="Webcam Capture"
                             className="w-full max-h-72 object-cover border border-slate-200 rounded-xl shadow-sm"
                           />
-                        ) : (
-                          <div className="h-48 bg-slate-50 border border-slate-200 border-dashed rounded-xl flex items-center justify-center text-[11px] text-slate-400">
-                            Foto wajah tidak tersedia
-                          </div>
-                        )}
+                        </div>
                       </div>
-
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             )}
-
           </div>
 
         ) : selectedBatchId !== null ? (

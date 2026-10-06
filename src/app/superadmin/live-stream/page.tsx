@@ -89,12 +89,13 @@ export default function MonitoringPesertaPage() {
   } | null>(null);
   const [processingAction, setProcessingAction] = useState(false);
 
-  // Fetch batches and notes
+  // Fetch batches, notes, and active stream feeds
   const fetchBatchesAndNotes = async () => {
     try {
-      const [batchesRes, notesRes] = await Promise.all([
+      const [batchesRes, notesRes, feedRes] = await Promise.all([
         fetch('/api/superadmin/schedule/batches'),
-        fetch('/api/superadmin/proctor/notes')
+        fetch('/api/superadmin/proctor/notes'),
+        fetch('/api/stream/feed')
       ]);
 
       if (batchesRes.ok) {
@@ -110,6 +111,19 @@ export default function MonitoringPesertaPage() {
         const nData = await notesRes.json();
         setAllNotes(nData.notes || []);
       }
+
+      if (feedRes.ok) {
+        const fData = await feedRes.json();
+        if (fData && Array.isArray(fData.streams)) {
+          setStreamsMap((prev) => {
+            const newMap = new Map(prev);
+            fData.streams.forEach((item: LiveStreamItem) => {
+              newMap.set(item.participantId, item);
+            });
+            return newMap;
+          });
+        }
+      }
     } catch (e) {
       console.error('Error fetching initial monitoring data:', e);
     } finally {
@@ -119,6 +133,38 @@ export default function MonitoringPesertaPage() {
 
   useEffect(() => {
     fetchBatchesAndNotes();
+
+    // Fallback polling every 2.5s for instant sync
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/stream/feed');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.streams)) {
+            setStreamsMap((prev) => {
+              const newMap = new Map(prev);
+              data.streams.forEach((item: LiveStreamItem) => {
+                const existing = newMap.get(item.participantId);
+                newMap.set(item.participantId, {
+                  ...existing,
+                  ...item,
+                  cameraFrameUrl: item.cameraFrameUrl || existing?.cameraFrameUrl || null,
+                  screenFrameUrl: item.screenFrameUrl || existing?.screenFrameUrl || null,
+                  currentTestName: item.currentTestName || existing?.currentTestName,
+                  timerRemaining: item.timerRemaining !== undefined ? item.timerRemaining : existing?.timerRemaining,
+                  completedTests: item.completedTests || existing?.completedTests,
+                  status: item.status || existing?.status,
+                  isPaused: item.isPaused !== undefined ? item.isPaused : existing?.isPaused,
+                });
+              });
+              return newMap;
+            });
+          }
+        }
+      } catch {}
+    }, 2500);
+
+    return () => clearInterval(pollInterval);
   }, []);
 
   // Connect SSE for live camera/screen frames & live test/timer updates

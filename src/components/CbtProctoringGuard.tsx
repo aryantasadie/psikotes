@@ -121,7 +121,15 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   // Initialize Webcam
   const setupWebcam = async () => {
-    if (webcamActive || webcamInitializing.current || streamRef.current) return;
+    if (streamRef.current) {
+      if (videoRef.current && videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        videoRef.current.play().catch(() => {});
+      }
+      setWebcamActive(true);
+      return;
+    }
+    if (webcamInitializing.current) return;
     webcamInitializing.current = true;
 
     if (typeof window !== 'undefined' && !window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
@@ -278,46 +286,60 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     };
   }, [consentGranted]);
 
-  const getWebcamBase64 = (): string | null => {
-    if (videoRef.current && streamRef.current && videoRef.current.srcObject !== streamRef.current) {
+  // Keep videoRef synced with streamRef across component updates
+  useEffect(() => {
+    if (streamRef.current && videoRef.current && videoRef.current.srcObject !== streamRef.current) {
       videoRef.current.srcObject = streamRef.current;
       videoRef.current.play().catch(() => {});
     }
-    if (!videoRef.current || !webcamActive) return null;
-    const video = videoRef.current;
-    if (video.readyState < 2) return null;
+  });
 
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL('image/jpeg', 0.7);
+  const getWebcamBase64 = (): string | null => {
+    if (!streamRef.current) return null;
+    if (videoRef.current) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        videoRef.current.play().catch(() => {});
+      }
+      const video = videoRef.current;
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          return canvas.toDataURL('image/jpeg', 0.7);
+        }
+      }
+    }
+    return null;
   };
 
   const getWebcamWebPBase64 = (): string | null => {
-    if (videoRef.current && streamRef.current && videoRef.current.srcObject !== streamRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-      videoRef.current.play().catch(() => {});
+    if (!streamRef.current) return null;
+    if (videoRef.current) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        videoRef.current.play().catch(() => {});
+      }
+      const video = videoRef.current;
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 320;
+        canvas.height = 240;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, 320, 240);
+          try {
+            return canvas.toDataURL('image/webp', 0.45);
+          } catch {
+            return canvas.toDataURL('image/jpeg', 0.5);
+          }
+        }
+      }
     }
-    if (!videoRef.current || !webcamActive) return null;
-    const video = videoRef.current;
-    if (video.readyState < 2) return null;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 240;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-
-    ctx.drawImage(video, 0, 0, 320, 240);
-    try {
-      return canvas.toDataURL('image/webp', 0.45);
-    } catch {
-      return canvas.toDataURL('image/jpeg', 0.5);
-    }
+    return null;
   };
 
   const drawWrappedText = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number): number => {
