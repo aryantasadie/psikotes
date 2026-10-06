@@ -137,27 +137,9 @@ export default function MonitoringPesertaPage() {
     // Fallback polling every 2.5s for instant sync
     const pollInterval = setInterval(async () => {
       try {
-        const [feedRes, batchesRes, notesRes] = await Promise.all([
-          fetch('/api/stream/feed'),
-          fetch('/api/superadmin/schedule/batches'),
-          fetch('/api/superadmin/proctor/notes')
-        ]);
-
-        if (batchesRes.ok) {
-          const bData = await batchesRes.json();
-          const batchArr = Array.isArray(bData) ? bData : [];
-          setBatches(batchArr);
-        }
-
-        if (notesRes.ok) {
-          const nData = await notesRes.json();
-          if (nData && Array.isArray(nData.notes)) {
-            setAllNotes(nData.notes);
-          }
-        }
-
-        if (feedRes.ok) {
-          const data = await feedRes.json();
+        const res = await fetch('/api/stream/feed');
+        if (res.ok) {
+          const data = await res.json();
           if (data && Array.isArray(data.streams)) {
             setStreamsMap((prev) => {
               const newMap = new Map(prev);

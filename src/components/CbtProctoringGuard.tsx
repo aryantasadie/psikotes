@@ -217,27 +217,6 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       }
     }
 
-    if (screenStreamRef.current) {
-      if (screenVideoRef.current && screenVideoRef.current.srcObject !== screenStreamRef.current) {
-        screenVideoRef.current.srcObject = screenStreamRef.current;
-        screenVideoRef.current.play().catch(() => {});
-      }
-      setScreenActive(true);
-      screenInitializing.current = false;
-      return;
-    }
-
-    if (screenActive || screenInitializing.current) return;
-    screenInitializing.current = true;
-
-    // 1. Mobile Smartphones (Android & iOS) Fallback: use High-Fidelity DOM Screen Capture
-    if (isMobileDevice()) {
-      setScreenActive(true);
-      setScreenError(null);
-      screenInitializing.current = false;
-      return;
-    }
-
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
       // Fallback for browsers without getDisplayMedia
       setScreenActive(true);
@@ -290,6 +269,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     if (!consentGranted) return;
 
     setupWebcam();
+    setupScreenShare();
 
     return () => {
       if (streamRef.current) {
@@ -306,16 +286,11 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     };
   }, [consentGranted]);
 
-  // Keep videoRef and screenVideoRef synced with active streams across all renders
+  // Keep videoRef synced with streamRef across component updates
   useEffect(() => {
     if (streamRef.current && videoRef.current && videoRef.current.srcObject !== streamRef.current) {
       videoRef.current.srcObject = streamRef.current;
       videoRef.current.play().catch(() => {});
-    }
-    const targetScreen = screenStreamRef.current || (typeof window !== 'undefined' ? (window as any).__cbtScreenStream : null);
-    if (targetScreen && screenVideoRef.current && screenVideoRef.current.srcObject !== targetScreen) {
-      screenVideoRef.current.srcObject = targetScreen;
-      screenVideoRef.current.play().catch(() => {});
     }
   });
 
@@ -327,16 +302,14 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         videoRef.current.play().catch(() => {});
       }
       const video = videoRef.current;
-      const canvas = document.createElement('canvas');
-      canvas.width = 480;
-      canvas.height = 360;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        try {
-          ctx.drawImage(video, 0, 0, 480, 360);
-          return canvas.toDataURL('image/jpeg', 0.6);
-        } catch (e) {
-          console.warn('drawImage failed in getWebcamBase64:', e);
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          return canvas.toDataURL('image/jpeg', 0.7);
         }
       }
     }
@@ -351,20 +324,18 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         videoRef.current.play().catch(() => {});
       }
       const video = videoRef.current;
-      const canvas = document.createElement('canvas');
-      canvas.width = 320;
-      canvas.height = 240;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        try {
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 320;
+        canvas.height = 240;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
           ctx.drawImage(video, 0, 0, 320, 240);
           try {
             return canvas.toDataURL('image/webp', 0.45);
           } catch {
             return canvas.toDataURL('image/jpeg', 0.5);
           }
-        } catch (e) {
-          console.warn('drawImage failed in getWebcamWebPBase64:', e);
         }
       }
     }
@@ -720,29 +691,15 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     }
   };
 
-  const capturePhoto = async (photoType: 'camera_awal' | 'camera_10min', retryCount = 0): Promise<boolean> => {
+  const capturePhoto = async (photoType: 'camera_awal' | 'camera_10min') => {
     const currentPId = participantId || (typeof window !== 'undefined' && localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : null);
-    if (!currentPId) {
-      if (retryCount < 10) {
-        setTimeout(() => capturePhoto(photoType, retryCount + 1), 600);
-      }
-      return false;
-    }
+    if (!currentPId) return;
 
     try {
-      let cameraImg = getWebcamBase64();
-      if (!cameraImg) {
-        cameraImg = getWebcamWebPBase64();
-      }
+      const cameraImg = getWebcamBase64();
+      if (!cameraImg) return;
 
-      if (!cameraImg) {
-        if (retryCount < 10) {
-          setTimeout(() => capturePhoto(photoType, retryCount + 1), 600);
-        }
-        return false;
-      }
-
-      const res = await fetch('/api/capture', {
+      await fetch('/api/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -751,72 +708,74 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
           image: cameraImg
         })
       });
-
-      if (res.ok) {
-        if (photoType === 'camera_awal') {
-          localStorage.setItem('cbt_photo1_done', 'true');
-        } else if (photoType === 'camera_10min') {
-          localStorage.setItem('cbt_photo2_done', 'true');
-        }
-        return true;
-      } else {
-        if (retryCount < 5) {
-          setTimeout(() => capturePhoto(photoType, retryCount + 1), 1000);
-        }
-        return false;
-      }
     } catch (err) {
       console.error(`Failed to capture photo (${photoType}):`, err);
-      if (retryCount < 5) {
-        setTimeout(() => capturePhoto(photoType, retryCount + 1), 1000);
-      }
-      return false;
     }
   };
 
-  // 📸 Trigger Foto 1 (Awal) & Foto 2 (10 Menit Kemudian)
+  // 📸 Trigger Foto 1 (Awal - 1x) & Foto 2 (Tepat 10 Menit Kemudian - 1x Saja)
   useEffect(() => {
+    if (!participantId || !webcamActive) return;
+
+    const p1DoneKey = `cbt_photo1_done_${participantId}`;
+    const p2DoneKey = `cbt_photo2_done_${participantId}`;
+    const p1TimeKey = `cbt_photo1_timestamp_${participantId}`;
+
+    const isP1Done = () => localStorage.getItem(p1DoneKey) === 'true' || localStorage.getItem('cbt_photo1_done') === 'true';
+    const isP2Done = () => localStorage.getItem(p2DoneKey) === 'true' || localStorage.getItem('cbt_photo2_done') === 'true';
+
     // Handler event Foto Awal (saat submit nama & tgl lahir)
     const handleInitialTrigger = () => {
-      const p1Done = localStorage.getItem('cbt_photo1_done');
-      if (p1Done !== 'true') {
-        capturePhoto('camera_awal');
+      if (!isP1Done()) {
+        localStorage.setItem(p1DoneKey, 'true');
+        localStorage.setItem('cbt_photo1_done', 'true');
+        setTimeout(() => {
+          capturePhoto('camera_awal');
+        }, 1200);
       }
     };
 
     window.addEventListener('cbt:trigger-initial-photo', handleInitialTrigger);
 
-    // Cek jika timestamp awal sudah ada tapi belum selesai ter-upload
-    const photo1Time = localStorage.getItem('cbt_photo1_timestamp');
-    if (photo1Time && localStorage.getItem('cbt_photo1_done') !== 'true') {
-      capturePhoto('camera_awal');
+    // Cek jika timestamp awal sudah ada tapi belum sempat ter-capture
+    const photo1Time = localStorage.getItem(p1TimeKey) || localStorage.getItem('cbt_photo1_timestamp');
+    if (photo1Time && !isP1Done()) {
+      localStorage.setItem(p1DoneKey, 'true');
+      localStorage.setItem('cbt_photo1_done', 'true');
+      setTimeout(() => {
+        capturePhoto('camera_awal');
+      }, 1500);
     }
 
-    // Timer interval checker untuk Foto 1 (retry jika belum) & Foto ke-2 (10 Menit setelah Foto 1)
-    const timerChecker = setInterval(() => {
-      const p1TimeStr = localStorage.getItem('cbt_photo1_timestamp');
-      const p1Done = localStorage.getItem('cbt_photo1_done');
-      const p2Done = localStorage.getItem('cbt_photo2_done');
+    // Timer checker untuk Foto ke-2 (HANYA 1X tepat saat mencapai 10 Menit setelah start)
+    let timerChecker: NodeJS.Timeout | null = null;
+    if (!isP2Done()) {
+      timerChecker = setInterval(() => {
+        const p1TimeStr = localStorage.getItem(p1TimeKey) || localStorage.getItem('cbt_photo1_timestamp');
+        if (isP2Done()) {
+          if (timerChecker) clearInterval(timerChecker);
+          return;
+        }
 
-      if (p1TimeStr && p1Done !== 'true') {
-        capturePhoto('camera_awal');
-      }
-
-      if (p1TimeStr && p2Done !== 'true') {
-        const p1Time = parseInt(p1TimeStr, 10);
-        if (!isNaN(p1Time)) {
-          const elapsed = Date.now() - p1Time;
-          // 10 menit = 600,000 ms
-          if (elapsed >= 10 * 60 * 1000) {
-            capturePhoto('camera_10min');
+        if (p1TimeStr) {
+          const p1Time = parseInt(p1TimeStr, 10);
+          if (!isNaN(p1Time)) {
+            const elapsed = Date.now() - p1Time;
+            // Tepat saat elapsed >= 10 menit (600,000 ms) -> ambil 1x saja lalu stop timer
+            if (elapsed >= 10 * 60 * 1000) {
+              localStorage.setItem(p2DoneKey, 'true');
+              localStorage.setItem('cbt_photo2_done', 'true');
+              if (timerChecker) clearInterval(timerChecker);
+              capturePhoto('camera_10min');
+            }
           }
         }
-      }
-    }, 3000);
+      }, 3000);
+    }
 
     return () => {
       window.removeEventListener('cbt:trigger-initial-photo', handleInitialTrigger);
-      clearInterval(timerChecker);
+      if (timerChecker) clearInterval(timerChecker);
     };
   }, [participantId, webcamActive]);
 
@@ -1036,7 +995,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     } catch (e) {}
   };
 
-  const isPermissionGranted = webcamActive;
+  const isPermissionGranted = webcamActive && screenActive;
 
   // Cegah hydration mismatch antara SSR dan Client
   if (!mounted) {
@@ -1052,6 +1011,132 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         <main style={{ minHeight: '100vh' }}>
           {children}
         </main>
+      </div>
+    );
+  }
+
+  // TAHAP AWAL: Lembar Persetujuan Data & Rekaman (Sebelum Meminta Izin Kamera / Layar)
+  if (!consentGranted) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#F8FAFC',
+          color: '#0F172A',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '32px 20px',
+          fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+        }}
+      >
+        <div
+          style={{
+            maxWidth: '660px',
+            width: '100%',
+            background: '#FFFFFF',
+            padding: '44px 40px',
+            borderRadius: '16px',
+            border: '1px solid #E2E8F0',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.06)'
+          }}
+        >
+          <h1
+            style={{
+              fontSize: '24px',
+              fontWeight: 800,
+              color: '#0F172A',
+              margin: '0 0 16px 0',
+              letterSpacing: '-0.3px'
+            }}
+          >
+            Sebelum Memulai
+          </h1>
+
+          <p style={{ fontSize: '15px', color: '#334155', margin: '0 0 20px 0', fontWeight: 500 }}>
+            Dalam psikotes ini:
+          </p>
+
+          <ul
+            style={{
+              listStyleType: 'disc',
+              paddingLeft: '22px',
+              margin: '0 0 24px 0',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              fontSize: '14.5px',
+              lineHeight: '1.6',
+              color: '#334155'
+            }}
+          >
+            <li>
+              <strong style={{ color: '#0F172A' }}>Kamera dan layar perangkat akan direkam</strong> selama proses berlangsung.
+            </li>
+            <li>
+              Jawaban dan respons akan digunakan untuk <strong style={{ color: '#0F172A' }}>penilaian dan analisis psikologis</strong> sesuai tujuan asesmen.
+            </li>
+            <li>
+              Data pribadi, hasil tes, dan rekaman akan <strong style={{ color: '#0F172A' }}>dijaga kerahasiaannya</strong> dan hanya digunakan sesuai keperluan.
+            </li>
+            <li>
+              Data disimpan secara aman dan <strong style={{ color: '#0F172A' }}>dihapus dari sistem setelah 15 hari</strong>, kecuali terdapat kewajiban hukum yang mengharuskan penyimpanan lebih lama.
+            </li>
+            <li style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', borderLeft: '4px solid #0F172A', padding: '12px 16px', borderRadius: '8px', listStyleType: 'none', marginLeft: '-22px', color: '#1E293B' }}>
+              <span style={{ fontWeight: 800, color: '#0F172A' }}>PENTING (Izin Rekam Layar):</span> Saat jendela izin browser muncul setelah menekan tombol Lanjut, pastikan memilih opsi <strong style={{ color: '#0F172A', textDecoration: 'underline' }}>Entire Screen (Seluruh Layar)</strong> agar sistem asesmen dapat mendeteksi layar ujian dengan benar.
+            </li>
+          </ul>
+
+          <div style={{ marginBottom: '28px', borderTop: '1px solid #E2E8F0', paddingTop: '22px' }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={consentChecked}
+                onChange={(e) => setConsentChecked(e.target.checked)}
+                style={{
+                  width: '19px',
+                  height: '19px',
+                  marginTop: '2px',
+                  cursor: 'pointer',
+                  accentColor: '#0F172A'
+                }}
+              />
+              <span style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A', lineHeight: '1.5' }}>
+                Saya mengerti dan bersedia mengikuti psikotes serta memberikan persetujuan atas pemrosesan data saya.
+              </span>
+            </label>
+          </div>
+
+          <div>
+            <button
+              onClick={() => {
+                if (consentChecked) {
+                  if (typeof window !== 'undefined') {
+                    sessionStorage.setItem('cbt_consent_granted', 'true');
+                  }
+                  setConsentGranted(true);
+                  setupScreenShare();
+                  setupWebcam();
+                }
+              }}
+              disabled={!consentChecked}
+              style={{
+                padding: '13px 36px',
+                background: consentChecked ? '#0F172A' : '#E2E8F0',
+                color: consentChecked ? '#FFFFFF' : '#94A3B8',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: consentChecked ? 'pointer' : 'not-allowed',
+                transition: 'all 0.2s',
+                boxShadow: consentChecked ? '0 4px 12px rgba(15, 23, 42, 0.2)' : 'none'
+              }}
+            >
+              Lanjut
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1072,7 +1157,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         background: '#f8fafc'
       }}
     >
-      {/* Hidden Video & Canvas for Captures (Always mounted in DOM) */}
+      {/* Hidden Video & Canvas for Captures */}
       <video
         ref={videoRef}
         autoPlay
@@ -1089,135 +1174,13 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-      {/* TAHAP AWAL: Lembar Persetujuan Data & Kamera (Sebelum Meminta Izin Kamera) */}
-      {!consentGranted ? (
-        <div
-          style={{
-            minHeight: '100vh',
-            background: '#F8FAFC',
-            color: '#0F172A',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '32px 20px',
-            fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-          }}
-        >
-          <div
-            style={{
-              maxWidth: '660px',
-              width: '100%',
-              background: '#FFFFFF',
-              padding: '44px 40px',
-              borderRadius: '16px',
-              border: '1px solid #E2E8F0',
-              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.06)'
-            }}
-          >
-            <h1
-              style={{
-                fontSize: '24px',
-                fontWeight: 800,
-                color: '#0F172A',
-                margin: '0 0 16px 0',
-                letterSpacing: '-0.3px'
-              }}
-            >
-              Sebelum Memulai
-            </h1>
+      {/* Main Content (Plain distraction-free testee view) */}
+      <main style={{ minHeight: '100vh' }}>
+        {children}
+      </main>
 
-            <p style={{ fontSize: '15px', color: '#334155', margin: '0 0 20px 0', fontWeight: 500 }}>
-              Dalam psikotes ini:
-            </p>
-
-            <ul
-              style={{
-                listStyleType: 'disc',
-                paddingLeft: '22px',
-                margin: '0 0 24px 0',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '14px',
-                fontSize: '14.5px',
-                lineHeight: '1.6',
-                color: '#334155'
-              }}
-            >
-              <li>
-                <strong style={{ color: '#0F172A' }}>Kamera pengawasan akan aktif</strong> selama proses ujian berlangsung untuk memverifikasi kehadiran peserta.
-              </li>
-              <li>
-                Jawaban dan respons akan digunakan untuk <strong style={{ color: '#0F172A' }}>penilaian dan analisis psikologis</strong> sesuai tujuan asesmen.
-              </li>
-              <li>
-                Data pribadi, hasil tes, dan rekaman akan <strong style={{ color: '#0F172A' }}>dijaga kerahasiaannya</strong> dan hanya digunakan sesuai keperluan evaluasi.
-              </li>
-              <li>
-                Data disimpan secara aman dan <strong style={{ color: '#0F172A' }}>dihapus dari sistem setelah 15 hari</strong>, kecuali terdapat kewajiban hukum yang mengharuskan penyimpanan lebih lama.
-              </li>
-            </ul>
-
-            <div style={{ marginBottom: '28px', borderTop: '1px solid #E2E8F0', paddingTop: '22px' }}>
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer', userSelect: 'none' }}>
-                <input
-                  type="checkbox"
-                  checked={consentChecked}
-                  onChange={(e) => setConsentChecked(e.target.checked)}
-                  style={{
-                    width: '19px',
-                    height: '19px',
-                    marginTop: '2px',
-                    cursor: 'pointer',
-                    accentColor: '#0F172A'
-                  }}
-                />
-                <span style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A', lineHeight: '1.5' }}>
-                  Saya mengerti dan bersedia mengikuti psikotes serta memberikan persetujuan atas pemrosesan data saya.
-                </span>
-              </label>
-            </div>
-
-            <div>
-              <button
-                onClick={() => {
-                  if (consentChecked) {
-                    if (typeof window !== 'undefined') {
-                      sessionStorage.setItem('cbt_consent_granted', 'true');
-                    }
-                    setConsentGranted(true);
-                    setupWebcam();
-                  }
-                }}
-                disabled={!consentChecked}
-                style={{
-                  padding: '13px 36px',
-                  background: consentChecked ? '#0F172A' : '#E2E8F0',
-                  color: consentChecked ? '#FFFFFF' : '#94A3B8',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '15px',
-                  fontWeight: 700,
-                  cursor: consentChecked ? 'pointer' : 'not-allowed',
-                  transition: 'all 0.2s',
-                  boxShadow: consentChecked ? '0 4px 12px rgba(15, 23, 42, 0.2)' : 'none'
-                }}
-              >
-                Lanjut
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Main Content (Plain distraction-free testee view) */}
-          <main style={{ minHeight: '100vh' }}>
-            {children}
-          </main>
-        </>
-      )}
-
-      {/* MANDATORY PERMISSION OVERLAY (UJIAN TIDAK BISA DIMULAI JIKA BELUM ACC KAMERA) */}
-      {consentGranted && !isPermissionGranted && (
+      {/* MANDATORY PERMISSION OVERLAY (UJIAN TIDAK BISA DIMULAI JIKA BELUM ACC KAMERA & LAYAR) */}
+      {!isPermissionGranted && (
         <div style={{
           position: 'fixed',
           inset: 0,
@@ -1252,31 +1215,32 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
               margin: '0 auto 20px',
               border: '2px solid #FDE68A'
             }}>
-              📷
+              🔒
             </div>
 
             <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: '0 0 10px' }}>
-              Izin Kamera Wajib Diaktifkan
+              Izin Kamera & Rekam Layar Wajib Di-ACC
             </h2>
 
-            <p style={{ fontSize: '13.5px', color: '#475569', lineHeight: 1.6, margin: '0 0 24px' }}>
-              Untuk menjaga integritas dan kelancaran ujian CBT Psikotes, Anda <strong>wajib mengizinkan akses Kamera (Webcam)</strong>. Pastikan browser Anda diizinkan mengakses kamera.
+            <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, margin: '0 0 24px' }}>
+              Untuk menjaga integritas dan kejujuran ujian CBT Psikotes, Anda <strong>wajib mengizinkan (ACC) akses Kamera (Webcam) dan Rekam Layar Desktop (Screen Share)</strong>. Ujian tidak dapat dimulai jika kedua izin ini belum di-ACC.
             </p>
 
             <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '16px', marginBottom: '24px', textAlign: 'left' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>📷 Akses Kamera (Webcam):</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>📷 Access Kamera (Webcam):</span>
                 <span style={{ fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', background: webcamActive ? '#DEF7EC' : '#FEE2E2', color: webcamActive ? '#03543F' : '#991B1B' }}>
                   {webcamActive ? '✓ Sudah ACC' : '✕ Belum ACC'}
                 </span>
               </div>
-            </div>
 
-            {webcamError && (
-              <div style={{ padding: '12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', color: '#991B1B', fontSize: '12.5px', marginBottom: '20px', textAlign: 'left' }}>
-                {webcamError}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E2E8F0', paddingTop: '12px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>🖥️ Rekam Layar Desktop:</span>
+                <span style={{ fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', background: screenActive ? '#DEF7EC' : '#FEE2E2', color: screenActive ? '#03543F' : '#991B1B' }}>
+                  {screenActive ? '✓ Sudah ACC' : '✕ Belum ACC'}
+                </span>
               </div>
-            )}
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {!webcamActive && (
@@ -1285,6 +1249,15 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
                   style={{ width: '100%', padding: '14px', background: '#0D9488', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
                 >
                   📷 Izinkan Akses Kamera (Klik di Sini)
+                </button>
+              )}
+
+              {!screenActive && (
+                <button
+                  onClick={setupScreenShare}
+                  style={{ width: '100%', padding: '14px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  🖥️ Izinkan Rekam Layar Desktop (Klik di Sini)
                 </button>
               )}
             </div>

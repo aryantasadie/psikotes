@@ -75,17 +75,11 @@ export default function ProctoringCenterPage() {
   const [selectedParticipantId, setSelectedParticipantId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchParticipants(false);
-
-    const pollInterval = setInterval(() => {
-      fetchParticipants(true);
-    }, 3500);
-
-    return () => clearInterval(pollInterval);
+    fetchParticipants();
   }, []);
 
-  const fetchParticipants = async (isSilent = false) => {
-    if (!isSilent) setLoading(true);
+  const fetchParticipants = async () => {
+    setLoading(true);
     try {
       const res = await fetch('/api/superadmin/reports');
       if (res.ok) {
@@ -99,9 +93,9 @@ export default function ProctoringCenterPage() {
         }
       }
     } catch (e) {
-      if (!isSilent) console.error('Failed to fetch participants for proctoring:', e);
+      console.error('Failed to fetch participants for proctoring:', e);
     } finally {
-      if (!isSilent) setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -389,7 +383,7 @@ export default function ProctoringCenterPage() {
 
                     let photoBadge = '📷 Foto Wajah Peserta';
                     if (isInitial) photoBadge = '📷 Foto Awal (Submit Identitas)';
-                    else if (is10Min) photoBadge = '📷 Foto Menit ke-10 (Monitoring)';
+                    else if (is10Min) photoBadge = '📷 Foto Menit ke-10 (Monitoring 1x)';
 
                     const imgUrl = log.mediaUrl.startsWith('/uploads/') ? log.mediaUrl.replace('/uploads/', '/api/uploads/') : log.mediaUrl;
 
@@ -402,7 +396,7 @@ export default function ProctoringCenterPage() {
                             <div className="text-[11px] text-teal-600 font-semibold mt-0.5">{photoBadge}</div>
                           </div>
                           <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">
-                            {isInitial ? 'Verifikasi Identitas' : is10Min ? 'Verifikasi 10 Menit' : 'Pengawasan Kamera'}
+                            {isInitial ? 'Verifikasi Identitas' : is10Min ? 'Verifikasi Menit ke-10 (1x)' : 'Pengawasan Kamera'}
                           </span>
                         </div>
 

@@ -50,8 +50,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, log });
     }
 
-    // Case 2: Image capture (Initial & 10min camera photos)
+    // Case 2: Image capture (Initial & 10min camera photos - Max 1x each per participant)
     if (image && typeof image === 'string') {
+      // Ensure only 1x snapshot for initial and 10-minute checkpoints
+      if (safeLogType === 'camera_awal' || safeLogType === 'camera_10min') {
+        const existingPhoto = await prisma.securityLog.findFirst({
+          where: {
+            participantId: safeParticipantId,
+            logType: safeLogType
+          }
+        });
+        if (existingPhoto) {
+          return NextResponse.json({ success: true, message: `Photo ${safeLogType} sudah tersimpan (1x only)`, log: existingPhoto });
+        }
+      }
+
       // Strip the base64 prefix
       const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
       const buffer = Buffer.from(base64Data, 'base64');
