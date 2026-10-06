@@ -75,11 +75,17 @@ export default function ProctoringCenterPage() {
   const [selectedParticipantId, setSelectedParticipantId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchParticipants();
+    fetchParticipants(false);
+
+    const pollInterval = setInterval(() => {
+      fetchParticipants(true);
+    }, 3500);
+
+    return () => clearInterval(pollInterval);
   }, []);
 
-  const fetchParticipants = async () => {
-    setLoading(true);
+  const fetchParticipants = async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const res = await fetch('/api/superadmin/reports');
       if (res.ok) {
@@ -93,9 +99,9 @@ export default function ProctoringCenterPage() {
         }
       }
     } catch (e) {
-      console.error('Failed to fetch participants for proctoring:', e);
+      if (!isSilent) console.error('Failed to fetch participants for proctoring:', e);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
