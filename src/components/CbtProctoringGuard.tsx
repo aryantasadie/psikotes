@@ -290,7 +290,6 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     if (!consentGranted) return;
 
     setupWebcam();
-    setupScreenShare();
 
     return () => {
       if (streamRef.current) {
@@ -328,16 +327,14 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         videoRef.current.play().catch(() => {});
       }
       const video = videoRef.current;
-      const w = video.videoWidth || 640;
-      const h = video.videoHeight || 480;
       const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = 480;
+      canvas.height = 360;
       const ctx = canvas.getContext('2d');
       if (ctx) {
         try {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          return canvas.toDataURL('image/jpeg', 0.7);
+          ctx.drawImage(video, 0, 0, 480, 360);
+          return canvas.toDataURL('image/jpeg', 0.6);
         } catch (e) {
           console.warn('drawImage failed in getWebcamBase64:', e);
         }
@@ -1039,7 +1036,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     } catch (e) {}
   };
 
-  const isPermissionGranted = webcamActive && screenActive;
+  const isPermissionGranted = webcamActive;
 
   // Cegah hydration mismatch antara SSR dan Client
   if (!mounted) {
@@ -1092,7 +1089,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-      {/* TAHAP AWAL: Lembar Persetujuan Data & Rekaman (Sebelum Meminta Izin Kamera / Layar) */}
+      {/* TAHAP AWAL: Lembar Persetujuan Data & Kamera (Sebelum Meminta Izin Kamera) */}
       {!consentGranted ? (
         <div
           style={{
@@ -1147,19 +1144,16 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
               }}
             >
               <li>
-                <strong style={{ color: '#0F172A' }}>Kamera dan layar perangkat akan direkam</strong> selama proses berlangsung.
+                <strong style={{ color: '#0F172A' }}>Kamera pengawasan akan aktif</strong> selama proses ujian berlangsung untuk memverifikasi kehadiran peserta.
               </li>
               <li>
                 Jawaban dan respons akan digunakan untuk <strong style={{ color: '#0F172A' }}>penilaian dan analisis psikologis</strong> sesuai tujuan asesmen.
               </li>
               <li>
-                Data pribadi, hasil tes, dan rekaman akan <strong style={{ color: '#0F172A' }}>dijaga kerahasiaannya</strong> dan hanya digunakan sesuai keperluan.
+                Data pribadi, hasil tes, dan rekaman akan <strong style={{ color: '#0F172A' }}>dijaga kerahasiaannya</strong> dan hanya digunakan sesuai keperluan evaluasi.
               </li>
               <li>
                 Data disimpan secara aman dan <strong style={{ color: '#0F172A' }}>dihapus dari sistem setelah 15 hari</strong>, kecuali terdapat kewajiban hukum yang mengharuskan penyimpanan lebih lama.
-              </li>
-              <li style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', borderLeft: '4px solid #0F172A', padding: '12px 16px', borderRadius: '8px', listStyleType: 'none', marginLeft: '-22px', color: '#1E293B' }}>
-                <span style={{ fontWeight: 800, color: '#0F172A' }}>PENTING (Izin Rekam Layar):</span> Saat jendela izin browser muncul setelah menekan tombol Lanjut, pastikan memilih opsi <strong style={{ color: '#0F172A', textDecoration: 'underline' }}>Entire Screen (Seluruh Layar)</strong> agar sistem asesmen dapat mendeteksi layar ujian dengan benar.
               </li>
             </ul>
 
@@ -1191,7 +1185,6 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
                       sessionStorage.setItem('cbt_consent_granted', 'true');
                     }
                     setConsentGranted(true);
-                    setupScreenShare();
                     setupWebcam();
                   }
                 }}
@@ -1223,7 +1216,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         </>
       )}
 
-      {/* MANDATORY PERMISSION OVERLAY (UJIAN TIDAK BISA DIMULAI JIKA BELUM ACC KAMERA & LAYAR) */}
+      {/* MANDATORY PERMISSION OVERLAY (UJIAN TIDAK BISA DIMULAI JIKA BELUM ACC KAMERA) */}
       {consentGranted && !isPermissionGranted && (
         <div style={{
           position: 'fixed',
@@ -1259,32 +1252,31 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
               margin: '0 auto 20px',
               border: '2px solid #FDE68A'
             }}>
-              🔒
+              📷
             </div>
 
             <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', margin: '0 0 10px' }}>
-              Izin Kamera & Rekam Layar Wajib Di-ACC
+              Izin Kamera Wajib Diaktifkan
             </h2>
 
-            <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, margin: '0 0 24px' }}>
-              Untuk menjaga integritas dan kejujuran ujian CBT Psikotes, Anda <strong>wajib mengizinkan (ACC) akses Kamera (Webcam) dan Rekam Layar Desktop (Screen Share)</strong>. Ujian tidak dapat dimulai jika kedua izin ini belum di-ACC.
+            <p style={{ fontSize: '13.5px', color: '#475569', lineHeight: 1.6, margin: '0 0 24px' }}>
+              Untuk menjaga integritas dan kelancaran ujian CBT Psikotes, Anda <strong>wajib mengizinkan akses Kamera (Webcam)</strong>. Pastikan browser Anda diizinkan mengakses kamera.
             </p>
 
             <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '16px', marginBottom: '24px', textAlign: 'left' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>📷 Access Kamera (Webcam):</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>📷 Akses Kamera (Webcam):</span>
                 <span style={{ fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', background: webcamActive ? '#DEF7EC' : '#FEE2E2', color: webcamActive ? '#03543F' : '#991B1B' }}>
                   {webcamActive ? '✓ Sudah ACC' : '✕ Belum ACC'}
                 </span>
               </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #E2E8F0', paddingTop: '12px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>🖥️ Rekam Layar Desktop:</span>
-                <span style={{ fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', background: screenActive ? '#DEF7EC' : '#FEE2E2', color: screenActive ? '#03543F' : '#991B1B' }}>
-                  {screenActive ? '✓ Sudah ACC' : '✕ Belum ACC'}
-                </span>
-              </div>
             </div>
+
+            {webcamError && (
+              <div style={{ padding: '12px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', color: '#991B1B', fontSize: '12.5px', marginBottom: '20px', textAlign: 'left' }}>
+                {webcamError}
+              </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {!webcamActive && (
@@ -1293,15 +1285,6 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
                   style={{ width: '100%', padding: '14px', background: '#0D9488', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
                 >
                   📷 Izinkan Akses Kamera (Klik di Sini)
-                </button>
-              )}
-
-              {!screenActive && (
-                <button
-                  onClick={setupScreenShare}
-                  style={{ width: '100%', padding: '14px', background: '#2563EB', color: 'white', border: 'none', borderRadius: '12px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
-                >
-                  🖥️ Izinkan Rekam Layar Desktop (Klik di Sini)
                 </button>
               )}
             </div>
