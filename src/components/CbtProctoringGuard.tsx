@@ -578,52 +578,166 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     }
   };
 
-  const sendSecurityLog = async (logType: string, customImage?: string | null) => {
-    if (!participantId) return;
+  const lastViolationTimeRef = useRef<{ [key: string]: number }>({});
+
+  const getTestAndTimerInfo = () => {
+    if (typeof window === 'undefined') return 'Belum Mulai Tes';
+
+    const path = window.location.pathname.toLowerCase();
+    
+    // If currently on onboarding page
+    if (path.includes('/testee/session')) {
+      return 'Belum Mulai Tes';
+    }
+
+    let activeTestName = localStorage.getItem('cbt_active_test');
+    if (!activeTestName) {
+      if (path.includes('/tes/')) {
+        const slug = path.split('/tes/')[1]?.split('/')[0] || '';
+        if (slug.includes('cfit1')) activeTestName = 'CFIT 1';
+        else if (slug.includes('cfit2')) activeTestName = 'CFIT 2';
+        else if (slug.includes('cfit3')) activeTestName = 'CFIT 3';
+        else if (slug.includes('cfit4')) activeTestName = 'CFIT 4';
+        else if (slug.includes('ist2')) activeTestName = 'IST 2';
+        else if (slug.includes('ist3')) activeTestName = 'IST 3';
+        else if (slug.includes('ist6')) activeTestName = 'IST 6';
+        else if (slug.includes('ist7')) activeTestName = 'IST 7';
+        else if (slug.includes('tiki1')) activeTestName = 'TIKI 1';
+        else if (slug.includes('tiki2')) activeTestName = 'TIKI 2';
+        else if (slug.includes('tiki3')) activeTestName = 'TIKI 3';
+        else if (slug.includes('tiki4')) activeTestName = 'TIKI 4';
+        else if (slug.includes('tiki6')) activeTestName = 'TIKI 6';
+        else if (slug.includes('wpt')) activeTestName = 'WPT';
+        else if (slug.includes('papi')) activeTestName = 'PAPI Kostick';
+        else if (slug.includes('disc')) activeTestName = 'DISC';
+        else if (slug.includes('msdt')) activeTestName = 'MSDT';
+        else if (slug.includes('power')) activeTestName = 'Power Leader';
+        else if (slug.includes('kraepelin') || slug.includes('kreapelin')) activeTestName = 'Kraepelin';
+      }
+    }
+
+    // Check active timer
+    let timerRemaining: number | null = null;
+    const savedTimer = localStorage.getItem('cbt_active_timer_left');
+    if (savedTimer !== null) {
+      const parsedTimer = parseInt(savedTimer, 10);
+      if (!isNaN(parsedTimer) && parsedTimer >= 0) {
+        timerRemaining = parsedTimer;
+      }
+    }
+
+    if (!activeTestName && timerRemaining === null) {
+      return 'Belum Mulai Tes';
+    }
+
+    if (activeTestName && timerRemaining !== null) {
+      const m = Math.floor(timerRemaining / 60);
+      const s = timerRemaining % 60;
+      return `Tes: ${activeTestName} (Sisa Waktu: ${m}:${s < 10 ? '0' : ''}${s})`;
+    } else if (activeTestName) {
+      return `Tes: ${activeTestName}`;
+    }
+
+    return 'Belum Mulai Tes';
+  };
+
+  const sendViolationLog = async (logType: string, label: string, detailMsg?: string) => {
+    const currentPId = participantId || (typeof window !== 'undefined' && localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : null);
+    if (!currentPId) return;
+
+    // Throttle / Debounce duplicate violations within 3s
+    const now = Date.now();
+    const lastTime = lastViolationTimeRef.current[logType] || 0;
+    if (now - lastTime < 3000) return;
+    lastViolationTimeRef.current[logType] = now;
 
     try {
-      const cameraImg = customImage !== undefined ? customImage : getWebcamBase64();
-      if (cameraImg) {
-        await fetch('/api/capture', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            participantId,
-            logType: logType.startsWith('camera') || logType.startsWith('screen') ? logType : `camera_${logType}`,
-            image: cameraImg
-          })
-        });
-      }
+      const testAndTimer = getTestAndTimerInfo();
+      const text = `${label} — ${testAndTimer}${detailMsg ? ` (${detailMsg})` : ''}`;
 
-      if (logType === 'screen' || logType === 'tab_switch' || logType === 'blur_fullscreen') {
-        const screenImg = await getScreenBase64();
-        if (screenImg) {
-          await fetch('/api/capture', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              participantId,
-              logType: logType === 'screen' ? 'screen' : `screen_${logType}`,
-              image: screenImg
-            })
-          });
-        }
-      }
+      await fetch('/api/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participantId: currentPId,
+          logType,
+          text
+        })
+      });
     } catch (err) {
-      console.error('Failed to send security log:', err);
+      console.error('Failed to send violation log:', err);
     }
   };
 
-  // Periodic capture to DB
+  const capturePhoto = async (photoType: 'camera_awal' | 'camera_10min') => {
+    const currentPId = participantId || (typeof window !== 'undefined' && localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : null);
+    if (!currentPId) return;
+
+    try {
+      const cameraImg = getWebcamBase64();
+      if (!cameraImg) return;
+
+      await fetch('/api/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participantId: currentPId,
+          logType: photoType,
+          image: cameraImg
+        })
+      });
+    } catch (err) {
+      console.error(`Failed to capture photo (${photoType}):`, err);
+    }
+  };
+
+  // 📸 Trigger Foto 1 (Awal) & Foto 2 (10 Menit Kemudian)
   useEffect(() => {
     if (!participantId || !webcamActive) return;
 
-    const interval = setInterval(() => {
-      sendSecurityLog('camera');
-      sendSecurityLog('screen');
-    }, 20000);
+    // Handler event Foto Awal (saat submit nama & tgl lahir)
+    const handleInitialTrigger = () => {
+      if (localStorage.getItem('cbt_photo1_done') !== 'true') {
+        setTimeout(() => {
+          capturePhoto('camera_awal');
+          localStorage.setItem('cbt_photo1_done', 'true');
+        }, 1200);
+      }
+    };
 
-    return () => clearInterval(interval);
+    window.addEventListener('cbt:trigger-initial-photo', handleInitialTrigger);
+
+    // Cek jika timestamp awal sudah ada tapi belum sempat ter-capture
+    const photo1Time = localStorage.getItem('cbt_photo1_timestamp');
+    if (photo1Time && localStorage.getItem('cbt_photo1_done') !== 'true') {
+      setTimeout(() => {
+        capturePhoto('camera_awal');
+        localStorage.setItem('cbt_photo1_done', 'true');
+      }, 1500);
+    }
+
+    // Timer interval checker untuk Foto ke-2 (10 Menit setelah Foto 1)
+    const timerChecker = setInterval(() => {
+      const p1TimeStr = localStorage.getItem('cbt_photo1_timestamp');
+      const p2Done = localStorage.getItem('cbt_photo2_done');
+
+      if (p1TimeStr && p2Done !== 'true') {
+        const p1Time = parseInt(p1TimeStr, 10);
+        if (!isNaN(p1Time)) {
+          const elapsed = Date.now() - p1Time;
+          // 10 menit = 600,000 ms
+          if (elapsed >= 10 * 60 * 1000) {
+            capturePhoto('camera_10min');
+            localStorage.setItem('cbt_photo2_done', 'true');
+          }
+        }
+      }
+    }, 5000);
+
+    return () => {
+      window.removeEventListener('cbt:trigger-initial-photo', handleInitialTrigger);
+      clearInterval(timerChecker);
+    };
   }, [participantId, webcamActive]);
 
   // Live Stream Broadcast every 1.5s
@@ -735,13 +849,13 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     const handleVisibilityChange = () => {
       if (document.hidden) {
         handleViolation('Anda terdeteksi meninggalkan tab/halaman ujian (Alt+Tab / Pindah Tab)!');
-        sendSecurityLog('tab_switch');
+        sendViolationLog('tab_switch', 'Pindah Tab / Keluar Halaman Ujian');
       }
     };
 
     const handleWindowBlur = () => {
       handleViolation('Jendela browser Anda kehilangan fokus (Alt+Tab / Pindah Jendela Aplikasi)!');
-      sendSecurityLog('tab_switch');
+      sendViolationLog('tab_switch', 'Jendela Browser Kehilangan Fokus (Pindah Aplikasi)');
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -760,13 +874,13 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       handleViolation('Klik kanan (Context Menu) dilarang selama ujian.');
-      sendSecurityLog('forbidden_key');
+      sendViolationLog('forbidden_key', 'Klik Kanan (Context Menu)');
     };
 
     const handleCopyPaste = (e: ClipboardEvent) => {
       e.preventDefault();
       handleViolation('Tindakan Copy/Cut/Paste dilarang dalam sistem ujian ini.');
-      sendSecurityLog('forbidden_key');
+      sendViolationLog('forbidden_key', 'Tindakan Copy/Paste');
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -780,8 +894,9 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       if (isForbiddenKey) {
         e.preventDefault();
         e.stopPropagation();
-        handleViolation(`Tombol kombinasi (${e.ctrlKey ? 'Ctrl+' : ''}${e.altKey ? 'Alt+' : ''}${e.key}) dilarang!`);
-        sendSecurityLog('forbidden_key');
+        const keyLabel = `${e.ctrlKey ? 'Ctrl+' : ''}${e.altKey ? 'Alt+' : ''}${e.shiftKey ? 'Shift+' : ''}${e.key}`;
+        handleViolation(`Tombol kombinasi (${keyLabel}) dilarang!`);
+        sendViolationLog('forbidden_key', 'Tombol Shortcut Terlarang', keyLabel);
       }
     };
 
@@ -809,7 +924,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       setIsFullscreen(isFS);
       if (!isFS) {
         setShowFullscreenModal(true);
-        sendSecurityLog('blur_fullscreen');
+        sendViolationLog('blur_fullscreen', 'Keluar Mode Fullscreen');
       }
     };
 

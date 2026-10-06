@@ -203,6 +203,15 @@ export default function TesteeSession() {
     localStorage.setItem('testee_name', name.trim());
     localStorage.setItem('testee_dob', dob);
     localStorage.setItem('testee_age', age.toString());
+
+    // Trigger Photo 1 (Capture Awal Wajah)
+    const initialTime = Date.now();
+    localStorage.setItem('cbt_photo1_timestamp', String(initialTime));
+    localStorage.removeItem('cbt_photo1_done');
+    localStorage.removeItem('cbt_photo2_done');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('cbt:trigger-initial-photo', { detail: { timestamp: initialTime } }));
+    }
     
     // Pindah ke briefing
     setOnboardingStage(2);

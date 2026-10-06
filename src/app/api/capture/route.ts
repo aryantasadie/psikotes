@@ -12,9 +12,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized: Sesi tidak valid' }, { status: 401 });
     }
 
-    const { image, participantId, logType } = await req.json();
+    const { image, text, participantId, logType } = await req.json();
 
-    if (!image || !participantId || !logType) {
+    if ((!image && !text) || !participantId || !logType) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -35,42 +35,59 @@ export async function POST(req: Request) {
       }
     }
 
-    // Sanitize logType to prevent path traversal
+    // Sanitize logType
     const safeLogType = String(logType || 'proctoring').replace(/[^a-zA-Z0-9_-]/g, '');
 
-    // Strip the base64 prefix
-    const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
-    const buffer = Buffer.from(base64Data, 'base64');
-
-    // Enforce 2MB size limit
-    if (buffer.length > 2 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Ukuran gambar melebihi batas 2MB' }, { status: 400 });
+    // Case 1: Text-only log (e.g. Violation log without file)
+    if (text && typeof text === 'string') {
+      const log = await prisma.securityLog.create({
+        data: {
+          participantId: safeParticipantId,
+          logType: safeLogType,
+          mediaUrl: text.trim()
+        }
+      });
+      return NextResponse.json({ success: true, log });
     }
 
-    // Simpan di luar public agar tidak bisa dibuka lewat URL publik (private_uploads)
-    const uploadDir = path.join(process.cwd(), 'private_uploads', 'keamanan');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
+    // Case 2: Image capture (Initial & 10min camera photos)
+    if (image && typeof image === 'string') {
+      // Strip the base64 prefix
+      const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
 
-    const filename = `${safeParticipantId}_${safeLogType}_${Date.now()}.jpg`;
-    const filepath = path.join(uploadDir, filename);
-
-    // Save image to private local disk
-    fs.writeFileSync(filepath, buffer);
-
-    const mediaUrl = `/api/uploads/keamanan/${filename}`;
-
-    // Save log to Prisma database
-    const log = await prisma.securityLog.create({
-      data: {
-        participantId: safeParticipantId,
-        logType: safeLogType,
-        mediaUrl
+      // Enforce 2MB size limit
+      if (buffer.length > 2 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Ukuran gambar melebihi batas 2MB' }, { status: 400 });
       }
-    });
 
-    return NextResponse.json({ success: true, log });
+      // Simpan di luar public agar tidak bisa dibuka lewat URL publik (private_uploads)
+      const uploadDir = path.join(process.cwd(), 'private_uploads', 'keamanan');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      const filename = `${safeParticipantId}_${safeLogType}_${Date.now()}.jpg`;
+      const filepath = path.join(uploadDir, filename);
+
+      // Save image to private local disk
+      fs.writeFileSync(filepath, buffer);
+
+      const mediaUrl = `/api/uploads/keamanan/${filename}`;
+
+      // Save log to Prisma database
+      const log = await prisma.securityLog.create({
+        data: {
+          participantId: safeParticipantId,
+          logType: safeLogType,
+          mediaUrl
+        }
+      });
+
+      return NextResponse.json({ success: true, log });
+    }
+
+    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
   } catch (error) {
     console.error('Error in capture API:', error);
     return NextResponse.json({ error: 'Failed to process capture' }, { status: 500 });

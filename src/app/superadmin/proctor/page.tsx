@@ -173,7 +173,8 @@ export default function ProctoringCenterPage() {
     const candidateViolations = (p.logs || []).filter((l) => 
       l.logType.includes('tab_switch') || 
       l.logType.includes('fullscreen') || 
-      l.logType.includes('forbidden')
+      l.logType.includes('forbidden') ||
+      l.logType.includes('violation')
     ).length;
 
     b.violationCount += candidateViolations;
@@ -333,16 +334,14 @@ export default function ProctoringCenterPage() {
                 Belum ada rekaman layar dan kamera yang tersimpan untuk peserta ini.
               </div>
             ) : (
-              <div className="space-y-5 max-h-[70vh] overflow-y-auto pr-2">
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
                 {groupedLogs.map((group, idx) => {
-                  const cameraLog = group.logs.find(l => l.logType.startsWith('camera'));
-                  const screenLog = group.logs.find(l => l.logType.startsWith('screen'));
                   const proctorNoteLog = group.logs.find(l => l.logType === 'proctor_note');
                   if (proctorNoteLog) {
                     return (
-                      <div key={idx} className="bg-amber-50/60 border border-amber-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
+                      <div key={idx} className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
                         <div className="flex justify-between items-center">
-                          <span className="text-[12px] font-bold text-amber-900">Catatan Khusus Pengawas • {group.time}</span>
+                          <span className="text-[12px] font-bold text-amber-900">📝 Catatan Khusus Pengawas • {group.time}</span>
                           <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
                             Catatan Khusus
                           </span>
@@ -354,42 +353,58 @@ export default function ProctoringCenterPage() {
                     );
                   }
 
-                  const isViolation = group.logs.some(l => 
-                    l.logType.includes('tab_switch') || 
-                    l.logType.includes('fullscreen') || 
-                    l.logType.includes('forbidden')
+                  // Check if this group contains a text-only violation log
+                  const textViolationLog = group.logs.find(l => 
+                    !l.mediaUrl.startsWith('/api/uploads/') && 
+                    !l.mediaUrl.startsWith('/uploads/') &&
+                    !l.mediaUrl.endsWith('.jpg') &&
+                    !l.mediaUrl.endsWith('.png') &&
+                    !l.mediaUrl.endsWith('.webp')
                   );
 
-                  const logLabels = group.logs.map((l: any) => {
-                    const type = l.logType;
-                    if (type.includes('tab_switch')) return 'Pindah Tab / Jendela';
-                    if (type.includes('fullscreen')) return 'Keluar Mode Fullscreen';
-                    if (type.includes('forbidden_key')) return 'Pemberian Shortcut Terlarang';
-                    return 'Tangkapan Berkala';
-                  });
-                  const uniqueLabels = Array.from(new Set(logLabels)).join(', ');
+                  if (textViolationLog) {
+                    return (
+                      <div key={idx} className="bg-rose-50/50 border border-rose-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[12px] font-bold text-rose-900">⚠️ Log Pelanggaran Ujian • {group.time}</span>
+                          <span className="bg-rose-100 text-rose-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">
+                            Pelanggaran
+                          </span>
+                        </div>
+                        <div className="bg-white/80 border border-rose-100 rounded-xl p-3 text-[13px] text-slate-800 font-semibold flex items-center gap-2">
+                          <span className="text-rose-500 text-base">⚠️</span>
+                          <span>{textViolationLog.mediaUrl}</span>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Image Capture Logs (Foto Awal & Foto 10 Menit)
+                  const cameraLog = group.logs.find(l => l.logType.startsWith('camera'));
+                  const screenLog = group.logs.find(l => l.logType.startsWith('screen'));
+
+                  const isInitial = group.logs.some(l => l.logType.includes('awal') || l.logType.includes('initial'));
+                  const is10Min = group.logs.some(l => l.logType.includes('10min'));
+
+                  let photoBadge = '📷 Foto Wajah Peserta';
+                  if (isInitial) photoBadge = '📷 Foto Awal (Submit Identitas)';
+                  else if (is10Min) photoBadge = '📷 Foto Menit ke-10 (Monitoring)';
 
                   return (
-                    <div key={idx} className={`bg-white border rounded-2xl p-5 shadow-sm flex flex-col gap-4 transition-all ${isViolation ? 'border-amber-400 bg-amber-50/10' : 'border-slate-200'}`}>
+                    <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col gap-4">
                       
                       {/* Log Header */}
                       <div className="flex justify-between items-center flex-wrap gap-2">
                         <div>
                           <span className="text-[13px] font-extrabold text-slate-900">{group.time}</span>
-                          <div className="text-[11px] text-slate-500 font-semibold mt-0.5">Kategori: {uniqueLabels}</div>
+                          <div className="text-[11px] text-teal-600 font-semibold mt-0.5">{photoBadge}</div>
                         </div>
-                        {isViolation ? (
-                          <span className="bg-amber-100 text-amber-800 border border-amber-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">
-                            Pelanggaran Keamanan
-                          </span>
-                        ) : (
-                          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">
-                            Pengawasan Rutin
-                          </span>
-                        )}
+                        <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">
+                          {isInitial ? 'Verifikasi Identitas' : is10Min ? 'Verifikasi 10 Menit' : 'Pengawasan Kamera'}
+                        </span>
                       </div>
 
-                      {/* Side-by-Side Images */}
+                      {/* Photo Image Card */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Webcam Capture */}
                         <div className="space-y-2">
@@ -398,30 +413,26 @@ export default function ProctoringCenterPage() {
                             <img
                               src={cameraLog.mediaUrl.startsWith('/uploads/') ? cameraLog.mediaUrl.replace('/uploads/', '/api/uploads/') : cameraLog.mediaUrl}
                               alt="Webcam Capture"
-                              className="w-full h-44 object-cover border border-slate-200 rounded-xl"
+                              className="w-full h-48 object-cover border border-slate-200 rounded-xl shadow-inner"
                             />
                           ) : (
-                            <div className="h-44 bg-slate-50 border border-slate-200 border-dashed rounded-xl flex items-center justify-center text-[11px] text-slate-400">
+                            <div className="h-48 bg-slate-50 border border-slate-200 border-dashed rounded-xl flex items-center justify-center text-[11px] text-slate-400">
                               Foto wajah tidak tersedia
                             </div>
                           )}
                         </div>
 
-                        {/* Screen Capture */}
-                        <div className="space-y-2">
-                          <div className="text-[11px] font-bold text-slate-500">🖥️ Layar Monitor (Screen Capture):</div>
-                          {screenLog ? (
+                        {/* Screen Capture (if any) */}
+                        {screenLog && (
+                          <div className="space-y-2">
+                            <div className="text-[11px] font-bold text-slate-500">🖥️ Layar Monitor (Screen Capture):</div>
                             <img
                               src={screenLog.mediaUrl.startsWith('/uploads/') ? screenLog.mediaUrl.replace('/uploads/', '/api/uploads/') : screenLog.mediaUrl}
                               alt="Screen Capture"
-                              className="w-full h-44 object-contain border border-slate-200 bg-slate-950 rounded-xl"
+                              className="w-full h-48 object-contain border border-slate-200 bg-slate-950 rounded-xl"
                             />
-                          ) : (
-                            <div className="h-44 bg-slate-50 border border-slate-200 border-dashed rounded-xl flex items-center justify-center text-[11px] text-slate-400">
-                              Rekaman layar tidak tersedia
-                            </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
 
                     </div>
@@ -459,7 +470,8 @@ export default function ProctoringCenterPage() {
                     const candidateViolations = (p.logs || []).filter((l) => 
                       l.logType.includes('tab_switch') || 
                       l.logType.includes('fullscreen') || 
-                      l.logType.includes('forbidden')
+                      l.logType.includes('forbidden') ||
+                      l.logType.includes('violation')
                     ).length;
 
                     return (
