@@ -206,11 +206,17 @@ export default function TesteeSession() {
 
     // Trigger Photo 1 (Capture Awal Wajah)
     const initialTime = Date.now();
+    const currentPId = localStorage.getItem('current_participant_id');
     localStorage.setItem('cbt_photo1_timestamp', String(initialTime));
     localStorage.removeItem('cbt_photo1_done');
     localStorage.removeItem('cbt_photo2_done');
+    if (currentPId) {
+      localStorage.setItem(`cbt_photo1_timestamp_${currentPId}`, String(initialTime));
+      localStorage.removeItem(`cbt_photo1_done_${currentPId}`);
+      localStorage.removeItem(`cbt_photo2_done_${currentPId}`);
+    }
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('cbt:trigger-initial-photo', { detail: { timestamp: initialTime } }));
+      window.dispatchEvent(new CustomEvent('cbt:trigger-initial-photo', { detail: { timestamp: initialTime, participantId: currentPId } }));
     }
     
     // Pindah ke briefing

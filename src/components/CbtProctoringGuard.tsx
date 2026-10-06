@@ -235,6 +235,22 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         audio: false
       });
 
+      const videoTrack = screenStream.getVideoTracks()[0];
+      if (videoTrack) {
+        const settings = videoTrack.getSettings ? videoTrack.getSettings() : {};
+        if (settings.displaySurface && settings.displaySurface !== 'monitor') {
+          console.warn('[CBT] User did not share entire screen:', settings.displaySurface);
+          sendViolationLog('screen_surface', `Berbagi Layar Tidak Penuh (${settings.displaySurface})`);
+        }
+
+        videoTrack.onended = () => {
+          setScreenActive(false);
+          screenStreamRef.current = null;
+          if (typeof window !== 'undefined') (window as any).__cbtScreenStream = null;
+          sendViolationLog('screen_stopped', 'Berbagi Layar Dihentikan oleh Peserta');
+        };
+      }
+
       screenStreamRef.current = screenStream;
       (window as any).__cbtScreenStream = screenStream;
 
@@ -248,18 +264,11 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       }
       setScreenActive(true);
       setScreenError(null);
-
-      const videoTrack = screenStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.onended = () => {
-          setScreenActive(false);
-        };
-      }
     } catch (err: any) {
       console.error('Screen share error:', err);
-      // Fallback to DOM capture on error
-      setScreenActive(true);
-      setScreenError(null);
+      // On desktop, if user cancels screen share, require them to ACC screen share
+      setScreenActive(false);
+      setScreenError('Izin rekam layar wajib diberikan untuk memulai ujian.');
     } finally {
       screenInitializing.current = false;
     }
@@ -294,6 +303,36 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     }
   });
 
+  const getWebcamBase64Async = async (maxRetries = 10, delayMs = 300): Promise<string | null> => {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      if (!streamRef.current) {
+        await setupWebcam();
+      }
+
+      if (videoRef.current && streamRef.current) {
+        if (videoRef.current.srcObject !== streamRef.current) {
+          videoRef.current.srcObject = streamRef.current;
+          try {
+            await videoRef.current.play();
+          } catch {}
+        }
+        const video = videoRef.current;
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.min(video.videoWidth, 640);
+          canvas.height = Math.min(video.videoHeight, 480);
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            return canvas.toDataURL('image/jpeg', 0.7);
+          }
+        }
+      }
+      await new Promise(res => setTimeout(res, delayMs));
+    }
+    return null;
+  };
+
   const getWebcamBase64 = (): string | null => {
     if (!streamRef.current) return null;
     if (videoRef.current) {
@@ -304,8 +343,8 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       const video = videoRef.current;
       if (video.videoWidth > 0 && video.videoHeight > 0) {
         const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 480;
+        canvas.width = Math.min(video.videoWidth, 640);
+        canvas.height = Math.min(video.videoHeight, 480);
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -691,15 +730,18 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     }
   };
 
-  const capturePhoto = async (photoType: 'camera_awal' | 'camera_10min') => {
+  const capturePhoto = async (photoType: 'camera_awal' | 'camera_10min'): Promise<boolean> => {
     const currentPId = participantId || (typeof window !== 'undefined' && localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : null);
-    if (!currentPId) return;
+    if (!currentPId) return false;
 
     try {
-      const cameraImg = getWebcamBase64();
-      if (!cameraImg) return;
+      const cameraImg = await getWebcamBase64Async(12, 350);
+      if (!cameraImg) {
+        console.warn(`[CBT] Could not capture frame for ${photoType}, will retry...`);
+        return false;
+      }
 
-      await fetch('/api/capture', {
+      const res = await fetch('/api/capture', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -708,65 +750,83 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
           image: cameraImg
         })
       });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          if (photoType === 'camera_awal') {
+            localStorage.setItem(`cbt_photo1_done_${currentPId}`, 'true');
+            localStorage.setItem('cbt_photo1_done', 'true');
+          } else if (photoType === 'camera_10min') {
+            localStorage.setItem(`cbt_photo2_done_${currentPId}`, 'true');
+            localStorage.setItem('cbt_photo2_done', 'true');
+          }
+          return true;
+        }
+      }
+      return false;
     } catch (err) {
       console.error(`Failed to capture photo (${photoType}):`, err);
+      return false;
     }
   };
 
   // 📸 Trigger Foto 1 (Awal - 1x) & Foto 2 (Tepat 10 Menit Kemudian - 1x Saja)
   useEffect(() => {
-    if (!participantId || !webcamActive) return;
+    const currentPId = participantId || (typeof window !== 'undefined' && localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : null);
+    if (!currentPId) return;
 
-    const p1DoneKey = `cbt_photo1_done_${participantId}`;
-    const p2DoneKey = `cbt_photo2_done_${participantId}`;
-    const p1TimeKey = `cbt_photo1_timestamp_${participantId}`;
+    const p1DoneKey = `cbt_photo1_done_${currentPId}`;
+    const p2DoneKey = `cbt_photo2_done_${currentPId}`;
+    const p1TimeKey = `cbt_photo1_timestamp_${currentPId}`;
 
     const isP1Done = () => localStorage.getItem(p1DoneKey) === 'true' || localStorage.getItem('cbt_photo1_done') === 'true';
     const isP2Done = () => localStorage.getItem(p2DoneKey) === 'true' || localStorage.getItem('cbt_photo2_done') === 'true';
 
-    // Handler event Foto Awal (saat submit nama & tgl lahir)
-    const handleInitialTrigger = () => {
-      if (!isP1Done()) {
-        localStorage.setItem(p1DoneKey, 'true');
-        localStorage.setItem('cbt_photo1_done', 'true');
-        setTimeout(() => {
-          capturePhoto('camera_awal');
-        }, 1200);
+    // 1. Handler event & Auto-Capture Foto Awal (akan retry setiap 3.5 detik sampai sukses tersimpan)
+    let initialRetryInterval: NodeJS.Timeout | null = null;
+    const runInitialCapture = async () => {
+      if (isP1Done()) {
+        if (initialRetryInterval) clearInterval(initialRetryInterval);
+        return;
       }
+      const success = await capturePhoto('camera_awal');
+      if (success && initialRetryInterval) {
+        clearInterval(initialRetryInterval);
+      }
+    };
+
+    const handleInitialTrigger = () => {
+      runInitialCapture();
     };
 
     window.addEventListener('cbt:trigger-initial-photo', handleInitialTrigger);
 
-    // Cek jika timestamp awal sudah ada tapi belum sempat ter-capture
-    const photo1Time = localStorage.getItem(p1TimeKey) || localStorage.getItem('cbt_photo1_timestamp');
-    if (photo1Time && !isP1Done()) {
-      localStorage.setItem(p1DoneKey, 'true');
-      localStorage.setItem('cbt_photo1_done', 'true');
-      setTimeout(() => {
-        capturePhoto('camera_awal');
-      }, 1500);
+    if (!isP1Done()) {
+      setTimeout(runInitialCapture, 1000);
+      initialRetryInterval = setInterval(runInitialCapture, 3500);
     }
 
-    // Timer checker untuk Foto ke-2 (HANYA 1X tepat saat mencapai 10 Menit setelah start)
+    // 2. Timer checker untuk Foto ke-2 (HANYA 1X tepat saat mencapai 10 Menit setelah start)
     let timerChecker: NodeJS.Timeout | null = null;
     if (!isP2Done()) {
-      timerChecker = setInterval(() => {
-        const p1TimeStr = localStorage.getItem(p1TimeKey) || localStorage.getItem('cbt_photo1_timestamp');
+      timerChecker = setInterval(async () => {
         if (isP2Done()) {
           if (timerChecker) clearInterval(timerChecker);
           return;
         }
 
+        const p1TimeStr = localStorage.getItem(p1TimeKey) || localStorage.getItem('cbt_photo1_timestamp');
         if (p1TimeStr) {
           const p1Time = parseInt(p1TimeStr, 10);
           if (!isNaN(p1Time)) {
             const elapsed = Date.now() - p1Time;
             // Tepat saat elapsed >= 10 menit (600,000 ms) -> ambil 1x saja lalu stop timer
             if (elapsed >= 10 * 60 * 1000) {
-              localStorage.setItem(p2DoneKey, 'true');
-              localStorage.setItem('cbt_photo2_done', 'true');
-              if (timerChecker) clearInterval(timerChecker);
-              capturePhoto('camera_10min');
+              const success = await capturePhoto('camera_10min');
+              if (success && timerChecker) {
+                clearInterval(timerChecker);
+              }
             }
           }
         }
@@ -775,6 +835,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
     return () => {
       window.removeEventListener('cbt:trigger-initial-photo', handleInitialTrigger);
+      if (initialRetryInterval) clearInterval(initialRetryInterval);
       if (timerChecker) clearInterval(timerChecker);
     };
   }, [participantId, webcamActive]);
