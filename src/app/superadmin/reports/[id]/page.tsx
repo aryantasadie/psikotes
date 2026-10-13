@@ -1241,10 +1241,11 @@ export default function ReportDetailPage() {
             }
 
             let isCorrect = false;
-            if (ans.question.correct) {
-              isCorrect = checkAnswerMatch(ans.selectedOption, ans.question.correct, selectedTest);
+            const correctKey = ans?.question?.correct || q?.correct;
+            if (correctKey) {
+              isCorrect = checkAnswerMatch(ans.selectedOption, correctKey, selectedTest);
             }
-            const hasKey = !!ans.question.correct;
+            const hasKey = !!correctKey;
             
             let bgColor = '#F1F5F9';
             let borderColor = '#E2E8F0';
@@ -1267,19 +1268,19 @@ export default function ReportDetailPage() {
             
             if (selectedTest === 'DISC') {
               try {
-                const parsed = JSON.parse(displayAnswer);
+                const parsed = typeof displayAnswer === 'string' ? JSON.parse(displayAnswer) : displayAnswer;
                 const qNum = idx + 1;
-                const rawMost = parsed.most;
-                const rawLeast = parsed.least;
+                const rawMost = parsed?.most;
+                const rawLeast = parsed?.least;
                 
                 let convMost = rawMost;
                 let convLeast = rawLeast;
                 
                 if (discScoringKeys[qNum]) {
-                  const mappedMost = discScoringKeys[qNum].most[rawMost];
+                  const mappedMost = discScoringKeys[qNum].most?.[rawMost];
                   if (mappedMost) convMost = mappedMost === 'B' ? '*' : mappedMost;
                   
-                  const mappedLeast = discScoringKeys[qNum].least[rawLeast];
+                  const mappedLeast = discScoringKeys[qNum].least?.[rawLeast];
                   if (mappedLeast) convLeast = mappedLeast === 'B' ? '*' : mappedLeast;
                 }
                 
@@ -1293,20 +1294,26 @@ export default function ReportDetailPage() {
                 // Fallback for old single-row DISC answers if any
               }
             } else {
-              let parsedAns = displayAnswer;
-              let parsedKey = ans.question.correct || '';
+              let parsedAns = displayAnswer !== undefined && displayAnswer !== null ? String(displayAnswer) : '';
+              let parsedKey = correctKey ? String(correctKey) : '';
               
-              if (typeof parsedAns === 'string' && parsedAns.startsWith('[')) {
-                try { parsedAns = JSON.parse(parsedAns).join(', '); } catch(e) {}
+              if (parsedAns.startsWith('[')) {
+                try {
+                  const arr = JSON.parse(parsedAns);
+                  parsedAns = Array.isArray(arr) ? arr.join(', ') : parsedAns;
+                } catch(e) {}
               }
-              if (typeof parsedKey === 'string' && parsedKey.startsWith('[')) {
-                try { parsedKey = JSON.parse(parsedKey).join(', '); } catch(e) {}
+              if (parsedKey.startsWith('[')) {
+                try {
+                  const arr = JSON.parse(parsedKey);
+                  parsedKey = Array.isArray(arr) ? arr.join(', ') : parsedKey;
+                } catch(e) {}
               }
 
               if (parsedKey) {
-                displayAnswer = `${parsedAns} / ${parsedKey}`;
+                displayAnswer = `${parsedAns || '-'} / ${parsedKey}`;
               } else {
-                displayAnswer = parsedAns;
+                displayAnswer = parsedAns || '-';
               }
               
               if (typeof displayAnswer === 'string') {
@@ -2723,46 +2730,23 @@ export default function ReportDetailPage() {
               {renderPrintableHeader()}
 
               {(() => {
-                if (selectedTest.startsWith('TIKI') || selectedTest === 'WPT' || selectedTest.startsWith('IST') || selectedTest.startsWith('CFIT') || selectedTest === 'DISC' || selectedTest.startsWith('PAPI')) {
-                  let rawScore = 0;
-                  questions.forEach(q => {
-                    const ans = currentAnswers.find((a: any) => a.questionId === q.id);
-                    let displayAnswer = '-';
-                    let isCorrect = false;
-                    let displayKey = '-';
+                let rawScore = 0;
+                questions.forEach(q => {
+                  const ans = currentAnswers.find((a: any) => a.questionId === q.id);
+                  let isCorrect = false;
 
-                    if (ans) {
-                      if (ans.selectedOption.startsWith('[')) {
-                        try {
-                          const arr = JSON.parse(ans.selectedOption);
-                          displayAnswer = arr.join(', ');
-                        } catch {
-                          displayAnswer = ans.selectedOption;
-                        }
-                      } else {
-                        displayAnswer = ans.selectedOption;
-                      }
-
-                      if (ans.question.correct) {
-                        if (ans.question.correct.startsWith('[')) {
-                          try {
-                            const arr = JSON.parse(ans.question.correct);
-                            displayKey = arr.join(', ');
-                          } catch {
-                            displayKey = ans.question.correct;
-                          }
-                        } else {
-                          displayKey = ans.question.correct;
-                        }
-
-                        isCorrect = checkAnswerMatch(ans.selectedOption, ans.question.correct, selectedTest);
-                      }
+                  if (ans) {
+                    const selOpt = ans.selectedOption !== undefined && ans.selectedOption !== null ? String(ans.selectedOption) : '';
+                    const corKey = (ans.question?.correct || q.correct) ? String(ans.question?.correct || q.correct) : '';
+                    if (corKey) {
+                      isCorrect = checkAnswerMatch(selOpt, corKey, selectedTest);
                     }
-                    
-                    if (isCorrect) rawScore++;
-                  });
+                  }
+                  
+                  if (isCorrect) rawScore++;
+                });
 
-                  if (selectedTest.startsWith('TIKI')) {
+                if (selectedTest.startsWith('TIKI')) {
                     let stdScore = 0;
                     if (selectedTest === 'TIKI 1') stdScore = getTiki1Norm(rawScore);
                     else if (selectedTest === 'TIKI 2') stdScore = getTiki2Norm(rawScore);
@@ -3496,9 +3480,7 @@ export default function ReportDetailPage() {
                       </div>
                     );
                   }
-                }
-                return null;
-              })()}
+                })()}
 
               {renderPrintableFooter()}
             </div>
