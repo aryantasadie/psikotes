@@ -419,6 +419,178 @@ export default function ReportDetailPage() {
   const [psychologistSipp, setPsychologistSipp] = useState('');
   const [signatureUrl, setSignatureUrl] = useState('');
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const handleDownloadTestResultPdf = async () => {
+    const cardElem = document.getElementById('printable-test-card');
+    if (!cardElem) {
+      alert('Elemen hasil tes tidak ditemukan untuk diunduh.');
+      return;
+    }
+
+    setGeneratingPdf(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const html2canvas = (await import('html2canvas')).default;
+
+      const canvas = await html2canvas(cardElem, {
+        scale: 2.2,
+        useCORS: true,
+        backgroundColor: '#FFFFFF',
+        logging: false,
+        windowWidth: 1280
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      const aspectRatio = canvasWidth / canvasHeight;
+
+      // Use Landscape for wide curves (Kraepelin curve, DISC 3 graphs)
+      const isLandscape = aspectRatio > 1.15;
+      const pdf = new jsPDF({
+        orientation: isLandscape ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
+
+      const pageWidth = isLandscape ? 297 : 210;
+      const pageHeight = isLandscape ? 210 : 297;
+      const margin = 10;
+      const usableWidth = pageWidth - (margin * 2);
+      const usableHeight = pageHeight - (margin * 2);
+
+      const fitHeight = (canvasHeight * usableWidth) / canvasWidth;
+
+      if (fitHeight <= usableHeight) {
+        // Fits perfectly on a single page
+        const xOffset = margin;
+        const yOffset = margin + (usableHeight - fitHeight) / 2;
+        pdf.addImage(imgData, 'JPEG', xOffset, yOffset, usableWidth, fitHeight);
+      } else if (fitHeight <= usableHeight * 1.25) {
+        // Slightly taller: scale down cleanly so it fits on 1 page without cutting off
+        const scale = usableHeight / fitHeight;
+        const scaledWidth = usableWidth * scale;
+        const xOffset = margin + (usableWidth - scaledWidth) / 2;
+        pdf.addImage(imgData, 'JPEG', xOffset, margin, scaledWidth, usableHeight);
+      } else {
+        // Multi-page clean split
+        let heightLeft = fitHeight;
+        let yPosition = margin;
+        let page = 0;
+
+        while (heightLeft > 0) {
+          if (page > 0) {
+            pdf.addPage();
+          }
+          pdf.addImage(imgData, 'JPEG', margin, yPosition, usableWidth, fitHeight);
+          heightLeft -= usableHeight;
+          yPosition -= usableHeight;
+          page++;
+        }
+      }
+
+      const cleanCandidate = (participant.user?.name || 'Peserta').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const cleanTest = selectedTest.replace(/[^a-zA-Z0-9_-]/g, '_');
+      pdf.save(`Hasil_${cleanTest}_${cleanCandidate}.pdf`);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert('Terjadi kesalahan saat memproses file PDF.');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
+  const renderPrintableHeader = () => (
+    <div style={{ borderBottom: '2px solid #2563EB', paddingBottom: '14px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ 
+            background: 'linear-gradient(135deg, #1E3A8A, #2563EB)', 
+            color: 'white', 
+            fontWeight: 900, 
+            fontSize: '16px', 
+            padding: '6px 14px', 
+            borderRadius: '6px',
+            letterSpacing: '0.5px' 
+          }}>
+            HR PUBLIK
+          </div>
+          <div>
+            <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              Assessment & Psychological Testing Center
+            </div>
+            <div style={{ fontSize: '17px', fontWeight: 800, color: '#0F172A' }}>
+              LAPORAN HASIL TES: {selectedTest.toUpperCase()}
+            </div>
+          </div>
+        </div>
+        <div>
+          <span style={{ 
+            display: 'inline-block',
+            background: '#EFF6FF', 
+            color: '#1D4ED8', 
+            border: '1px solid #BFDBFE',
+            padding: '4px 12px', 
+            borderRadius: '16px', 
+            fontSize: '11px', 
+            fontWeight: 700 
+          }}>
+            Dokumen Resmi CBT
+          </span>
+        </div>
+      </div>
+
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+        gap: '10px', 
+        background: '#F8FAFC', 
+        padding: '10px 14px', 
+        borderRadius: '8px', 
+        border: '1px solid #E2E8F0' 
+      }}>
+        <div>
+          <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Nama Kandidat</div>
+          <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>{participant.user?.name || '-'}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Username / ID</div>
+          <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>{participant.user?.username || participant.user?.email || '-'}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Posisi / Jadwal</div>
+          <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
+            {participant.test?.title?.split('-')[0]?.trim() || participant.jobPosition?.name || participant.test?.jobPosition?.name || 'Umum'}
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Waktu Ujian</div>
+          <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
+            {participant.startTime ? new Date(participant.startTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPrintableFooter = () => (
+    <div style={{ 
+      marginTop: '20px', 
+      paddingTop: '10px', 
+      borderTop: '1px solid #E2E8F0', 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      fontSize: '10.5px', 
+      color: '#94A3B8' 
+    }}>
+      <div>HR PUBLIK &bull; CBT Assessment System &bull; Dokumen Hasil Terverifikasi</div>
+      <div>Dicetak pada: {new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} WIB</div>
+    </div>
+  );
+
 
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1013,8 +1185,269 @@ export default function ReportDetailPage() {
     setSavingReview(false);
   };
 
-  return (
+  const renderQuestionAnswersGrid = () => {
+    if (questions.length === 0) return null;
+    return (
+      <div style={{ background: '#FFFFFF', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 2px 4px rgba(0,0,0,0.03)', marginTop: '2rem' }}>
+        <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1E293B', marginBottom: '1rem' }}>
+          Rincian Lembar Jawaban ({questions.length} Soal)
+        </h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '1rem' }}>
+          {questions.map((q: any, idx: number) => {
+            const ans = currentAnswers.find((a: any) => a.questionId === q.id);
+            
+            if (!ans) {
+              const hasKey = !!q.correct;
+              let emptyBg = '#F8FAFC';
+              let emptyBorder = '1px dashed #CBD5E1';
+              let emptyColor = '#CBD5E1';
 
+              if (hasKey) {
+                emptyBg = '#FDE8E8';
+                emptyBorder = '1px solid #F8B4B4';
+                emptyColor = '#9B1C1C';
+              }
+
+              let displayKey = '-';
+              if (hasKey) {
+                try {
+                  if (q.correct.startsWith('[')) {
+                    displayKey = JSON.parse(q.correct).join(', ');
+                  } else {
+                    displayKey = q.correct;
+                  }
+                } catch {
+                  displayKey = q.correct;
+                }
+              }
+              const displayContent = hasKey ? `- / ${displayKey}` : '-';
+
+              return (
+                <div key={q.id} style={{ 
+                  background: emptyBg, 
+                  border: emptyBorder,
+                  borderRadius: '8px', 
+                  padding: '0.75rem', 
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  minHeight: '80px'
+                }}>
+                  <div style={{ fontSize: '0.75rem', color: hasKey ? '#9B1C1C' : '#94A3B8', marginBottom: '0.25rem', fontWeight: 600 }}>Soal {idx + 1}</div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: emptyColor }}>{displayContent}</div>
+                </div>
+              );
+            }
+
+            let isCorrect = false;
+            if (ans.question.correct) {
+              isCorrect = checkAnswerMatch(ans.selectedOption, ans.question.correct, selectedTest);
+            }
+            const hasKey = !!ans.question.correct;
+            
+            let bgColor = '#F1F5F9';
+            let borderColor = '#E2E8F0';
+            let textColor = '#1E293B';
+
+            if (hasKey) {
+              if (isCorrect) {
+                bgColor = '#DEF7EC';
+                borderColor = '#31C48D';
+                textColor = '#03543F';
+              } else {
+                bgColor = '#FDE8E8';
+                borderColor = '#F8B4B4';
+                textColor = '#9B1C1C';
+              }
+            }
+
+            let displayAnswer: any = ans.selectedOption;
+            let isLong = false;
+            
+            if (selectedTest === 'DISC') {
+              try {
+                const parsed = JSON.parse(displayAnswer);
+                const qNum = idx + 1;
+                const rawMost = parsed.most;
+                const rawLeast = parsed.least;
+                
+                let convMost = rawMost;
+                let convLeast = rawLeast;
+                
+                if (discScoringKeys[qNum]) {
+                  const mappedMost = discScoringKeys[qNum].most[rawMost];
+                  if (mappedMost) convMost = mappedMost === 'B' ? '*' : mappedMost;
+                  
+                  const mappedLeast = discScoringKeys[qNum].least[rawLeast];
+                  if (mappedLeast) convLeast = mappedLeast === 'B' ? '*' : mappedLeast;
+                }
+                
+                displayAnswer = (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '1rem', marginTop: '4px' }}>
+                    <div style={{ background: '#E0F2FE', padding: '4px 8px', borderRadius: '4px', color: '#0369A1' }}>M: <strong>{convMost || '-'}</strong></div>
+                    <div style={{ background: '#FEE2E2', padding: '4px 8px', borderRadius: '4px', color: '#B91C1C' }}>L: <strong>{convLeast || '-'}</strong></div>
+                  </div>
+                );
+              } catch(e) {
+                // Fallback for old single-row DISC answers if any
+              }
+            } else {
+              let parsedAns = displayAnswer;
+              let parsedKey = ans.question.correct || '';
+              
+              if (typeof parsedAns === 'string' && parsedAns.startsWith('[')) {
+                try { parsedAns = JSON.parse(parsedAns).join(', '); } catch(e) {}
+              }
+              if (typeof parsedKey === 'string' && parsedKey.startsWith('[')) {
+                try { parsedKey = JSON.parse(parsedKey).join(', '); } catch(e) {}
+              }
+
+              if (parsedKey) {
+                displayAnswer = `${parsedAns} / ${parsedKey}`;
+              } else {
+                displayAnswer = parsedAns;
+              }
+              
+              if (typeof displayAnswer === 'string') {
+                isLong = displayAnswer.length > 8;
+              }
+            }
+
+            return (
+              <div key={ans.id} style={{ 
+                background: bgColor, 
+                border: `1px solid ${borderColor}`,
+                borderRadius: '8px', 
+                padding: '0.75rem', 
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                minHeight: '80px'
+              }}>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', marginBottom: '0.4rem', fontWeight: 600 }}>Soal {idx + 1}</div>
+                <div style={{ 
+                  fontSize: isLong ? '0.85rem' : '1.1rem', 
+                  fontWeight: 700, 
+                  color: textColor,
+                  wordBreak: 'break-word',
+                  lineHeight: '1.3'
+                }}>
+                  {displayAnswer}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderPapiNormTable = () => {
+    if (!selectedTest.startsWith('PAPI')) return null;
+    const scores: Record<string, number> = { N: 0, G: 0, A: 0, L: 0, P: 0, I: 0, T: 0, V: 0, X: 0, S: 0, B: 0, O: 0, R: 0, D: 0, C: 0, Z: 0, E: 0, K: 0, F: 0, W: 0 };
+    questions.forEach((q: any, idx: number) => {
+      const ans = currentAnswers.find((a: any) => a.questionId === q.id);
+      if (ans) {
+        try {
+          const parsed = JSON.parse(ans.selectedOption);
+          const qNum = idx + 1;
+          if (papiScoringKeys[qNum]) {
+            let choice = '';
+            if (parsed === 'A' || parsed === 'B') choice = parsed;
+            else if (parsed.answer) choice = parsed.answer;
+            else if (parsed.selectedOption) choice = parsed.selectedOption;
+            else if (typeof parsed === 'string') choice = parsed;
+
+            if (choice === 'A' && papiScoringKeys[qNum].A) scores[papiScoringKeys[qNum].A]++;
+            else if (choice === 'B' && papiScoringKeys[qNum].B) scores[papiScoringKeys[qNum].B]++;
+          }
+        } catch(e) {
+          const qNum = idx + 1;
+          const choice = ans.selectedOption;
+          if (papiScoringKeys[qNum]) {
+            if (choice === 'A' && papiScoringKeys[qNum].A) scores[papiScoringKeys[qNum].A]++;
+            else if (choice === 'B' && papiScoringKeys[qNum].B) scores[papiScoringKeys[qNum].B]++;
+          }
+        }
+      }
+    });
+
+    const getPapiNorm = (trait: string, score: number) => {
+      if (trait === 'L' || trait === 'P') return score <= 4 ? '2-' : score <= 7 ? '3' : score === 8 ? '4' : '5';
+      if (trait === 'I') return score <= 2 ? '2-' : score <= 5 ? '3' : score === 6 ? '4' : score === 7 ? '5' : '2+';
+      if (trait === 'C') return score <= 2 ? '2-' : score === 3 ? '3' : score === 4 ? '4' : score === 5 ? '5' : '2+';
+      if (trait === 'D') return score <= 3 ? '2-' : score <= 6 ? '3' : score === 8 ? '4' : '5';
+      if (trait === 'R') return score <= 4 ? 'P' : 'T';
+      if (trait === 'N' || trait === 'A') return score <= 2 ? '2-' : score <= 5 ? '3' : score === 8 ? '4' : '5';
+      if (trait === 'G') return score <= 2 ? '2-' : score <= 5 ? '3' : score === 6 ? '4' : score === 7 ? '5' : '2+';
+      if (trait === 'F') return score <= 1 ? '2-' : score <= 3 ? '3' : score === 4 ? '4' : score === 5 ? '5' : '2+';
+      if (trait === 'W') return score <= 4 ? '2-' : score <= 7 ? '3' : score === 8 ? '4' : '5';
+      if (trait === 'T') return score <= 3 ? '2-' : score === 4 ? '3' : score === 5 ? '4' : score === 6 ? '5' : '2+';
+      if (trait === 'V') return score <= 4 ? '2-' : score <= 7 ? '3' : score === 8 ? '4' : '5';
+      if (trait === 'Z') return score <= 2 ? '2-' : score <= 5 ? '3' : score === 6 ? '4' : score === 7 ? '5' : '2+';
+      if (trait === 'E') return score <= 1 ? '2-' : score <= 4 ? '3' : score === 5 ? '4' : score === 6 ? '5' : '2+';
+      if (trait === 'K') return score <= 2 ? '2-' : score === 3 ? '5' : score === 4 ? '4' : score <= 7 ? '3' : '2+';
+      if (trait === 'X') return score <= 1 ? '2-' : score <= 3 ? '3' : score === 4 ? '4' : score === 5 ? '5' : '2+';
+      if (trait === 'S') return score <= 5 ? '2-' : score <= 7 ? '3' : score === 8 ? '4' : '5';
+      if (trait === 'B' || trait === 'O') return score <= 2 ? '2-' : score === 3 ? '3' : score === 4 ? '4' : score === 5 ? '5' : '2+';
+      return '-';
+    };
+
+    const papiOrder = ['N', 'G', 'A', 'L', 'P', 'I', 'T', 'V', 'X', 'S', 'B', 'O', 'R', 'D', 'C', 'Z', 'E', 'K', 'F', 'W'];
+    const papiLabels: Record<string, string> = {
+      N: 'Menyelesaikan Tugas Pribadi', G: 'Peranan Sbg Pekerja Keras', A: 'Hasrat untuk Berprestasi',
+      L: 'Peranan Sbg Pemimpin', P: 'Mengendalikan Orang Lain', I: 'Mudah Membuat Keputusan',
+      T: 'Tempo Kerja', V: 'Stamina', S: 'Pergaulan Luas', B: 'Kebutuhan Terhadap Kelompok',
+      O: 'Kebutuhan utk Mendekati dan Menyayangi', X: 'Mendapatkan Perhatian',
+      C: 'Suka Pekerjaan yang Teratur', D: 'Suka Pekerjaan yang Terperinci', R: 'Tipe Teoritis',
+      Z: 'Hasrat untuk Berubah', E: 'Pengendalian Emosi', K: 'Agresifitas',
+      F: 'Dukungan utk Atasan', W: 'Kebutuhan utk Taat Aturan dan Arahan'
+    };
+
+    return (
+      <div style={{ background: 'white', padding: '2rem', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', marginBottom: '2rem', border: '1px solid #E2E8F0' }}>
+        <h3 style={{ margin: '0 0 1.5rem 0', color: '#1E293B', fontSize: '1.25rem', fontWeight: 800 }}>Tabel Konversi Norma PAPI Kostick</h3>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: '#F1F5F9', borderBottom: '2px solid #E2E8F0' }}>
+                <th style={{ padding: '1rem', color: '#475569', fontWeight: 600, fontSize: '0.85rem', textTransform: 'uppercase' }}>Kode</th>
+                <th style={{ padding: '1rem', color: '#475569', fontWeight: 600, fontSize: '0.85rem', textTransform: 'uppercase' }}>Aspek</th>
+                <th style={{ padding: '1rem', color: '#475569', fontWeight: 600, fontSize: '0.85rem', textTransform: 'uppercase', textAlign: 'center' }}>Skor Mentah</th>
+                <th style={{ padding: '1rem', color: '#475569', fontWeight: 600, fontSize: '0.85rem', textTransform: 'uppercase', textAlign: 'center' }}>Norma</th>
+              </tr>
+            </thead>
+            <tbody>
+              {papiOrder.map((trait, idx) => (
+                <tr key={trait} style={{ borderBottom: '1px solid #E2E8F0', background: idx % 2 === 0 ? 'white' : '#FAFAFA' }}>
+                  <td style={{ padding: '1rem', fontWeight: 700, color: '#334155' }}>{trait}</td>
+                  <td style={{ padding: '1rem', color: '#64748B', fontWeight: 500 }}>{papiLabels[trait] || trait}</td>
+                  <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, color: '#0F172A', fontSize: '1.1rem' }}>{scores[trait]}</td>
+                  <td style={{ padding: '1rem', textAlign: 'center' }}>
+                    <span style={{ 
+                      background: '#E0E7FF', 
+                      color: '#4338CA',
+                      border: '1px solid #C7D2FE',
+                      borderRadius: '8px',
+                      padding: '4px 12px',
+                      fontSize: '0.9rem',
+                      fontWeight: 800 
+                    }}>
+                      {getPapiNorm(trait, scores[trait])}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  return (
     <div className="section" style={{ padding: '2rem' }}>
       <div className="section-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
@@ -1652,9 +2085,45 @@ export default function ReportDetailPage() {
         </div>
       ) : (
 <div className="card" style={{ background: '#fff', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#1E293B', marginBottom: '1rem' }}>
-          Jawaban Ujian {selectedTest}
-        </h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', margin: 0 }}>
+              Hasil & Lembar Ujian: {selectedTest}
+            </h3>
+            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748B' }}>
+              Ringkasan skor eksekutif dan lembar hasil resmi untuk modul {selectedTest}.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleDownloadTestResultPdf}
+            disabled={generatingPdf}
+            style={{
+              background: generatingPdf ? '#94A3B8' : 'linear-gradient(135deg, #1E40AF, #2563EB)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '10px 20px',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: generatingPdf ? 'wait' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.25)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <polyline points="9 15 12 18 15 15" />
+            </svg>
+            <span>{generatingPdf ? 'Sedang Membuat PDF...' : `Download PDF Hasil ${selectedTest}`}</span>
+          </button>
+        </div>
         
         {selectedTest.toUpperCase().includes('KRAEPELIN') || selectedTest.toUpperCase().includes('KREAPELIN') ? (
           (() => {
@@ -1701,8 +2170,12 @@ export default function ReportDetailPage() {
             return (
               <div style={{ animation: 'fadeIn 0.3s ease-in-out', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                 
-                {/* Summary Cards: PANKER, TINKER, JANKER, HANKER */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                {/* Executive Result Section (Captured into PDF) */}
+                <div id="printable-test-card" style={{ background: '#FFFFFF', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                  {renderPrintableHeader()}
+
+                  {/* Summary Cards: PANKER, TINKER, JANKER, HANKER */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
                   {[
                     { title: 'PANKER (Kecepatan Kerja)', raw: pankerRaw, norm: pankerNorm },
                     { title: 'TINKER (Ketelitian Error)', raw: `${tinkerRaw} Error`, norm: tinkerNorm },
@@ -1902,6 +2375,9 @@ export default function ReportDetailPage() {
                     })()}
                   </div>
                 </div>
+
+                {renderPrintableFooter()}
+              </div>
 
                 {/* Column Details Table & Detailed Equation Inspector */}
                 <div style={{ background: '#FFFFFF', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
@@ -2211,26 +2687,30 @@ export default function ReportDetailPage() {
               else if (!toHigh && !roHigh && eHigh) managementStyle = "Bureaucrat";
               else if (!toHigh && !roHigh && !eHigh) managementStyle = "Deserter";
               return (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-                  <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '8px', padding: '1rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.85rem', color: '#1E3A8A', fontWeight: 600, marginBottom: '0.5rem' }}>TO (Task Orientation)</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1D4ED8' }}>{toScore}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#3B82F6', marginTop: '0.25rem' }}>Col 3 + 4 + 7 + 8</div>
+                <div id="printable-test-card" style={{ background: '#FFFFFF', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', marginBottom: '2rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                  {renderPrintableHeader()}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                    <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '8px', padding: '1rem', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.85rem', color: '#1E3A8A', fontWeight: 600, marginBottom: '0.5rem' }}>TO (Task Orientation)</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1D4ED8' }}>{toScore}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#3B82F6', marginTop: '0.25rem' }}>Col 3 + 4 + 7 + 8</div>
+                    </div>
+                    <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '1rem', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.85rem', color: '#14532D', fontWeight: 600, marginBottom: '0.5rem' }}>RO (Relationship)</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#15803D' }}>{roScore}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#22C55E', marginTop: '0.25rem' }}>Col 2 + 4 + 6 + 8</div>
+                    </div>
+                    <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '1rem', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.85rem', color: '#7F1D1D', fontWeight: 600, marginBottom: '0.5rem' }}>E (Effectiveness)</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#B91C1C' }}>{eScore}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#EF4444', marginTop: '0.25rem' }}>Col 5 + 6 + 7 + 8</div>
+                    </div>
+                    <div style={{ background: '#F8FAFC', border: '2px dashed #94A3B8', borderRadius: '8px', padding: '1rem', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                      <div style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600, marginBottom: '0.5rem' }}>Kesimpulan Gaya Dominan</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>{managementStyle}</div>
+                    </div>
                   </div>
-                  <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '1rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.85rem', color: '#14532D', fontWeight: 600, marginBottom: '0.5rem' }}>RO (Relationship)</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#15803D' }}>{roScore}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#22C55E', marginTop: '0.25rem' }}>Col 2 + 4 + 6 + 8</div>
-                  </div>
-                  <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '1rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.85rem', color: '#7F1D1D', fontWeight: 600, marginBottom: '0.5rem' }}>E (Effectiveness)</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#B91C1C' }}>{eScore}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#EF4444', marginTop: '0.25rem' }}>Col 5 + 6 + 7 + 8</div>
-                  </div>
-                  <div style={{ background: '#F8FAFC', border: '2px dashed #94A3B8', borderRadius: '8px', padding: '1rem', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                    <div style={{ fontSize: '0.85rem', color: '#475569', fontWeight: 600, marginBottom: '0.5rem' }}>Kesimpulan Gaya Dominan</div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>{managementStyle}</div>
-                  </div>
+                  {renderPrintableFooter()}
                 </div>
               );
             })()}
@@ -2238,158 +2718,12 @@ export default function ReportDetailPage() {
           </div>
         ) : (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '1rem' }}>
-            {questions.map((q: any, idx: number) => {
-              const ans = currentAnswers.find((a: any) => a.questionId === q.id);
-              
-              if (!ans) {
-                const hasKey = !!q.correct;
-                let emptyBg = '#F8FAFC';
-                let emptyBorder = '1px dashed #CBD5E1';
-                let emptyColor = '#CBD5E1';
+            {/* Executive Result Section (Captured into PDF) */}
+            <div id="printable-test-card" style={{ background: '#FFFFFF', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', marginBottom: '2rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+              {renderPrintableHeader()}
 
-                if (hasKey) {
-                  // Jika kosong tapi ada kuncinya, beri warna merah (salah)
-                  emptyBg = '#FDE8E8';
-                  emptyBorder = '1px solid #F8B4B4';
-                  emptyColor = '#9B1C1C';
-                }
-
-                let displayKey = '-';
-                if (hasKey) {
-                  try {
-                    if (q.correct.startsWith('[')) {
-                      displayKey = JSON.parse(q.correct).join(', ');
-                    } else {
-                      displayKey = q.correct;
-                    }
-                  } catch {
-                    displayKey = q.correct;
-                  }
-                }
-                const displayContent = hasKey ? `- / ${displayKey}` : '-';
-
-                return (
-                  <div key={q.id} style={{ 
-                    background: emptyBg, 
-                    border: emptyBorder,
-                    borderRadius: '8px', 
-                    padding: '0.75rem', 
-                    textAlign: 'center',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    minHeight: '80px'
-                  }}>
-                    <div style={{ fontSize: '0.75rem', color: hasKey ? '#9B1C1C' : '#94A3B8', marginBottom: '0.25rem', fontWeight: 600 }}>Soal {idx + 1}</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: emptyColor }}>{displayContent}</div>
-                  </div>
-                );
-              }
-
-              let isCorrect = false;
-              if (ans.question.correct) {
-                isCorrect = checkAnswerMatch(ans.selectedOption, ans.question.correct, selectedTest);
-              }
-              const hasKey = !!ans.question.correct;
-              
-              let bgColor = '#F1F5F9';
-              let borderColor = '#E2E8F0';
-              let textColor = '#1E293B';
-
-              if (hasKey) {
-                if (isCorrect) {
-                  bgColor = '#DEF7EC';
-                  borderColor = '#31C48D';
-                  textColor = '#03543F';
-                } else {
-                  bgColor = '#FDE8E8';
-                  borderColor = '#F8B4B4';
-                  textColor = '#9B1C1C';
-                }
-              }
-
-              let displayAnswer: any = ans.selectedOption;
-              let isLong = false;
-              
-              if (selectedTest === 'DISC') {
-                try {
-                  const parsed = JSON.parse(displayAnswer);
-                  const qNum = idx + 1;
-                  const rawMost = parsed.most;
-                  const rawLeast = parsed.least;
-                  
-                  let convMost = rawMost;
-                  let convLeast = rawLeast;
-                  
-                  if (discScoringKeys[qNum]) {
-                    const mappedMost = discScoringKeys[qNum].most[rawMost];
-                    if (mappedMost) convMost = mappedMost === 'B' ? '*' : mappedMost;
-                    
-                    const mappedLeast = discScoringKeys[qNum].least[rawLeast];
-                    if (mappedLeast) convLeast = mappedLeast === 'B' ? '*' : mappedLeast;
-                  }
-                  
-                  displayAnswer = (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '1rem', marginTop: '4px' }}>
-                      <div style={{ background: '#E0F2FE', padding: '4px 8px', borderRadius: '4px', color: '#0369A1' }}>M: <strong>{convMost || '-'}</strong></div>
-                      <div style={{ background: '#FEE2E2', padding: '4px 8px', borderRadius: '4px', color: '#B91C1C' }}>L: <strong>{convLeast || '-'}</strong></div>
-                    </div>
-                  );
-                } catch(e) {
-                  // Fallback for old single-row DISC answers if any
-                }
-              } else {
-                let parsedAns = displayAnswer;
-                let parsedKey = ans.question.correct || '';
-                
-                if (typeof parsedAns === 'string' && parsedAns.startsWith('[')) {
-                  try { parsedAns = JSON.parse(parsedAns).join(', '); } catch(e) {}
-                }
-                if (typeof parsedKey === 'string' && parsedKey.startsWith('[')) {
-                  try { parsedKey = JSON.parse(parsedKey).join(', '); } catch(e) {}
-                }
-
-                if (parsedKey) {
-                  displayAnswer = `${parsedAns} / ${parsedKey}`;
-                } else {
-                  displayAnswer = parsedAns;
-                }
-                
-                if (typeof displayAnswer === 'string') {
-                  isLong = displayAnswer.length > 8;
-                }
-              }
-
-              return (
-                <div key={ans.id} style={{ 
-                  background: bgColor, 
-                  border: `1px solid ${borderColor}`,
-                  borderRadius: '8px', 
-                  padding: '0.75rem', 
-                  textAlign: 'center',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  minHeight: '80px'
-                }}>
-                  <div style={{ fontSize: '0.75rem', color: '#64748B', marginBottom: '0.4rem', fontWeight: 600 }}>Soal {idx + 1}</div>
-                  <div style={{ 
-                    fontSize: isLong ? '0.85rem' : '1.1rem', 
-                    fontWeight: 700, 
-                    color: textColor,
-                    wordBreak: 'break-word',
-                    lineHeight: '1.3'
-                  }}>
-                    {displayAnswer}
-                  </div>
-                </div>
-              );
-            })}
-            </div>
-            
-             {(() => {
-                if (selectedTest.startsWith('TIKI') || selectedTest === 'WPT' || selectedTest.startsWith('IST') || selectedTest === 'DISC' || selectedTest.startsWith('PAPI')) {
+              {(() => {
+                if (selectedTest.startsWith('TIKI') || selectedTest === 'WPT' || selectedTest.startsWith('IST') || selectedTest.startsWith('CFIT') || selectedTest === 'DISC' || selectedTest.startsWith('PAPI')) {
                   let rawScore = 0;
                   questions.forEach(q => {
                     const ans = currentAnswers.find((a: any) => a.questionId === q.id);
@@ -2522,6 +2856,36 @@ export default function ReportDetailPage() {
                         <div style={{ flex: '1 1 200px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>
                           <div style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase' }}>WP IST</div>
                           <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A' }}>{wp}</div>
+                        </div>
+                        <div style={{ flex: '1 1 200px', background: cls.bg, border: `1px solid ${cls.color}40`, borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.85rem', color: cls.color, fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Klasifikasi</div>
+                          <div style={{ fontSize: '2.5rem', fontWeight: 800, color: cls.color }}>{cls.label}</div>
+                          <div style={{ fontSize: '0.95rem', color: cls.color, marginTop: '0.25rem', fontWeight: 600 }}>{cls.full}</div>
+                        </div>
+                      </div>
+                    );
+                  } else if (selectedTest.startsWith('CFIT')) {
+                    const pct = questions.length > 0 ? (rawScore / questions.length) : 0;
+                    let cls = { label: 'C', full: 'Cukup / Rata-rata', color: '#3B82F6', bg: '#EFF6FF' };
+                    if (pct >= 0.85) cls = { label: 'BS', full: 'Baik Sekali / Superior', color: '#22C55E', bg: '#F0FDF4' };
+                    else if (pct >= 0.70) cls = { label: 'B', full: 'Baik / Di Atas Rata-rata', color: '#10B981', bg: '#ECFDF5' };
+                    else if (pct >= 0.50) cls = { label: 'C', full: 'Cukup / Rata-rata', color: '#3B82F6', bg: '#EFF6FF' };
+                    else if (pct >= 0.35) cls = { label: 'K', full: 'Kurang / Rendah', color: '#F59E0B', bg: '#FFFBEB' };
+                    else cls = { label: 'KS', full: 'Kurang Sekali / Sangat Rendah', color: '#EF4444', bg: '#FEF2F2' };
+
+                    return (
+                      <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 200px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Skor Mentah</div>
+                          <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A' }}>{rawScore} <span style={{fontSize:'1.2rem', color:'#94A3B8', fontWeight: 500}}>/ {questions.length}</span></div>
+                          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', marginTop: '0.75rem' }}>
+                            <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, background: '#D1FAE5', padding: '4px 10px', borderRadius: '12px' }}>BENAR: {rawScore}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#B91C1C', fontWeight: 700, background: '#FEE2E2', padding: '4px 10px', borderRadius: '12px' }}>SALAH: {questions.length - rawScore}</span>
+                          </div>
+                        </div>
+                        <div style={{ flex: '1 1 200px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Akurasi Subtes</div>
+                          <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A' }}>{Math.round(pct * 100)}%</div>
                         </div>
                         <div style={{ flex: '1 1 200px', background: cls.bg, border: `1px solid ${cls.color}40`, borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>
                           <div style={{ fontSize: '0.85rem', color: cls.color, fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Klasifikasi</div>
@@ -3106,48 +3470,28 @@ export default function ReportDetailPage() {
                             ))}
                           </div>
                         </div>
-
-                        {/* Tabel Norma PAPI */}
-                        <div style={{ background: 'white', padding: '2rem', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', marginTop: '2rem' }}>
-                          <h3 style={{ margin: '0 0 1.5rem 0', color: '#1E293B', fontSize: '1.25rem' }}>Tabel Konversi Norma</h3>
-                          <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                              <thead>
-                                <tr style={{ background: '#F1F5F9', borderBottom: '2px solid #E2E8F0' }}>
-                                  <th style={{ padding: '1rem', color: '#475569', fontWeight: 600, fontSize: '0.85rem', textTransform: 'uppercase' }}>Kode</th>
-                                  <th style={{ padding: '1rem', color: '#475569', fontWeight: 600, fontSize: '0.85rem', textTransform: 'uppercase' }}>Aspek</th>
-                                  <th style={{ padding: '1rem', color: '#475569', fontWeight: 600, fontSize: '0.85rem', textTransform: 'uppercase', textAlign: 'center' }}>Skor Mentah</th>
-                                  <th style={{ padding: '1rem', color: '#475569', fontWeight: 600, fontSize: '0.85rem', textTransform: 'uppercase', textAlign: 'center' }}>Norma</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {papiOrder.map((trait, idx) => {
-                                  const labelData = papiWheel.find(p => p.trait === trait);
-                                  const label = labelData ? labelData.label.join(' ') : trait;
-                                                                    return (
-<tr key={trait} style={{ borderBottom: '1px solid #E2E8F0', background: idx % 2 === 0 ? 'white' : '#FAFAFA' }}>
-                                      <td style={{ padding: '1rem', fontWeight: 700, color: '#334155' }}>{trait}</td>
-                                      <td style={{ padding: '1rem', color: '#64748B', fontWeight: 500 }}>{label}</td>
-                                      <td style={{ padding: '1rem', textAlign: 'center', fontWeight: 700, color: '#0F172A', fontSize: '1.1rem' }}>{scores[trait]}</td>
-                                      <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                        <span style={{ 
-                                          background: '#E0E7FF', 
-                                          color: '#4338CA',
-                                          border: '1px solid #C7D2FE',
-                                          borderRadius: '8px',
-                                          padding: '4px 12px',
-                                          fontSize: '0.9rem',
-                                          fontWeight: 800 
-                                        }}>
-                                          {getPapiNorm(trait, scores[trait])}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
+                      </div>
+                    );
+                  } else {
+                    const pct = questions.length > 0 ? Math.round((rawScore / questions.length) * 100) : 0;
+                    return (
+                      <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 200px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Skor Mentah</div>
+                          <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A' }}>{rawScore} <span style={{fontSize:'1.2rem', color:'#94A3B8', fontWeight: 500}}>/ {questions.length}</span></div>
+                          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', marginTop: '0.75rem' }}>
+                            <span style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, background: '#D1FAE5', padding: '4px 10px', borderRadius: '12px' }}>BENAR: {rawScore}</span>
+                            <span style={{ fontSize: '0.75rem', color: '#B91C1C', fontWeight: 700, background: '#FEE2E2', padding: '4px 10px', borderRadius: '12px' }}>SALAH: {questions.length - rawScore}</span>
                           </div>
+                        </div>
+                        <div style={{ flex: '1 1 200px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Akurasi</div>
+                          <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0F172A' }}>{pct}%</div>
+                        </div>
+                        <div style={{ flex: '1 1 200px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '12px', padding: '1.5rem', textAlign: 'center' }}>
+                          <div style={{ fontSize: '0.85rem', color: '#166534', fontWeight: 600, marginBottom: '0.5rem', textTransform: 'uppercase' }}>Status</div>
+                          <div style={{ fontSize: '2rem', fontWeight: 800, color: '#166534' }}>Selesai</div>
+                          <div style={{ fontSize: '0.85rem', color: '#15803D', marginTop: '0.25rem', fontWeight: 600 }}>Tercatat di Sistem</div>
                         </div>
                       </div>
                     );
@@ -3155,8 +3499,17 @@ export default function ReportDetailPage() {
                 }
                 return null;
               })()}
+
+              {renderPrintableFooter()}
             </div>
-          )}
+
+            {/* Tabel Norma PAPI Kostick (Outside PDF, displayed on screen) */}
+            {renderPapiNormTable()}
+
+            {/* Rincian Lembar Jawaban (Outside PDF, displayed on screen) */}
+            {renderQuestionAnswersGrid()}
+          </div>
+        )}
         </div>
       )}
     </div>
