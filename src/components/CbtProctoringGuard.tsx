@@ -859,7 +859,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     };
   }, [participantId, webcamActive]);
 
-  // Live Stream Broadcast every 1.5s
+  // Live Stream Broadcast every 30s (in-memory only, not saved to disk/DB)
   useEffect(() => {
     const broadcastNow = async () => {
       try {
@@ -941,7 +941,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     };
 
     broadcastNow();
-    const streamInterval = setInterval(broadcastNow, 1500);
+    const streamInterval = setInterval(broadcastNow, 30000);
 
     const handleUnload = () => {
       const currentPId = participantId || (typeof window !== 'undefined' && localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : null);

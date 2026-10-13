@@ -80,7 +80,7 @@ function flushBatchUpdates() {
   }
 }
 
-export function getAllActiveStreams(maxAgeMs = 35000): StreamSession[] {
+export function getAllActiveStreams(maxAgeMs = 90000): StreamSession[] {
   const now = Date.now();
   const activeStreams: StreamSession[] = [];
 
