@@ -875,9 +875,13 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     };
   }, [participantId, webcamActive]);
 
-  // Live Stream Broadcast every 3s (in-memory only, not saved to disk/DB)
+  // Live Stream Broadcast every 0.5s / 500ms (in-memory only, not saved to disk/DB)
   useEffect(() => {
+    let isBroadcasting = false;
+
     const broadcastNow = async () => {
+      if (isBroadcasting) return;
+      isBroadcasting = true;
       try {
         const testeeName = sessionStorage.getItem('testee_name') || localStorage.getItem('testee_name') || undefined;
         const currentPId = participantId || (localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : (sessionStorage.getItem('current_participant_id') ? parseInt(sessionStorage.getItem('current_participant_id')!, 10) : null));
@@ -955,11 +959,14 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
             isPaused: isPaused
           })
         });
-      } catch (e) {}
+      } catch (e) {
+      } finally {
+        isBroadcasting = false;
+      }
     };
 
     broadcastNow();
-    const streamInterval = setInterval(broadcastNow, 3000);
+    const streamInterval = setInterval(broadcastNow, 500);
 
     const handleUnload = () => {
       const currentPId = participantId || (typeof window !== 'undefined' && localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : null);

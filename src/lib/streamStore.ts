@@ -62,12 +62,9 @@ export function updateStreamSession(session: StreamSession) {
   globalStreamStore.set(session.participantId, updated);
   pendingBatchMap.set(session.participantId, updated);
 
-  // Instantly emit single update for real-time focus view
-  streamEvents.emit('stream_update', updated);
-
-  // Schedule batch flush every 300ms
+  // Schedule batch flush every 150ms (prevents duplicate SSE payloads & batches concurrent updates)
   if (!batchTimer) {
-    batchTimer = setTimeout(flushBatchUpdates, 300);
+    batchTimer = setTimeout(flushBatchUpdates, 150);
   }
 }
 
@@ -80,7 +77,7 @@ function flushBatchUpdates() {
   }
 }
 
-export function getAllActiveStreams(maxAgeMs = 90000): StreamSession[] {
+export function getAllActiveStreams(maxAgeMs = 25000): StreamSession[] {
   const now = Date.now();
   const activeStreams: StreamSession[] = [];
 

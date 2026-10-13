@@ -22,7 +22,7 @@ export async function GET() {
   const stream = new ReadableStream({
     start(controller) {
       // 1. Send initial active streams batch immediately on connection
-      const initialStreams = getAllActiveStreams(90000);
+      const initialStreams = getAllActiveStreams(25000);
       const initialData = `data: ${JSON.stringify({ type: 'INIT', streams: initialStreams })}\n\n`;
       controller.enqueue(encoder.encode(initialData));
 

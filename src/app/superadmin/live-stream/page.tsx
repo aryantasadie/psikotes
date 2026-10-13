@@ -257,7 +257,7 @@ export default function MonitoringPesertaPage() {
         newMap.forEach((stream, pId) => {
           // Strictly verify that candidate is actively streaming/online right now
           const isOnline = Boolean(
-            stream.lastActive && (now - stream.lastActive <= 75000) &&
+            stream.lastActive && (now - stream.lastActive <= 25000) &&
             stream.status !== 'completed' &&
             stream.status !== 'stopped' &&
             stream.status !== 'offline'
@@ -284,11 +284,11 @@ export default function MonitoringPesertaPage() {
     return () => clearInterval(tickInterval);
   }, []);
 
-  // Strict Online Detector (heartbeat within 75s for 30s broadcast interval)
+  // Strict Online Detector (heartbeat within 25s for 0.5s broadcast interval)
   const isParticipantOnline = (p: ParticipantEntry | { lastActive?: number; cameraFrameUrl?: string | null; screenFrameUrl?: string | null; status?: string }): boolean => {
     if (p.status === 'completed' || p.status === 'stopped' || p.status === 'offline') return false;
     const now = nowTime;
-    if (p.lastActive && (now - p.lastActive <= 75000)) {
+    if (p.lastActive && (now - p.lastActive <= 25000)) {
       return true;
     }
     return false;

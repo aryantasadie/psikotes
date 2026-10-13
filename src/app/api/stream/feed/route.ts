@@ -13,7 +13,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized: Akses khusus pengawas ujian' }, { status: 401 });
     }
 
-    const activeStreams = getAllActiveStreams(90000);
+    const activeStreams = getAllActiveStreams(25000);
     return NextResponse.json({
       streams: activeStreams,
       timestamp: Date.now()
