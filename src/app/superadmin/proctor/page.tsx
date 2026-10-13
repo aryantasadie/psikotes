@@ -70,18 +70,51 @@ export default function ProctoringCenterPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [search, setSearch] = useState<string>('');
   
-  // Navigation States
+  // Navigation States (Synced with URL so browser refresh stays on the same page)
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
   const [selectedParticipantId, setSelectedParticipantId] = useState<number | null>(null);
 
+  const navigateTo = (batchId: number | null, participantId: number | null) => {
+    setSelectedBatchId(batchId);
+    setSelectedParticipantId(participantId);
+    setSearch('');
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams();
+      if (batchId !== null) params.set('batchId', String(batchId));
+      if (participantId !== null) params.set('participantId', String(participantId));
+      const newUrl = params.toString() ? `${window.location.pathname}?${params.toString()}` : window.location.pathname;
+      window.history.pushState({ batchId, participantId }, '', newUrl);
+    }
+  };
+
   useEffect(() => {
-    fetchParticipants();
+    // Restore state from URL on initial load / refresh
+    if (typeof window !== 'undefined') {
+      const readUrlState = () => {
+        const params = new URLSearchParams(window.location.search);
+        const bId = params.get('batchId');
+        const pId = params.get('participantId');
+        setSelectedBatchId(bId && !isNaN(Number(bId)) ? Number(bId) : null);
+        setSelectedParticipantId(pId && !isNaN(Number(pId)) ? Number(pId) : null);
+      };
+      readUrlState();
+      window.addEventListener('popstate', readUrlState);
+      return () => window.removeEventListener('popstate', readUrlState);
+    }
   }, []);
 
-  const fetchParticipants = async () => {
-    setLoading(true);
+  useEffect(() => {
+    fetchParticipants(true);
+    const pollInterval = setInterval(() => {
+      fetchParticipants(false);
+    }, 4000);
+    return () => clearInterval(pollInterval);
+  }, []);
+
+  const fetchParticipants = async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     try {
-      const res = await fetch('/api/superadmin/reports');
+      const res = await fetch('/api/superadmin/reports', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (data && typeof data === 'object' && !Array.isArray(data)) {
@@ -95,7 +128,7 @@ export default function ProctoringCenterPage() {
     } catch (e) {
       console.error('Failed to fetch participants for proctoring:', e);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -250,11 +283,8 @@ export default function ProctoringCenterPage() {
             /* Breadcrumbs for Level 3 (Timeline Logs) */
             <div className="flex items-center gap-3">
               <button
-                onClick={() => {
-                  setSelectedParticipantId(null);
-                  setSearch('');
-                }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-[13px] font-bold transition-colors"
+                onClick={() => navigateTo(selectedBatchId ?? currentParticipant?.testId ?? null, null)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-[13px] font-bold transition-colors cursor-pointer"
               >
                 &larr; Kembali ke Daftar Peserta
               </button>
@@ -283,11 +313,8 @@ export default function ProctoringCenterPage() {
             /* Breadcrumbs for Level 2 (Participant List in Batch) */
             <div className="flex items-center gap-3">
               <button
-                onClick={() => {
-                  setSelectedBatchId(null);
-                  setSearch('');
-                }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-[13px] font-bold transition-colors"
+                onClick={() => navigateTo(null, null)}
+                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-[13px] font-bold transition-colors cursor-pointer"
               >
                 &larr; Kembali ke Daftar Sesi
               </button>
@@ -487,10 +514,7 @@ export default function ProctoringCenterPage() {
                         </td>
                         <td className="py-4 text-right pr-2">
                           <button
-                            onClick={() => {
-                              setSelectedParticipantId(p.id);
-                              setSearch('');
-                            }}
+                            onClick={() => navigateTo(selectedBatchId ?? p.testId, p.id)}
                             className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-4 py-2 rounded-xl text-[12px] transition-colors shadow-sm cursor-pointer"
                           >
                             Lihat Log Pengawasan
@@ -575,10 +599,7 @@ export default function ProctoringCenterPage() {
                       </td>
                       <td className="py-4 text-right pr-2">
                         <button
-                          onClick={() => {
-                            setSelectedBatchId(b.id);
-                            setSearch('');
-                          }}
+                          onClick={() => navigateTo(b.id, null)}
                           className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-4 py-2 rounded-xl text-[12px] transition-colors shadow-sm cursor-pointer"
                         >
                           Lihat Akun
