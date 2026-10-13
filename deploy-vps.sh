@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+
 echo "======================================================"
 echo "🚀 MEMULAI INSTALASI OTOMATIS SERVER CBT PSIKOTES HRP"
 echo "======================================================"
@@ -8,11 +11,13 @@ echo "======================================================"
 # 1. Buat Swap Memory 4GB (Agar RAM 2GB tidak pernah penuh saat build)
 if [ ! -f /swapfile ]; then
   echo "📦 [1/7] Membuat Swap Memory 4GB..."
-  sudo fallocate -l 4G /swapfile
+  sudo fallocate -l 4G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
   sudo chmod 600 /swapfile
   sudo mkswap /swapfile
   sudo swapon /swapfile
-  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+  if ! grep -q "/swapfile" /etc/fstab; then
+    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+  fi
   echo "✅ Swap 4GB berhasil diaktifkan!"
 else
   echo "✅ [1/7] Swap Memory sudah aktif."
@@ -21,13 +26,13 @@ fi
 # 2. Update Ubuntu & Install Paket Dasar + Keamanan (Nginx, UFW, Fail2Ban, Certbot)
 echo "📦 [2/7] Mengupdate sistem & menginstall Nginx, Git, Firewall, Fail2Ban..."
 sudo apt-get update -y
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y curl git nginx ufw fail2ban build-essential certbot python3-certbot-nginx
+sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get install -y curl git nginx ufw fail2ban build-essential certbot python3-certbot-nginx
 
 # 3. Install Node.js 20 LTS & PM2
 if ! command -v node &> /dev/null; then
   echo "📦 [3/7] Menginstall Node.js 20 LTS..."
   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+  sudo NEEDRESTART_MODE=a DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
 else
   echo "✅ [3/7] Node.js sudah terinstall ($(node -v))."
 fi
@@ -35,15 +40,17 @@ fi
 sudo npm install -g pm2
 
 # 4. Clone / Update Repository dari GitHub
-echo "📦 [4/7] Mengunduh kode aplikasi dari GitHub..."
+echo "📦 [4/7] Menyiapkan direktori aplikasi /var/www/psikotes-app..."
 sudo mkdir -p /var/www
 sudo chown -R $USER:$USER /var/www
 
-if [ ! -d "/var/www/psikotes-app" ]; then
+if [ ! -d "/var/www/psikotes-app/.git" ]; then
+  rm -rf /var/www/psikotes-app
   git clone https://github.com/aryantasadie/psikotes.git /var/www/psikotes-app
 else
   cd /var/www/psikotes-app
-  git pull origin main
+  git fetch origin main
+  git reset --hard origin/main
 fi
 
 cd /var/www/psikotes-app
@@ -58,17 +65,15 @@ else
   APP_URL="https://${DOMAIN_NAME}"
 fi
 
-# Buat file .env jika belum ada
-if [ ! -f "/var/www/psikotes-app/.env" ]; then
-  echo "⚙️ Membuat konfigurasi .env..."
-  cat <<EOF > /var/www/psikotes-app/.env
+# Buat file .env
+echo "⚙️ Menyiapkan konfigurasi .env..."
+cat <<EOF > /var/www/psikotes-app/.env
 DATABASE_URL="postgresql://postgres.wevtbcuigimgcfjzvyvn:2MdPYXvw%21_6wM%23j@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=10&pool_timeout=10"
 DIRECT_URL="postgresql://postgres.wevtbcuigimgcfjzvyvn:2MdPYXvw%21_6wM%23j@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres"
 NEXTAUTH_SECRET="rahasianegara123!@#_hrpublik_production_2026"
 NEXTAUTH_URL="${APP_URL}"
 NODE_ENV="production"
 EOF
-fi
 
 # Buat folder private_uploads
 mkdir -p /var/www/psikotes-app/private_uploads/keamanan
@@ -128,6 +133,6 @@ sudo systemctl enable fail2ban
 sudo systemctl restart fail2ban
 
 echo "======================================================"
-echo "✅ INSTALASI SELESAI! WEBSITE PSIKOTES SUDAH AKTIF!"
-echo "🌐 Akses Website Anda di: ${APP_URL}"
+echo "✅ INSTALASI 100% SELESAI! WEBSITE PSIKOTES SUDAH AKTIF!"
+echo "🌐 Silakan buka di browser: ${APP_URL}"
 echo "======================================================"
