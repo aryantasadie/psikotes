@@ -4,6 +4,9 @@ import { authOptions } from '@/lib/authOptions';
 import { prisma } from '@/lib/prisma';
 import { updateStreamSession } from '@/lib/streamStore';
 
+// In-memory cache (30s TTL) so live frame broadcasts don't query PostgreSQL on every frame
+const ownershipCache = new Map<string, { valid: boolean; status: string; expiresAt: number }>();
+
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -42,17 +45,34 @@ export async function POST(req: Request) {
     let finalStatus = status;
     let finalIsPaused = isPaused;
 
-    // Validate ownership for testees & check authoritative DB status
+    // Validate ownership for testees & check authoritative DB status (cached for 30s in RAM)
     if (userRole === 'testee' || userRole === 'user') {
-      const participant = await prisma.testParticipant.findFirst({
-        where: { id: pId, userId }
-      });
-      if (!participant) {
-        return NextResponse.json({ error: 'Forbidden: ID Peserta tidak valid untuk sesi Anda' }, { status: 403 });
-      }
-      if (participant.status === 'stopped') {
-        finalStatus = 'stopped';
-        finalIsPaused = false;
+      const cacheKey = `${pId}:${userId}`;
+      const now = Date.now();
+      const cached = ownershipCache.get(cacheKey);
+
+      if (cached && cached.expiresAt > now) {
+        if (!cached.valid) {
+          return NextResponse.json({ error: 'Forbidden: ID Peserta tidak valid untuk sesi Anda' }, { status: 403 });
+        }
+        if (cached.status === 'stopped') {
+          finalStatus = 'stopped';
+          finalIsPaused = false;
+        }
+      } else {
+        const participant = await prisma.testParticipant.findFirst({
+          where: { id: pId, userId },
+          select: { id: true, status: true }
+        });
+        if (!participant) {
+          ownershipCache.set(cacheKey, { valid: false, status: 'invalid', expiresAt: now + 10000 });
+          return NextResponse.json({ error: 'Forbidden: ID Peserta tidak valid untuk sesi Anda' }, { status: 403 });
+        }
+        ownershipCache.set(cacheKey, { valid: true, status: participant.status, expiresAt: now + 30000 });
+        if (participant.status === 'stopped') {
+          finalStatus = 'stopped';
+          finalIsPaused = false;
+        }
       }
     }
 

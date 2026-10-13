@@ -45,17 +45,16 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     const savedId = localStorage.getItem('current_participant_id');
     if (savedId) {
       setParticipantId(parseInt(savedId, 10));
-    } else {
-      fetch('/api/testee/session')
-        .then(r => r.json())
-        .then(data => {
-          if (data.participantId) {
-            setParticipantId(data.participantId);
-            localStorage.setItem('current_participant_id', String(data.participantId));
-          }
-        })
-        .catch(console.error);
     }
+    fetch('/api/testee/session')
+      .then(r => r.json())
+      .then(data => {
+        if (data.participantId) {
+          setParticipantId(data.participantId);
+          localStorage.setItem('current_participant_id', String(data.participantId));
+        }
+      })
+      .catch(console.error);
   }, []);
 
   // Real-time proctor status listener (heartbeat every 1.2s)
@@ -68,6 +67,18 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         if (!res.ok) return;
         const data = await res.json();
         if (!isMounted) return;
+
+        if (data.participantId) {
+          setParticipantId(prev => {
+            if (prev !== data.participantId) {
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('current_participant_id', String(data.participantId));
+              }
+              return data.participantId;
+            }
+            return prev;
+          });
+        }
 
         const stopped = Boolean(data.isStopped);
         const paused = Boolean(data.isPaused);
@@ -314,13 +325,95 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     };
   }, [consentGranted]);
 
-  // Keep videoRef synced with streamRef across component updates
+  // Keep videoRef & screenVideoRef synced with streamRef and actively playing across renders & fullscreen transitions
   useEffect(() => {
-    if (streamRef.current && videoRef.current && videoRef.current.srcObject !== streamRef.current) {
-      videoRef.current.srcObject = streamRef.current;
-      videoRef.current.play().catch(() => {});
+    if (streamRef.current && videoRef.current) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+      }
+      if (videoRef.current.paused) {
+        videoRef.current.play().catch(() => {});
+      }
+    }
+    const targetScreen = screenStreamRef.current || (typeof window !== 'undefined' ? (window as any).__cbtScreenStream : null);
+    if (targetScreen && screenVideoRef.current) {
+      if (screenVideoRef.current.srcObject !== targetScreen) {
+        screenVideoRef.current.srcObject = targetScreen;
+      }
+      if (screenVideoRef.current.paused) {
+        screenVideoRef.current.play().catch(() => {});
+      }
     }
   });
+
+  // Grab a fresh live frame directly from MediaStreamTrack (bypasses browser offscreen/fullscreen <video> freezing)
+  const grabTrackFrameToCanvas = async (
+    stream: MediaStream | null,
+    videoEl: HTMLVideoElement | null,
+    targetWidth: number,
+    targetHeight: number,
+    mimeType: 'image/webp' | 'image/jpeg' = 'image/webp',
+    quality = 0.45
+  ): Promise<string | null> => {
+    if (!stream) return null;
+    const videoTrack = stream.getVideoTracks()[0];
+    if (!videoTrack || videoTrack.readyState !== 'live') return null;
+
+    // 1. Primary: Hardware ImageCapture API (never freezes in fullscreen or background)
+    if (typeof window !== 'undefined' && 'ImageCapture' in window) {
+      try {
+        const ImageCaptureClass = (window as any).ImageCapture;
+        const imageCapture = new ImageCaptureClass(videoTrack);
+        const bitmap: ImageBitmap = await imageCapture.grabFrame();
+        if (bitmap && bitmap.width > 0 && bitmap.height > 0) {
+          const canvas = document.createElement('canvas');
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
+            if (typeof bitmap.close === 'function') bitmap.close();
+            try {
+              return canvas.toDataURL(mimeType, quality);
+            } catch {
+              return canvas.toDataURL('image/jpeg', quality);
+            }
+          }
+          if (typeof bitmap.close === 'function') bitmap.close();
+        }
+      } catch {
+        // Fallback to <video> element below if grabFrame fails
+      }
+    }
+
+    // 2. Fallback: Active in-viewport <video> element
+    if (videoEl) {
+      try {
+        if (videoEl.srcObject !== stream) {
+          videoEl.srcObject = stream;
+        }
+        if (videoEl.paused) {
+          await videoEl.play().catch(() => {});
+        }
+        if (videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+          const canvas = document.createElement('canvas');
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(videoEl, 0, 0, targetWidth, targetHeight);
+            try {
+              return canvas.toDataURL(mimeType, quality);
+            } catch {
+              return canvas.toDataURL('image/jpeg', quality);
+            }
+          }
+        }
+      } catch {}
+    }
+
+    return null;
+  };
 
   const getWebcamBase64Async = async (maxRetries = 10, delayMs = 300): Promise<string | null> => {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -328,76 +421,16 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         await setupWebcam();
       }
 
-      if (videoRef.current && streamRef.current) {
-        if (videoRef.current.srcObject !== streamRef.current) {
-          videoRef.current.srcObject = streamRef.current;
-          try {
-            await videoRef.current.play();
-          } catch {}
-        }
-        const video = videoRef.current;
-        if (video.videoWidth > 0 && video.videoHeight > 0) {
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.min(video.videoWidth, 640);
-          canvas.height = Math.min(video.videoHeight, 480);
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            return canvas.toDataURL('image/jpeg', 0.7);
-          }
-        }
-      }
+      const frame = await grabTrackFrameToCanvas(streamRef.current, videoRef.current, 640, 480, 'image/jpeg', 0.7);
+      if (frame) return frame;
+
       await new Promise(res => setTimeout(res, delayMs));
     }
     return null;
   };
 
-  const getWebcamBase64 = (): string | null => {
-    if (!streamRef.current) return null;
-    if (videoRef.current) {
-      if (videoRef.current.srcObject !== streamRef.current) {
-        videoRef.current.srcObject = streamRef.current;
-        videoRef.current.play().catch(() => {});
-      }
-      const video = videoRef.current;
-      if (video.videoWidth > 0 && video.videoHeight > 0) {
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.min(video.videoWidth, 640);
-        canvas.height = Math.min(video.videoHeight, 480);
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          return canvas.toDataURL('image/jpeg', 0.7);
-        }
-      }
-    }
-    return null;
-  };
-
-  const getWebcamWebPBase64 = (): string | null => {
-    if (!streamRef.current) return null;
-    if (videoRef.current) {
-      if (videoRef.current.srcObject !== streamRef.current) {
-        videoRef.current.srcObject = streamRef.current;
-        videoRef.current.play().catch(() => {});
-      }
-      const video = videoRef.current;
-      if (video.videoWidth > 0 && video.videoHeight > 0) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 320;
-        canvas.height = 240;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, 320, 240);
-          try {
-            return canvas.toDataURL('image/webp', 0.45);
-          } catch {
-            return canvas.toDataURL('image/jpeg', 0.5);
-          }
-        }
-      }
-    }
-    return null;
+  const getWebcamWebPBase64 = async (): Promise<string | null> => {
+    return await grabTrackFrameToCanvas(streamRef.current, videoRef.current, 320, 240, 'image/webp', 0.45);
   };
 
   const drawWrappedText = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight: number): number => {
@@ -630,27 +663,10 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   const getScreenWebPBase64 = async (): Promise<string | null> => {
     try {
-      if (screenVideoRef.current) {
-        const targetStream = screenStreamRef.current || (typeof window !== 'undefined' ? (window as any).__cbtScreenStream : null);
-        if (targetStream && screenVideoRef.current.srcObject !== targetStream) {
-          screenVideoRef.current.srcObject = targetStream;
-          screenVideoRef.current.play().catch(() => {});
-        }
-      }
-      if (screenVideoRef.current && screenVideoRef.current.readyState >= 2) {
-        const video = screenVideoRef.current;
-        const canvas = document.createElement('canvas');
-        canvas.width = 480;
-        canvas.height = 270;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, 480, 270);
-          try {
-            return canvas.toDataURL('image/webp', 0.45);
-          } catch {
-            return canvas.toDataURL('image/jpeg', 0.5);
-          }
-        }
+      const targetStream = screenStreamRef.current || (typeof window !== 'undefined' ? (window as any).__cbtScreenStream : null);
+      if (targetStream) {
+        const frame = await grabTrackFrameToCanvas(targetStream, screenVideoRef.current, 480, 270, 'image/webp', 0.45);
+        if (frame) return frame;
       }
       return await getScreenBase64();
     } catch {
@@ -859,7 +875,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     };
   }, [participantId, webcamActive]);
 
-  // Live Stream Broadcast every 30s (in-memory only, not saved to disk/DB)
+  // Live Stream Broadcast every 3s (in-memory only, not saved to disk/DB)
   useEffect(() => {
     const broadcastNow = async () => {
       try {
@@ -868,8 +884,10 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         
         if (!currentPId) return;
 
-        const cameraFrame = getWebcamWebPBase64();
-        const screenFrame = await getScreenWebPBase64();
+        const [cameraFrame, screenFrame] = await Promise.all([
+          getWebcamWebPBase64(),
+          getScreenWebPBase64()
+        ]);
 
         // Determine active test name
         let activeTestName = localStorage.getItem('cbt_active_test');
@@ -941,7 +959,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     };
 
     broadcastNow();
-    const streamInterval = setInterval(broadcastNow, 30000);
+    const streamInterval = setInterval(broadcastNow, 3000);
 
     const handleUnload = () => {
       const currentPId = participantId || (typeof window !== 'undefined' && localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : null);
@@ -1237,20 +1255,20 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
         background: '#f8fafc'
       }}
     >
-      {/* Hidden Video & Canvas for Captures */}
+      {/* In-Viewport Micro Video Elements (prevents browser offscreen video frame freezing) */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
         muted
-        style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: '320px', height: '240px', opacity: 0, pointerEvents: 'none' }}
+        style={{ position: 'fixed', bottom: '1px', right: '1px', width: '4px', height: '4px', opacity: 0.02, zIndex: 1, pointerEvents: 'none' }}
       />
       <video
         ref={screenVideoRef}
         autoPlay
         playsInline
         muted
-        style={{ position: 'fixed', top: '-9999px', left: '-9999px', width: '640px', height: '360px', opacity: 0, pointerEvents: 'none' }}
+        style={{ position: 'fixed', bottom: '1px', left: '1px', width: '4px', height: '4px', opacity: 0.02, zIndex: 1, pointerEvents: 'none' }}
       />
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 

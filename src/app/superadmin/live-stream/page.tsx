@@ -1278,127 +1278,134 @@ export default function MonitoringPesertaPage() {
       </div>
 
       {/* ── MODAL: Detail Feed Kamera & Layar ── */}
-      {videoModalParticipant && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl p-5 space-y-4 shadow-xl text-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-              <div>
-                <h3 className="text-[15px] font-bold text-slate-900 flex items-center gap-2">
-                  <span>Feed Langsung: {videoModalParticipant.name}</span>
-                  <span className="text-slate-400 font-mono text-[11px]">#{videoModalParticipant.participantId}</span>
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  @{videoModalParticipant.username} • Sesi: {videoModalParticipant.testTitle}
-                </p>
-              </div>
-              <button
-                onClick={() => setVideoModalParticipant(null)}
-                className="text-slate-400 hover:text-slate-700 p-1 text-[18px] leading-none"
-              >
-                ×
-              </button>
-            </div>
+      {(() => {
+        const liveVideoModalParticipant = videoModalParticipant
+          ? (participantsList.find(p => p.participantId === videoModalParticipant.participantId) || videoModalParticipant)
+          : null;
+        if (!liveVideoModalParticipant) return null;
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="bg-slate-950 rounded-xl overflow-hidden h-[260px] relative border border-slate-200 flex items-center justify-center">
-                {videoModalParticipant.cameraFrameUrl ? (
-                  <img src={videoModalParticipant.cameraFrameUrl} alt="Kamera" className="w-full h-full object-contain" />
-                ) : (
-                  <div className="text-slate-400 text-[11px]">Kamera Siaga</div>
-                )}
-                <span className="absolute top-2.5 left-2.5 bg-black/75 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
-                  KAMERA
-                </span>
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-3xl p-5 space-y-4 shadow-xl text-slate-900">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <div>
+                  <h3 className="text-[15px] font-bold text-slate-900 flex items-center gap-2">
+                    <span>Feed Langsung: {liveVideoModalParticipant.name}</span>
+                    <span className="text-slate-400 font-mono text-[11px]">#{liveVideoModalParticipant.participantId}</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    @{liveVideoModalParticipant.username} • Sesi: {liveVideoModalParticipant.testTitle}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setVideoModalParticipant(null)}
+                  className="text-slate-400 hover:text-slate-700 p-1 text-[18px] leading-none"
+                >
+                  ×
+                </button>
               </div>
 
-              <div className="bg-slate-950 rounded-xl overflow-hidden h-[260px] relative border border-slate-200 flex items-center justify-center">
-                {videoModalParticipant.screenFrameUrl ? (
-                  <img src={videoModalParticipant.screenFrameUrl} alt="Layar" className="w-full h-full object-contain" />
-                ) : (
-                  <div className="text-slate-400 text-[11px]">Layar Siaga</div>
-                )}
-                <span className="absolute top-2.5 left-2.5 bg-black/75 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
-                  LAYAR
-                </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="bg-slate-950 rounded-xl overflow-hidden h-[260px] relative border border-slate-200 flex items-center justify-center">
+                  {liveVideoModalParticipant.cameraFrameUrl ? (
+                    <img src={liveVideoModalParticipant.cameraFrameUrl} alt="Kamera" className="w-full h-full object-contain" />
+                  ) : (
+                    <div className="text-slate-400 text-[11px]">Kamera Siaga</div>
+                  )}
+                  <span className="absolute top-2.5 left-2.5 bg-black/75 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
+                    KAMERA
+                  </span>
+                </div>
+
+                <div className="bg-slate-950 rounded-xl overflow-hidden h-[260px] relative border border-slate-200 flex items-center justify-center">
+                  {liveVideoModalParticipant.screenFrameUrl ? (
+                    <img src={liveVideoModalParticipant.screenFrameUrl} alt="Layar" className="w-full h-full object-contain" />
+                  ) : (
+                    <div className="text-slate-400 text-[11px]">Layar Siaga</div>
+                  )}
+                  <span className="absolute top-2.5 left-2.5 bg-black/75 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">
+                    LAYAR
+                  </span>
+                </div>
               </div>
-            </div>
 
-            <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
-              <button
-                onClick={() => {
-                  handleOpenNotesModal(videoModalParticipant);
-                  setVideoModalParticipant(null);
-                }}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-medium"
-              >
-                + Tulis Catatan Log
-              </button>
+              <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    handleOpenNotesModal(liveVideoModalParticipant);
+                    setVideoModalParticipant(null);
+                  }}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-medium"
+                >
+                  + Tulis Catatan Log
+                </button>
 
-              <div className="flex items-center gap-2">
-                {videoModalParticipant.status === 'stopped' ? (
-                  <button
-                    onClick={() => {
-                      handleResumeSingle(videoModalParticipant.participantId, videoModalParticipant.nextTest || undefined);
-                      setVideoModalParticipant(null);
-                    }}
-                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-bold shadow-xs"
-                  >
-                    ▶ Lanjutkan Ujian
-                  </button>
-                ) : videoModalParticipant.isPaused ? (
-                  <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
+                  {liveVideoModalParticipant.status === 'stopped' ? (
                     <button
                       onClick={() => {
-                        handleResumeSingle(videoModalParticipant.participantId, videoModalParticipant.nextTest || undefined);
+                        handleResumeSingle(liveVideoModalParticipant.participantId, liveVideoModalParticipant.nextTest || undefined);
                         setVideoModalParticipant(null);
                       }}
-                      className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[11px] font-bold shadow-xs"
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-bold shadow-xs"
                     >
-                      ▶ Lanjut Sesi
+                      ▶ Lanjutkan Ujian
                     </button>
+                  ) : liveVideoModalParticipant.isPaused ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          handleResumeSingle(liveVideoModalParticipant.participantId, liveVideoModalParticipant.nextTest || undefined);
+                          setVideoModalParticipant(null);
+                        }}
+                        className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[11px] font-bold shadow-xs"
+                      >
+                        ▶ Lanjut Sesi
+                      </button>
+                      <button
+                        onClick={() => {
+                          setConfirmModal({
+                            action: 'stop_single',
+                            participantId: liveVideoModalParticipant.participantId,
+                            title: 'Hentikan Ujian Peserta',
+                            description: `Hentikan pengerjaan ${liveVideoModalParticipant.name}? Layar ujian akan dikunci.`
+                          });
+                          setVideoModalParticipant(null);
+                        }}
+                        className="px-3 py-1.5 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-[11px] font-semibold"
+                      >
+                        Hentikan Ujian
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       onClick={() => {
                         setConfirmModal({
                           action: 'stop_single',
-                          participantId: videoModalParticipant.participantId,
+                          participantId: liveVideoModalParticipant.participantId,
                           title: 'Hentikan Ujian Peserta',
-                          description: `Hentikan pengerjaan ${videoModalParticipant.name}? Layar ujian akan dikunci.`
+                          description: `Hentikan pengerjaan ${liveVideoModalParticipant.name}? Layar ujian akan dikunci.`
                         });
                         setVideoModalParticipant(null);
                       }}
-                      className="px-3 py-1.5 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-[11px] font-semibold"
+                      className="px-3.5 py-1.5 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-[11px] font-semibold"
                     >
                       Hentikan Ujian
                     </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setConfirmModal({
-                        action: 'stop_single',
-                        participantId: videoModalParticipant.participantId,
-                        title: 'Hentikan Ujian Peserta',
-                        description: `Hentikan pengerjaan ${videoModalParticipant.name}? Layar ujian akan dikunci.`
-                      });
-                      setVideoModalParticipant(null);
-                    }}
-                    className="px-3.5 py-1.5 border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-[11px] font-semibold"
-                  >
-                    Hentikan Ujian
-                  </button>
-                )}
+                  )}
 
-                <button
-                  onClick={() => setVideoModalParticipant(null)}
-                  className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[11px] font-medium"
-                >
-                  Tutup
-                </button>
+                  <button
+                    onClick={() => setVideoModalParticipant(null)}
+                    className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[11px] font-medium"
+                  >
+                    Tutup
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── MODAL: Catatan Pengawas (Hanya Masuk ke Log, Tidak ke Layar Peserta) ── */}
       {notesModalParticipant && (
