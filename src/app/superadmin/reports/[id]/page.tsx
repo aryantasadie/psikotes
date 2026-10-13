@@ -422,12 +422,6 @@ export default function ReportDetailPage() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const handleDownloadTestResultPdf = async () => {
-    const cardElem = document.getElementById('printable-test-card');
-    if (!cardElem) {
-      alert('Elemen hasil tes tidak ditemukan untuk diunduh.');
-      return;
-    }
-
     setGeneratingPdf(true);
     try {
       const { jsPDF } = await import('jspdf');
@@ -438,66 +432,234 @@ export default function ReportDetailPage() {
         html2canvas = (await import('html2canvas')).default;
       }
 
+      const cleanCandidate = (participant.user?.name || 'Peserta').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const cleanTest = selectedTest.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+      // 1. KRAEPELIN: 2 Halaman Portrait (Page 1 Metrik & Interpretasi, Page 2 Kurva 50 Kolom)
+      if (selectedTest.toUpperCase().includes('KRAEPELIN') || selectedTest.toUpperCase().includes('KREAPELIN')) {
+        const page1Elem = document.getElementById('printable-kraepelin-page-1');
+        const page2Elem = document.getElementById('printable-kraepelin-page-2');
+
+        if (!page1Elem || !page2Elem) {
+          alert('Elemen hasil Kraepelin tidak ditemukan untuk diunduh.');
+          return;
+        }
+
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4',
+          compress: true
+        });
+
+        const pageWidth = 210;
+        const pageHeight = 297;
+        const margin = 10;
+        const usableWidth = pageWidth - (margin * 2);
+        const usableHeight = pageHeight - (margin * 2);
+
+        // Halaman 1
+        const canvas1 = await html2canvas(page1Elem, {
+          scale: 2.2,
+          useCORS: true,
+          backgroundColor: '#FFFFFF',
+          logging: false,
+          windowWidth: 1200
+        });
+        const img1 = canvas1.toDataURL('image/jpeg', 0.95);
+        const ratio1 = canvas1.height / canvas1.width;
+        let printW1 = usableWidth;
+        let printH1 = usableWidth * ratio1;
+        if (printH1 > usableHeight) {
+          printH1 = usableHeight;
+          printW1 = usableHeight / ratio1;
+        }
+        const xOff1 = margin + (usableWidth - printW1) / 2;
+        const yOff1 = margin + (usableHeight - printH1) / 2;
+        pdf.addImage(img1, 'JPEG', xOff1, yOff1, printW1, printH1);
+
+        // Halaman 2
+        pdf.addPage('a4', 'portrait');
+        const canvas2 = await html2canvas(page2Elem, {
+          scale: 2.2,
+          useCORS: true,
+          backgroundColor: '#FFFFFF',
+          logging: false,
+          windowWidth: 1200
+        });
+        const img2 = canvas2.toDataURL('image/jpeg', 0.95);
+        const ratio2 = canvas2.height / canvas2.width;
+        let printW2 = usableWidth;
+        let printH2 = usableWidth * ratio2;
+        if (printH2 > usableHeight) {
+          printH2 = usableHeight;
+          printW2 = usableHeight / ratio2;
+        }
+        const xOff2 = margin + (usableWidth - printW2) / 2;
+        const yOff2 = margin + (usableHeight - printH2) / 2;
+        pdf.addImage(img2, 'JPEG', xOff2, yOff2, printW2, printH2);
+
+        pdf.save(`Hasil_${cleanTest}_${cleanCandidate}.pdf`);
+        return;
+      }
+
+      // 2. PAPI KOSTICK: 2 Halaman Portrait (Page 1 Diagram Cakram, Page 2 Detail Skor 7 Klaster)
+      if (selectedTest.startsWith('PAPI')) {
+        const page1Elem = document.getElementById('printable-papi-page-1');
+        const page2Elem = document.getElementById('printable-papi-page-2');
+
+        if (!page1Elem || !page2Elem) {
+          alert('Elemen hasil PAPI Kostick tidak ditemukan untuk diunduh.');
+          return;
+        }
+
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4',
+          compress: true
+        });
+
+        const pageWidth = 210;
+        const pageHeight = 297;
+        const margin = 10;
+        const usableWidth = pageWidth - (margin * 2);
+        const usableHeight = pageHeight - (margin * 2);
+
+        // Halaman 1: Identitas & Cakram PAPI
+        const canvas1 = await html2canvas(page1Elem, {
+          scale: 2.2,
+          useCORS: true,
+          backgroundColor: '#FFFFFF',
+          logging: false,
+          windowWidth: 1200
+        });
+        const img1 = canvas1.toDataURL('image/jpeg', 0.95);
+        const ratio1 = canvas1.height / canvas1.width;
+        let printW1 = usableWidth;
+        let printH1 = usableWidth * ratio1;
+        if (printH1 > usableHeight) {
+          printH1 = usableHeight;
+          printW1 = usableHeight / ratio1;
+        }
+        const xOff1 = margin + (usableWidth - printW1) / 2;
+        const yOff1 = margin + (usableHeight - printH1) / 2;
+        pdf.addImage(img1, 'JPEG', xOff1, yOff1, printW1, printH1);
+
+        // Halaman 2: Detail Skor 7 Klaster
+        pdf.addPage('a4', 'portrait');
+        const canvas2 = await html2canvas(page2Elem, {
+          scale: 2.2,
+          useCORS: true,
+          backgroundColor: '#FFFFFF',
+          logging: false,
+          windowWidth: 1200
+        });
+        const img2 = canvas2.toDataURL('image/jpeg', 0.95);
+        const ratio2 = canvas2.height / canvas2.width;
+        let printW2 = usableWidth;
+        let printH2 = usableWidth * ratio2;
+        if (printH2 > usableHeight) {
+          printH2 = usableHeight;
+          printW2 = usableHeight / ratio2;
+        }
+        const xOff2 = margin + (usableWidth - printW2) / 2;
+        const yOff2 = margin + (usableHeight - printH2) / 2;
+        pdf.addImage(img2, 'JPEG', xOff2, yOff2, printW2, printH2);
+
+        pdf.save(`Hasil_${cleanTest}_${cleanCandidate}.pdf`);
+        return;
+      }
+
+      // 3. DISC: 1 Halaman Landscape (Cuma Grafiknya Doang, Pas Sesuai Ukuran Web & Tidak Terbelah)
+      if (selectedTest === 'DISC') {
+        const discElem = document.getElementById('printable-disc-graphs');
+        if (!discElem) {
+          alert('Elemen grafik DISC tidak ditemukan untuk diunduh.');
+          return;
+        }
+
+        const pdf = new jsPDF({
+          orientation: 'landscape',
+          unit: 'mm',
+          format: 'a4',
+          compress: true
+        });
+
+        const pageWidth = 297;
+        const pageHeight = 210;
+        const margin = 8;
+        const usableWidth = pageWidth - (margin * 2);
+        const usableHeight = pageHeight - (margin * 2);
+
+        const canvas = await html2canvas(discElem, {
+          scale: 2.2,
+          useCORS: true,
+          backgroundColor: '#FFFFFF',
+          logging: false,
+          windowWidth: 1320
+        });
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const ratio = canvas.height / canvas.width;
+        let printWidth = usableWidth;
+        let printHeight = usableWidth * ratio;
+
+        if (printHeight > usableHeight) {
+          printHeight = usableHeight;
+          printWidth = usableHeight / ratio;
+        }
+
+        const xOffset = margin + (usableWidth - printWidth) / 2;
+        const yOffset = margin + (usableHeight - printHeight) / 2;
+
+        pdf.addImage(imgData, 'JPEG', xOffset, yOffset, printWidth, printHeight);
+        pdf.save(`Hasil_${cleanTest}_${cleanCandidate}.pdf`);
+        return;
+      }
+
+      // 4. Test IQ & Modul Lainnya (WPT, CFIT, IST, TIKI, MSDT): Single Page Portrait
+      const cardElem = document.getElementById('printable-test-card');
+      if (!cardElem) {
+        alert('Elemen hasil tes tidak ditemukan untuk diunduh.');
+        return;
+      }
+
       const canvas = await html2canvas(cardElem, {
         scale: 2.2,
         useCORS: true,
         backgroundColor: '#FFFFFF',
         logging: false,
-        windowWidth: 1280
+        windowWidth: 1200
       });
 
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const aspectRatio = canvasWidth / canvasHeight;
-
-      // Use Landscape for wide curves (Kraepelin curve, DISC 3 graphs)
-      const isLandscape = aspectRatio > 1.15;
       const pdf = new jsPDF({
-        orientation: isLandscape ? 'landscape' : 'portrait',
+        orientation: 'portrait',
         unit: 'mm',
         format: 'a4',
         compress: true
       });
 
-      const pageWidth = isLandscape ? 297 : 210;
-      const pageHeight = isLandscape ? 210 : 297;
+      const pageWidth = 210;
+      const pageHeight = 297;
       const margin = 10;
       const usableWidth = pageWidth - (margin * 2);
       const usableHeight = pageHeight - (margin * 2);
 
-      const fitHeight = (canvasHeight * usableWidth) / canvasWidth;
+      const ratio = canvas.height / canvas.width;
+      let printWidth = usableWidth;
+      let printHeight = usableWidth * ratio;
 
-      if (fitHeight <= usableHeight) {
-        // Fits perfectly on a single page
-        const xOffset = margin;
-        const yOffset = margin + (usableHeight - fitHeight) / 2;
-        pdf.addImage(imgData, 'JPEG', xOffset, yOffset, usableWidth, fitHeight);
-      } else if (fitHeight <= usableHeight * 1.25) {
-        // Slightly taller: scale down cleanly so it fits on 1 page without cutting off
-        const scale = usableHeight / fitHeight;
-        const scaledWidth = usableWidth * scale;
-        const xOffset = margin + (usableWidth - scaledWidth) / 2;
-        pdf.addImage(imgData, 'JPEG', xOffset, margin, scaledWidth, usableHeight);
-      } else {
-        // Multi-page clean split
-        let heightLeft = fitHeight;
-        let yPosition = margin;
-        let page = 0;
-
-        while (heightLeft > 0) {
-          if (page > 0) {
-            pdf.addPage();
-          }
-          pdf.addImage(imgData, 'JPEG', margin, yPosition, usableWidth, fitHeight);
-          heightLeft -= usableHeight;
-          yPosition -= usableHeight;
-          page++;
-        }
+      if (printHeight > usableHeight) {
+        printHeight = usableHeight;
+        printWidth = usableHeight / ratio;
       }
 
-      const cleanCandidate = (participant.user?.name || 'Peserta').replace(/[^a-zA-Z0-9_-]/g, '_');
-      const cleanTest = selectedTest.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const xOffset = margin + (usableWidth - printWidth) / 2;
+      const yOffset = margin + (usableHeight - printHeight) / 2;
+
+      pdf.addImage(imgData, 'JPEG', xOffset, yOffset, printWidth, printHeight);
       pdf.save(`Hasil_${cleanTest}_${cleanCandidate}.pdf`);
     } catch (err) {
       console.error('Error generating PDF:', err);
@@ -507,12 +669,12 @@ export default function ReportDetailPage() {
     }
   };
 
-  const renderPrintableHeader = () => (
-    <div style={{ borderBottom: '2px solid #2563EB', paddingBottom: '14px', marginBottom: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+  const renderPrintableHeader = (customSub?: string, pageInfo?: string) => (
+    <div style={{ borderBottom: '2px solid #0d9488', paddingBottom: '14px', marginBottom: '18px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ 
-            background: 'linear-gradient(135deg, #1E3A8A, #2563EB)', 
+            background: 'linear-gradient(135deg, #0f766e, #0d9488)', 
             color: 'white', 
             fontWeight: 900, 
             fontSize: '16px', 
@@ -523,20 +685,34 @@ export default function ReportDetailPage() {
             HR PUBLIK
           </div>
           <div>
-            <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#2563EB', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '1px' }}>
               Assessment & Psychological Testing Center
             </div>
             <div style={{ fontSize: '17px', fontWeight: 800, color: '#0F172A' }}>
-              LAPORAN HASIL TES: {selectedTest.toUpperCase()}
+              LAPORAN HASIL TES: {selectedTest.toUpperCase()} {customSub ? `(${customSub})` : ''}
             </div>
           </div>
         </div>
-        <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {pageInfo && (
+            <span style={{ 
+              display: 'inline-block',
+              background: '#F1F5F9', 
+              color: '#475569', 
+              border: '1px solid #CBD5E1',
+              padding: '4px 10px', 
+              borderRadius: '16px', 
+              fontSize: '11px', 
+              fontWeight: 700 
+            }}>
+              {pageInfo}
+            </span>
+          )}
           <span style={{ 
             display: 'inline-block',
-            background: '#EFF6FF', 
-            color: '#1D4ED8', 
-            border: '1px solid #BFDBFE',
+            background: '#F0FDFA', 
+            color: '#0F766E', 
+            border: '1px solid #99F6E4',
             padding: '4px 12px', 
             borderRadius: '16px', 
             fontSize: '11px', 
@@ -580,9 +756,9 @@ export default function ReportDetailPage() {
     </div>
   );
 
-  const renderPrintableFooter = () => (
+  const renderPrintableFooter = (pageStr?: string) => (
     <div style={{ 
-      marginTop: '20px', 
+      marginTop: '18px', 
       paddingTop: '10px', 
       borderTop: '1px solid #E2E8F0', 
       display: 'flex', 
@@ -591,7 +767,7 @@ export default function ReportDetailPage() {
       fontSize: '10.5px', 
       color: '#94A3B8' 
     }}>
-      <div>HR PUBLIK &bull; CBT Assessment System &bull; Dokumen Hasil Terverifikasi</div>
+      <div>HR PUBLIK &bull; CBT Assessment System &bull; Dokumen Hasil Terverifikasi {pageStr ? `&bull; ${pageStr}` : ''}</div>
       <div>Dicetak pada: {new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} WIB</div>
     </div>
   );
@@ -1465,7 +1641,7 @@ export default function ReportDetailPage() {
         <div>
           <Link 
             href={participant?.testId || participant?.test?.id ? `/superadmin/reports/batch/${participant.testId || participant.test.id}` : '/superadmin/reports'} 
-            style={{ display: 'inline-block', marginBottom: '1rem', color: '#3A3F94', textDecoration: 'none', fontWeight: 500 }}
+            style={{ display: 'inline-block', marginBottom: '1rem', color: '#0d9488', textDecoration: 'none', fontWeight: 600 }}
           >
             &larr; Kembali ke Daftar Laporan
           </Link>
@@ -1510,7 +1686,7 @@ export default function ReportDetailPage() {
                   }}
                   style={{
                     padding: '8px 16px',
-                    background: '#2563EB',
+                    background: '#0d9488',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '8px',
@@ -1520,7 +1696,7 @@ export default function ReportDetailPage() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
-                    boxShadow: '0 2px 4px rgba(37,99,235,0.2)',
+                    boxShadow: '0 2px 4px rgba(13,148,136,0.2)',
                     transition: 'all 0.2s'
                   }}
                   title="Hitung ulang otomatis skor psikogram dari jawaban peserta & preset terbaru"
@@ -1814,7 +1990,7 @@ export default function ReportDetailPage() {
             </div>
 
             {/* Action Buttons */}
-            <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px', borderTop: '4px solid #3A3F94' }}>
+            <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px', borderTop: '4px solid #0d9488' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <div style={{ fontSize: '15px', fontWeight: 800, color: '#1E293B', marginBottom: '4px' }}>Rekomendasi Psikolog Assessor:</div>
@@ -1852,7 +2028,7 @@ export default function ReportDetailPage() {
                                 type="button"
                                 onClick={() => setShowDownloadMenu(prev => !prev)}
                                 style={{
-                                    background: '#2563EB',
+                                    background: '#0d9488',
                                     color: 'white',
                                     padding: '10px 18px',
                                     borderRadius: '8px',
@@ -2112,7 +2288,7 @@ export default function ReportDetailPage() {
             onClick={handleDownloadTestResultPdf}
             disabled={generatingPdf}
             style={{
-              background: generatingPdf ? '#94A3B8' : 'linear-gradient(135deg, #1E40AF, #2563EB)',
+              background: generatingPdf ? '#94A3B8' : 'linear-gradient(135deg, #0f766e, #0d9488)',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -2123,7 +2299,7 @@ export default function ReportDetailPage() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.25)',
+              boxShadow: '0 4px 6px -1px rgba(13, 148, 136, 0.25)',
               transition: 'all 0.2s ease',
             }}
           >
@@ -2182,31 +2358,100 @@ export default function ReportDetailPage() {
             return (
               <div style={{ animation: 'fadeIn 0.3s ease-in-out', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                 
-                {/* Executive Result Section (Captured into PDF) */}
-                <div id="printable-test-card" style={{ background: '#FFFFFF', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-                  {renderPrintableHeader()}
+                {/* Kraepelin Page 1: Metrik, Norma & Interpretasi */}
+                <div id="printable-kraepelin-page-1" style={{ background: '#FFFFFF', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                  {renderPrintableHeader('Halaman 1: Metrik & Interpretasi', 'Hal. 1 / 2')}
+
+                  <div style={{ marginBottom: '1.25rem' }}>
+                    <h3 style={{ margin: 0, color: '#0F172A', fontSize: '1.25rem', fontWeight: 800 }}>
+                      Ringkasan Metrik Kerja Kraepelin
+                    </h3>
+                    <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+                      Indikator kecepatan, ketelitian, kestabilan, dan ketahanan kerja hasil kalkulasi 50 kolom.
+                    </p>
+                  </div>
 
                   {/* Summary Cards: PANKER, TINKER, JANKER, HANKER */}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-                  {[
-                    { title: 'PANKER (Kecepatan Kerja)', raw: pankerRaw, norm: pankerNorm },
-                    { title: 'TINKER (Ketelitian Error)', raw: `${tinkerRaw} Error`, norm: tinkerNorm },
-                    { title: 'JANKER (Keajegan Selisih)', raw: `Selisih ${jankerRaw}`, norm: jankerNorm },
-                    { title: 'HANKER (Ketahanan Kerja)', raw: `Skala ${hankerNorm}`, norm: hankerNorm }
-                  ].map((item, idx) => {
-                    const cat = getKraepelinCatLabel(item.norm);
-                    return (
-                      <div key={idx} style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '1.5rem', textAlign: 'center', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
-                        <div style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>{item.title}</div>
-                        <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0F172A', marginBottom: '0.5rem' }}>{item.raw}</div>
-                        <div style={{ display: 'inline-block', background: cat.bg, color: cat.color, padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 800 }}>
-                          Skala {item.norm} &bull; {cat.label} ({cat.text})
+                    {[
+                      { title: 'PANKER (Kecepatan Kerja)', raw: pankerRaw, norm: pankerNorm },
+                      { title: 'TINKER (Ketelitian Error)', raw: `${tinkerRaw} Error`, norm: tinkerNorm },
+                      { title: 'JANKER (Keajegan Selisih)', raw: `Selisih ${jankerRaw}`, norm: jankerNorm },
+                      { title: 'HANKER (Ketahanan Kerja)', raw: `Skala ${hankerNorm}`, norm: hankerNorm }
+                    ].map((item, idx) => {
+                      const cat = getKraepelinCatLabel(item.norm);
+                      return (
+                        <div key={idx} style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '16px', padding: '1.5rem', textAlign: 'center', boxShadow: '0 2px 4px rgba(0, 0, 0, 0.03)' }}>
+                          <div style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.5rem' }}>{item.title}</div>
+                          <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0F172A', marginBottom: '0.5rem' }}>{item.raw}</div>
+                          <div style={{ display: 'inline-block', background: cat.bg, color: cat.color, padding: '4px 12px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 800 }}>
+                            Skala {item.norm} &bull; {cat.label} ({cat.text})
+                          </div>
                         </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Tabel Standar Interpretasi Norma Kraepelin */}
+                  <div style={{ background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '1.25rem', marginBottom: '1.25rem' }}>
+                    <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '13px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Tabel Standar Interpretasi Norma Kraepelin
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', fontSize: '12px' }}>
+                      <div style={{ background: '#FFFFFF', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                        <strong style={{ color: '#0F766E' }}>PANKER (Kecepatan Kerja)</strong>
+                        <p style={{ margin: '4px 0 0 0', color: '#64748B', lineHeight: '1.4' }}>
+                          Tempo pengerjaan & energi psikis produktif kandidat. Skor: <strong>{pankerRaw}</strong> (Skala {pankerNorm}).
+                        </p>
                       </div>
-                    );
-                  })}
+                      <div style={{ background: '#FFFFFF', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                        <strong style={{ color: '#0F766E' }}>TINKER (Ketelitian Kerja)</strong>
+                        <p style={{ margin: '4px 0 0 0', color: '#64748B', lineHeight: '1.4' }}>
+                          Fokus ketelitian & resiko kesalahan di bawah batas waktu. Error: <strong>{tinkerRaw}</strong> (Skala {tinkerNorm}).
+                        </p>
+                      </div>
+                      <div style={{ background: '#FFFFFF', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                        <strong style={{ color: '#0F766E' }}>JANKER (Kestabilan Ritme)</strong>
+                        <p style={{ margin: '4px 0 0 0', color: '#64748B', lineHeight: '1.4' }}>
+                          Keteraturan ritme performa & kestabilan antar kolom. Selisih: <strong>{jankerRaw}</strong> (Skala {jankerNorm}).
+                        </p>
+                      </div>
+                      <div style={{ background: '#FFFFFF', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                        <strong style={{ color: '#0F766E' }}>HANKER (Ketahanan Kerja)</strong>
+                        <p style={{ margin: '4px 0 0 0', color: '#64748B', lineHeight: '1.4' }}>
+                          Daya tahan mental/fisik menghadapi beban berulang. Hasil: <strong>Skala {hankerNorm}</strong>.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ringkasan Statistik */}
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-around', background: '#F0FDFA', border: '1px solid #99F6E4', borderRadius: '10px', padding: '12px', textAlign: 'center', flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#0F766E', fontWeight: 700 }}>RATA-RATA / KOLOM</div>
+                      <div style={{ fontSize: '18px', fontWeight: 900, color: '#0F172A' }}>{(columnScores.reduce((a, b) => a + b, 0) / 50).toFixed(1)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#0F766E', fontWeight: 700 }}>SKOR TERTINGGI (MAX)</div>
+                      <div style={{ fontSize: '18px', fontWeight: 900, color: '#047857' }}>{maxScore}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#0F766E', fontWeight: 700 }}>SKOR TERENDAH (MIN)</div>
+                      <div style={{ fontSize: '18px', fontWeight: 900, color: '#DC2626' }}>{minScore}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#0F766E', fontWeight: 700 }}>GARIS TENGAH (MIDPOINT)</div>
+                      <div style={{ fontSize: '18px', fontWeight: 900, color: '#0F766E' }}>{midScore}</div>
+                    </div>
+                  </div>
+
+                  {renderPrintableFooter('Halaman 1')}
                 </div>
-                <div style={{ background: '#FFFFFF', padding: '2rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+
+                {/* Kraepelin Page 2: Kurva Kecepatan & Ketahanan Kerja 50 Kolom (Portrait Format) */}
+                <div id="printable-kraepelin-page-2" style={{ background: '#FFFFFF', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                  {renderPrintableHeader('Halaman 2: Kurva 50 Kolom', 'Hal. 2 / 2')}
+
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '12px' }}>
                     <div>
                       <h3 style={{ margin: 0, color: '#0F172A', fontSize: '1.25rem', fontWeight: 800 }}>
@@ -2223,9 +2468,9 @@ export default function ReportDetailPage() {
                         <span style={{ width: '22px', height: '3px', background: '#000000', borderRadius: '2px', display: 'inline-block' }} /> 
                         Kurva Hasil Kerja (Total Dijawab Per Kolom)
                       </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F1F5F9', padding: '4px 10px', borderRadius: '8px', border: '1px solid #CBD5E1' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F0FDFA', padding: '4px 10px', borderRadius: '8px', border: '1px solid #99F6E4' }}>
                         <span style={{ width: '22px', borderBottom: '2.5px dashed #000000', display: 'inline-block' }} /> 
-                        Garis Tengah: <strong style={{ color: '#0F172A' }}>{midScore}</strong> (Min: {minScore}, Max: {maxScore})
+                        Garis Tengah: <strong style={{ color: '#0F766E' }}>{midScore}</strong> (Min: {minScore}, Max: {maxScore})
                       </span>
                     </div>
                   </div>
@@ -2386,9 +2631,8 @@ export default function ReportDetailPage() {
                       );
                     })()}
                   </div>
-                </div>
 
-                {renderPrintableFooter()}
+                {renderPrintableFooter('Halaman 2')}
               </div>
 
                 {/* Column Details Table & Detailed Equation Inspector */}
@@ -2526,7 +2770,7 @@ export default function ReportDetailPage() {
                                         }}
                                       >
                                         <div style={{ fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap' }}>
-                                          {dTop} + {dBottom} = {sum} | Kunci: <strong style={{ color: '#2563EB' }}>{expectedSum}</strong>
+                                          {dTop} + {dBottom} = {sum} | Kunci: <strong style={{ color: '#0d9488' }}>{expectedSum}</strong>
                                         </div>
                                         <div style={{ marginTop: '2px', fontWeight: 900, color: isCorrect ? '#047857' : '#DC2626', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10.5px' }}>
                                           <span>Jwb: <strong>{uAns !== null && uAns !== undefined ? uAns : '-'}</strong></span>
@@ -2728,6 +2972,608 @@ export default function ReportDetailPage() {
             })()}
 
           </div>
+        ) : selectedTest === 'DISC' ? (
+          (() => {
+            let dM = 0, iM = 0, sM = 0, cM = 0;
+            let dL = 0, iL = 0, sL = 0, cL = 0;
+
+            questions.forEach((q, idx) => {
+              const ans = currentAnswers.find((a: any) => a.questionId === q.id);
+              if (ans) {
+                try {
+                  const parsed = JSON.parse(ans.selectedOption);
+                  const qNum = idx + 1;
+                  if (discScoringKeys[qNum]) {
+                    const mappedMost = discScoringKeys[qNum].most[parsed.most];
+                    if (mappedMost === 'D') dM++;
+                    if (mappedMost === 'I') iM++;
+                    if (mappedMost === 'S') sM++;
+                    if (mappedMost === 'C') cM++;
+                    
+                    const mappedLeast = discScoringKeys[qNum].least[parsed.least];
+                    if (mappedLeast === 'D') dL++;
+                    if (mappedLeast === 'I') iL++;
+                    if (mappedLeast === 'S') sL++;
+                    if (mappedLeast === 'C') cL++;
+                  }
+                } catch(e) {}
+              }
+            });
+
+            const diffD = dM - dL;
+            const diffI = iM - iL;
+            const diffS = sM - sL;
+            const diffC = cM - cL;
+
+            const scaleD = getDiscScale('D', diffD);
+            const scaleI = getDiscScale('I', diffI);
+            const scaleS = getDiscScale('S', diffS);
+            const scaleC = getDiscScale('C', diffC);
+
+            const getSvgY = (metric: string, score: number) => {
+              return mapScoreToYPercent(metric, score);
+            };
+
+            const mostPoints = `12.5,${getSvgY('DM', dM)} 37.5,${getSvgY('IM', iM)} 62.5,${getSvgY('SM', sM)} 87.5,${getSvgY('CM', cM)}`;
+            const leastPoints = `12.5,${getSvgY('DL', dL)} 37.5,${getSvgY('IL', iL)} 62.5,${getSvgY('SL', sL)} 87.5,${getSvgY('CL', cL)}`;
+            const changePoints = `12.5,${getSvgY('DC', diffD)} 37.5,${getSvgY('IC', diffI)} 62.5,${getSvgY('SC', diffS)} 87.5,${getSvgY('CC', diffC)}`;
+
+            const bgScores: Record<string, { m: string; s: (number | string)[] }[]> = {
+              MOST: [
+                { m: 'DM', s: [21, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 1, 0] },
+                { m: 'IM', s: [19, 11, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] },
+                { m: 'SM', s: [20, 14, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] },
+                { m: 'CM', s: [17, 13, 11, 9, 8, 7, 6, 4, 3, 2, 1, 0] }
+              ],
+              LEAST: [
+                { m: 'DL', s: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20] },
+                { m: 'IL', s: [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 19] },
+                { m: 'SL', s: [0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 19] },
+                { m: 'CL', s: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17] }
+              ],
+              CHANGE: [
+                { m: 'DC', s: ['+21', '+18', '+15', '+14', '+13', '+12', '+10', '+9', '+8', '+7', '+5', '+3', '+1', '0', '-2', '-3', '-4', '-6', '-7', '-9', '-10', '-11', '-12', '-16', '-20'] },
+                { m: 'IC', s: ['+18', '+10', '+8', '+7', '+6', '+5', '+4', '+3', '+2', '+1', '0', '-1', '-2', '-3', '-4', '-5', '-6', '-7', '-8', '-9', '-10', '-18'] },
+                { m: 'SC', s: ['+20', '+15', '+11', '+10', '+9', '+8', '+7', '+5', '+4', '+3', '+2', '+1', '0', '-1', '-2', '-3', '-4', '-6', '-7', '-8', '-9', '-10', '-15', '-18'] },
+                { m: 'CC', s: ['+17', '+10', '+6', '+5', '+4', '+3', '+2', '+1', '0', '-1', '-2', '-3', '-4', '-5', '-6', '-7', '-8', '-9', '-10', '-13', '-15', '-19', '-22'] }
+              ]
+            };
+
+            const graphMeta = {
+              MOST: { num: 'Graph 1', badge: 'MOST', sub: 'Mask, Public Self', stroke: '#2563EB' },
+              LEAST: { num: 'Graph 2', badge: 'LEAST', sub: 'Core, Private Self', stroke: '#DC2626' },
+              CHANGE: { num: 'Graph 3', badge: 'CHANGE', sub: 'Mirror, Perceived Self', stroke: '#16A34A' }
+            };
+
+            const drawGraph = (points: string, graphType: 'MOST' | 'LEAST' | 'CHANGE', scales?: number[]) => {
+              const meta = graphMeta[graphType];
+              const color = meta.stroke;
+
+              return (
+                <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                  {/* Header */}
+                  <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
+                    <div style={{ fontSize: '15px', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                      <span style={{ fontWeight: 600 }}>{meta.num}</span>
+                      <span style={{ background: '#000', color: '#fff', padding: '2px 8px', borderRadius: '3px', fontWeight: 800, fontSize: '13px', letterSpacing: '0.5px' }}>
+                        {meta.badge}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px', fontStyle: 'italic' }}>
+                      {meta.sub}
+                    </div>
+                    
+                    {/* D I S C Black badges above columns */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', width: 'calc(100% - 24px)', margin: '10px 0 6px 0' }}>
+                      {['D', 'I', 'S', 'C'].map((char) => (
+                        <div key={char} style={{ display: 'flex', justifyContent: 'center' }}>
+                          <span style={{ 
+                            background: '#000', 
+                            color: '#fff', 
+                            width: '24px', 
+                            height: '24px', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            fontWeight: 900, 
+                            fontSize: '13px',
+                            borderRadius: '3px'
+                          }}>
+                            {char}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* The Grid Box */}
+                  <div style={{ position: 'relative', width: '100%', height: '820px', border: '2px solid #000', paddingRight: '24px', background: '#FAFAFA' }}>
+                     
+                     {/* Background Horizontal Grid Lines */}
+                     <div style={{ position: 'absolute', top: '0%', left: 0, right: '24px', borderTop: '2px solid #000' }}></div>
+                     <div style={{ position: 'absolute', top: '12.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
+                     <div style={{ position: 'absolute', top: '25%', left: 0, right: '24px', borderTop: '1.5px dashed #334155' }}></div>
+                     <div style={{ position: 'absolute', top: '37.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
+                     <div style={{ position: 'absolute', top: '50%', left: 0, right: '24px', borderTop: '2.5px solid #000' }}></div>
+                     <div style={{ position: 'absolute', top: '62.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
+                     <div style={{ position: 'absolute', top: '75%', left: 0, right: '24px', borderTop: '1.5px dashed #334155' }}></div>
+                     <div style={{ position: 'absolute', top: '87.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
+                     <div style={{ position: 'absolute', top: '100%', left: 0, right: '24px', borderTop: '2px solid #000' }}></div>
+
+                     {/* Vertical column dividers */}
+                     <div style={{ position: 'absolute', top: 0, bottom: 0, left: '25%', borderLeft: '1px solid #CBD5E1' }}></div>
+                     <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', borderLeft: '1px solid #CBD5E1' }}></div>
+                     <div style={{ position: 'absolute', top: 0, bottom: 0, left: '75%', borderLeft: '1px solid #CBD5E1' }}></div>
+
+                     {/* Scale Labels on the Right */}
+                     <div style={{ position: 'absolute', top: '0%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>8</div>
+                     <div style={{ position: 'absolute', top: '12.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>6</div>
+                     <div style={{ position: 'absolute', top: '25%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>4</div>
+                     <div style={{ position: 'absolute', top: '37.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>2</div>
+                     <div style={{ position: 'absolute', top: '50%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.8rem', color: '#0F172A', fontWeight: 900 }}>0</div>
+                     <div style={{ position: 'absolute', top: '62.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>-2</div>
+                     <div style={{ position: 'absolute', top: '75%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>-4</div>
+                     <div style={{ position: 'absolute', top: '87.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>-6</div>
+                     <div style={{ position: 'absolute', top: '100%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>-8</div>
+
+                     {/* Background Numbers */}
+                     {bgScores[graphType].map((col, cIdx) => (
+                       <div key={cIdx}>
+                         {col.s.map((s, sIdx) => {
+                            const numVal = typeof s === 'string' ? parseFloat(s.replace('+', '')) : s;
+                            const yPerc = mapScoreToYPercent(col.m, numVal);
+                            const xPerc = [12.5, 37.5, 62.5, 87.5][cIdx];
+                            return (
+                              <div key={sIdx} style={{
+                                position: 'absolute',
+                                left: `${xPerc}%`,
+                                top: `${yPerc}%`,
+                                transform: 'translate(-50%, -50%)',
+                                fontSize: '0.66rem',
+                                fontWeight: 600,
+                                color: '#64748B',
+                                pointerEvents: 'none',
+                                zIndex: 1
+                              }}>
+                                {s}
+                              </div>
+                            );
+                         })}
+                       </div>
+                     ))}
+
+                     {/* The dynamic chart line */}
+                     <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', top: 0, left: 0, right: '24px', width: 'calc(100% - 24px)', overflow: 'visible', zIndex: 5 }}>
+                       <polyline points={points} fill="none" stroke={color} strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
+                     </svg>
+                     
+                     {/* Container for dots matching SVG dimensions exactly */}
+                     <div style={{ position: 'absolute', top: 0, left: 0, right: '24px', height: '100%', zIndex: 10 }}>
+                       {points.split(' ').map((p, i) => {
+                         const [x, y] = p.split(',');
+                         return (
+                           <div key={i} style={{
+                             position: 'absolute',
+                             left: `${x}%`,
+                             top: `${y}%`,
+                             width: '12px',
+                             height: '12px',
+                             backgroundColor: color,
+                             borderRadius: '50%',
+                             transform: 'translate(-50%, -50%)',
+                             border: '2.5px solid white',
+                             boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                           }} />
+                         );
+                       })}
+                     </div>
+                  </div>
+                  
+                  {scales && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', marginTop: '16px', gap: '8px' }}>
+                      <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '6px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                        <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>SKALA D</div>
+                        <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0F172A' }}>{scales[0]}</div>
+                      </div>
+                      <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '6px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                        <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>SKALA I</div>
+                        <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0F172A' }}>{scales[1]}</div>
+                      </div>
+                      <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '6px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                        <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>SKALA S</div>
+                        <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0F172A' }}>{scales[2]}</div>
+                      </div>
+                      <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '6px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                        <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>SKALA C</div>
+                        <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0F172A' }}>{scales[3]}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            };
+
+            return (
+              <div style={{ animation: 'fadeIn 0.3s ease-in-out', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                {/* 1. PDF Container: Hanya 3 Grafik Saja (Landscape Single-Page, Tidak Terbelah) */}
+                <div id="printable-disc-graphs" style={{ background: '#FFFFFF', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                  {renderPrintableHeader('Grafik Kepribadian 3 Cermin')}
+
+                  <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+                    <h3 style={{ margin: 0, color: '#0F172A', fontSize: '1.25rem', fontWeight: 800 }}>
+                      Grafik Kepribadian DISC (Profil Grafis 3 Cermin)
+                    </h3>
+                    <p style={{ margin: '4px 0 0 0', color: '#64748B', fontSize: '0.85rem' }}>
+                      Perbandingan Graph 1 (Mask, Public Self), Graph 2 (Core, Private Self), dan Graph 3 (Mirror, Perceived Self).
+                    </p>
+                  </div>
+
+                  {/* 3 Grafik Berdampingan 3 Kolom Sesuai Tampilan Website */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.25rem', width: '100%' }}>
+                    {drawGraph(mostPoints, 'MOST')}
+                    {drawGraph(leastPoints, 'LEAST')}
+                    {drawGraph(changePoints, 'CHANGE', [scaleD, scaleI, scaleS, scaleC])}
+                  </div>
+
+                  {renderPrintableFooter()}
+                </div>
+
+                {/* 2. Rekapitulasi Skor Mentah Table (Tampil di web screen saja, tidak masuk PDF download) */}
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.5rem' }}>
+                  <h3 style={{ margin: '0 0 1rem 0', color: '#1E293B', fontSize: '1.1rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Rekapitulasi Skor Mentah (Web Inspector)
+                  </h3>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', background: 'white', borderRadius: '8px', overflow: 'hidden', minWidth: '400px' }}>
+                      <thead>
+                        <tr style={{ background: '#F1F5F9', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                          <th style={{ padding: '16px', border: '1px solid #E2E8F0' }}>Dimensi</th>
+                          <th style={{ padding: '16px', border: '1px solid #E2E8F0' }}>Mask Publik (Most)</th>
+                          <th style={{ padding: '16px', border: '1px solid #E2E8F0' }}>Inti Diri (Least)</th>
+                          <th style={{ padding: '16px', border: '1px solid #E2E8F0' }}>Cermin Diri (Change)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '800', color: '#DC2626', fontSize: '1.1rem' }}>D</td>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{dM}</td>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{dL}</td>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{diffD}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '800', color: '#EAB308', fontSize: '1.1rem' }}>I</td>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{iM}</td>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{iL}</td>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{diffI}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '800', color: '#16A34A', fontSize: '1.1rem' }}>S</td>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{sM}</td>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{sL}</td>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{diffS}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '800', color: '#2563EB', fontSize: '1.1rem' }}>C</td>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{cM}</td>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{cL}</td>
+                          <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{diffC}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 3. Lembar Jawaban Detail (Tampil di web screen saja) */}
+                {renderQuestionAnswersGrid()}
+              </div>
+            );
+          })()
+        ) : selectedTest.startsWith('PAPI') ? (
+          (() => {
+            const scores: Record<string, number> = { N: 0, G: 0, A: 0, L: 0, P: 0, I: 0, T: 0, V: 0, X: 0, S: 0, B: 0, O: 0, R: 0, D: 0, C: 0, Z: 0, E: 0, K: 0, F: 0, W: 0 };
+            
+            questions.forEach((q, idx) => {
+              const ans = currentAnswers.find((a: any) => a.questionId === q.id);
+              if (ans) {
+                try {
+                  const parsed = JSON.parse(ans.selectedOption);
+                  const qNum = idx + 1;
+                  if (papiScoringKeys[qNum]) {
+                    let choice = '';
+                    if (parsed === 'A' || parsed === 'B') choice = parsed;
+                    else if (parsed.answer) choice = parsed.answer;
+                    else if (parsed.selectedOption) choice = parsed.selectedOption;
+                    else if (typeof parsed === 'string') choice = parsed;
+
+                    if (choice === 'A' && papiScoringKeys[qNum].A) {
+                      scores[papiScoringKeys[qNum].A]++;
+                    } else if (choice === 'B' && papiScoringKeys[qNum].B) {
+                      scores[papiScoringKeys[qNum].B]++;
+                    }
+                  }
+                } catch(e) {
+                  const qNum = idx + 1;
+                  const choice = ans.selectedOption;
+                  if (papiScoringKeys[qNum]) {
+                    if (choice === 'A' && papiScoringKeys[qNum].A) scores[papiScoringKeys[qNum].A]++;
+                    else if (choice === 'B' && papiScoringKeys[qNum].B) scores[papiScoringKeys[qNum].B]++;
+                  }
+                }
+              }
+            });
+
+            const papiClusters = [
+              { name: 'Work Direction', traits: ['N', 'G', 'A'], color: '#0D9488' },
+              { name: 'Leadership', traits: ['L', 'P', 'I'], color: '#DC2626' },
+              { name: 'Activity', traits: ['T', 'V'], color: '#D97706' },
+              { name: 'Social Nature', traits: ['X', 'S', 'B', 'O'], color: '#059669' },
+              { name: 'Work Style', traits: ['R', 'D', 'C'], color: '#7C3AED' },
+              { name: 'Temperament', traits: ['Z', 'E', 'K'], color: '#DB2777' },
+              { name: 'Followership', traits: ['F', 'W'], color: '#4B5563' }
+            ];
+
+            const size = 800;
+            const center = size / 2;
+            const radarMax = 220; 
+            
+            const polarToCartesian = (cx: number, cy: number, r: number, angleInDegrees: number) => {
+              const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+              return {
+                x: cx + (r * Math.cos(angleInRadians)),
+                y: cy + (r * Math.sin(angleInRadians))
+              };
+            };
+
+            const describeArc = (cx: number, cy: number, innerRadius: number, outerRadius: number, startAngle: number, endAngle: number) => {
+              const p1 = polarToCartesian(cx, cy, outerRadius, startAngle);
+              const p2 = polarToCartesian(cx, cy, outerRadius, endAngle);
+              const p3 = polarToCartesian(cx, cy, innerRadius, endAngle);
+              const p4 = polarToCartesian(cx, cy, innerRadius, startAngle);
+              const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+              return [
+                "M", p1.x, p1.y,
+                "A", outerRadius, outerRadius, 0, largeArcFlag, 1, p2.x, p2.y,
+                "L", p3.x, p3.y,
+                "A", innerRadius, innerRadius, 0, largeArcFlag, 0, p4.x, p4.y,
+                "Z"
+              ].join(" ");
+            };
+            
+            const getTextPath = (cx: number, cy: number, radius: number, startAngle: number, endAngle: number) => {
+              const midAngle = (startAngle + endAngle) / 2;
+              const isBottom = midAngle > 90 && midAngle < 270;
+              if (isBottom) {
+                const p1 = polarToCartesian(cx, cy, radius, endAngle);
+                const p2 = polarToCartesian(cx, cy, radius, startAngle);
+                const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+                return `M ${p1.x} ${p1.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${p2.x} ${p2.y}`;
+              } else {
+                const p1 = polarToCartesian(cx, cy, radius, startAngle);
+                const p2 = polarToCartesian(cx, cy, radius, endAngle);
+                const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+                return `M ${p1.x} ${p1.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${p2.x} ${p2.y}`;
+              }
+            };
+
+            const getCoordinatesForValue = (trait: string, value: number, index: number) => {
+              const angle = index * 18 + 9;
+              const isReverse = ['Z', 'E', 'K'].includes(trait);
+              const r = isReverse ? ((9 - value) / 9) * radarMax : (value / 9) * radarMax;
+              return polarToCartesian(center, center, r, angle);
+            };
+
+            const categories = [
+              { name: 'ARAH KERJA', start: 0, end: 54, color: '#DC2626' },
+              { name: 'KEPEMIMPINAN', start: 54, end: 108, color: '#C026D3' },
+              { name: 'AKTIFITAS', start: 108, end: 144, color: '#0D9488' },
+              { name: 'PERGAULAN', start: 144, end: 216, color: '#06B6D4' },
+              { name: 'GAYA KERJA', start: 216, end: 270, color: '#10B981' },
+              { name: 'SIFAT', start: 270, end: 324, color: '#EAB308' },
+              { name: 'KETAATAN', start: 324, end: 360, color: '#F97316' },
+            ];
+            
+            const papiWheel = [
+              { trait: 'N', label: ['Menyelesaikan', 'Tugas Pribadi'] },
+              { trait: 'G', label: ['Peranan Sbg', 'Pekerja Keras'] },
+              { trait: 'A', label: ['Hasrat untuk', 'Berprestasi'] },
+              { trait: 'L', label: ['Peranan Sbg', 'Pemimpin'] },
+              { trait: 'P', label: ['Mengendalikan', 'Orang Lain'] },
+              { trait: 'I', label: ['Mudah Membuat', 'Keputusan'] },
+              { trait: 'T', label: ['Tempo Kerja'] },
+              { trait: 'V', label: ['Stamina'] },
+              { trait: 'S', label: ['Pergaulan', 'Luas'] },
+              { trait: 'B', label: ['Kebutuhan', 'Terhadap', 'Kelompok'] },
+              { trait: 'O', label: ['Kebutuhan utk', 'Mendekati', 'dan Menyayangi'] },
+              { trait: 'X', label: ['Mendapatkan', 'Perhatian'] },
+              { trait: 'C', label: ['Suka Pekerjaan', 'yang Teratur'] },
+              { trait: 'D', label: ['Suka Pekerjaan', 'yang Terperinci'] },
+              { trait: 'R', label: ['Tipe Teoritis'] },
+              { trait: 'Z', label: ['Hasrat untuk', 'Berubah'] },
+              { trait: 'E', label: ['Pengendalian', 'Emosi'] },
+              { trait: 'K', label: ['Agresifitas'] },
+              { trait: 'F', label: ['Dukungan', 'utk Atasan'] },
+              { trait: 'W', label: ['Kebutuhan utk', 'Taat Aturan', 'dan Arahan'] },
+            ];
+
+            const polygonPoints = papiWheel.map((item, i) => {
+              const pos = getCoordinatesForValue(item.trait, scores[item.trait] || 0, i);
+              return `${pos.x},${pos.y}`;
+            }).join(' ');
+
+            return (
+              <div style={{ animation: 'fadeIn 0.3s ease-in-out', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                {/* Page 1: Cakram PAPI */}
+                <div id="printable-papi-page-1" style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                  {renderPrintableHeader('Diagram Cakram Profil', 'Hal. 1 / 2')}
+
+                  <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                    <h3 style={{ margin: 0, color: '#0F172A', fontSize: '1.25rem', fontWeight: 800 }}>
+                      Diagram Cakram Profil PAPI Kostick
+                    </h3>
+                    <p style={{ margin: '4px 0 0 0', color: '#64748B', fontSize: '0.85rem' }}>
+                      Pemetaan 20 dimensi kebutuhan (needs) dan peran (roles) dalam 7 klaster dinamika kerja.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', overflowX: 'auto', padding: '0.5rem 0' }}>
+                    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: 'visible', fontFamily: 'sans-serif', maxWidth: '100%', height: 'auto' }}>
+                      <defs>
+                        {categories.map((cat, i) => (
+                          <path key={`path-${i}`} id={`catPath-${i}`} d={getTextPath(center, center, 360, cat.start, cat.end)} fill="none" />
+                        ))}
+                      </defs>
+
+                      {/* Categories Outer Band */}
+                      {categories.map((cat, i) => (
+                        <g key={`cat-${i}`}>
+                          <path d={describeArc(center, center, 340, 380, cat.start, cat.end)} fill={cat.color} stroke="white" strokeWidth="2" />
+                          <text fill="white" fontSize="18" fontWeight="800" letterSpacing="1">
+                            <textPath href={`#catPath-${i}`} startOffset="50%" textAnchor="middle" dominantBaseline="middle">
+                              {cat.name}
+                            </textPath>
+                          </text>
+                        </g>
+                      ))}
+
+                      {/* Letter Band */}
+                      {papiWheel.map((item, i) => {
+                        const angle = i * 18;
+                        let catIdx = 0;
+                        categories.forEach((c, cidx) => { if (angle >= c.start && angle < c.end) catIdx = cidx; });
+                        const isLightGreen = catIdx % 2 !== 0;
+                        const greenColor = isLightGreen ? '#A3E635' : '#65A30D';
+                        const textPos = polarToCartesian(center, center, 320, angle + 9);
+                        
+                        return (
+                          <g key={`letter-${i}`}>
+                            <path d={describeArc(center, center, 300, 340, angle, angle + 18)} fill={greenColor} stroke="white" strokeWidth="2" />
+                            <text x={textPos.x} y={textPos.y} fill="white" fontSize="24" fontWeight="900" textAnchor="middle" dominantBaseline="middle">
+                              {item.trait}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      {/* Description Band */}
+                      {papiWheel.map((item, i) => {
+                        const angle = i * 18;
+                        const midAngle = angle + 9;
+                        const textPos = polarToCartesian(center, center, 260, midAngle);
+                        const isBottom = midAngle > 90 && midAngle < 270;
+                        const rotAngle = isBottom ? midAngle - 180 : midAngle;
+                        
+                        return (
+                          <g key={`desc-${i}`}>
+                            <path d={describeArc(center, center, 220, 300, angle, angle + 18)} fill="#FEF9C3" stroke="white" strokeWidth="2" />
+                            <g transform={`translate(${textPos.x}, ${textPos.y}) rotate(${rotAngle})`}>
+                              {item.label.map((line, lidx) => (
+                                <text key={lidx} y={(lidx - (item.label.length - 1)/2) * 12} fill="#475569" fontSize="9" fontWeight="700" textAnchor="middle" dominantBaseline="middle">
+                                  {line}
+                                </text>
+                              ))}
+                            </g>
+                          </g>
+                        );
+                      })}
+
+                      {/* Radar Area & Concentric Circles */}
+                      <circle cx={center} cy={center} r={radarMax} fill="white" />
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((val) => {
+                        return (
+                          <circle key={`rad-${val}`} cx={center} cy={center} r={(val / 9) * radarMax} fill="none" stroke={val === 9 ? '#94A3B8' : '#E2E8F0'} strokeWidth={val === 9 ? 2 : 1} strokeDasharray={val === 9 ? '0' : '4 4'} />
+                        );
+                      })}
+
+                      {/* Radar Spokes & Values */}
+                      {papiWheel.map((item, i) => {
+                        const angle = i * 18 + 9;
+                        const edgePos = polarToCartesian(center, center, radarMax, angle);
+                        const isReverse = ['Z', 'E', 'K'].includes(item.trait);
+                        
+                        return (
+                          <g key={`spoke-${i}`}>
+                            <line x1={center} y1={center} x2={edgePos.x} y2={edgePos.y} stroke="#E2E8F0" strokeWidth="1" />
+                            
+                            {/* Draw numbers 1-9 along the spoke */}
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(val => {
+                              const scoreVal = isReverse ? (9 - val) : val;
+                              const pos = polarToCartesian(center, center, (val / 9) * radarMax, angle);
+                              const textRot = (angle > 90 && angle < 270) ? angle - 180 : angle;
+                              return (
+                                <g key={`val-${val}`} transform={`translate(${pos.x}, ${pos.y}) rotate(${textRot})`}>
+                                  <rect x="-4" y="-6" width="8" height="12" fill="white" opacity="0.7" />
+                                  <text fill="#64748B" fontSize="9" fontWeight="600" textAnchor="middle" dominantBaseline="middle">
+                                    {scoreVal}
+                                  </text>
+                                </g>
+                              );
+                            })}
+                          </g>
+                        );
+                      })}
+                      <circle cx={center} cy={center} r="2" fill="#1E293B" />
+
+                      {/* Data Polygon with Teal accent */}
+                      <polygon points={polygonPoints} fill="rgba(13, 148, 136, 0.2)" stroke="#0D9488" strokeWidth="2.5" />
+                      
+                      {/* Data Points */}
+                      {papiWheel.map((item, i) => {
+                        const pos = getCoordinatesForValue(item.trait, scores[item.trait] || 0, i);
+                        return (
+                          <circle key={`dot-${i}`} cx={pos.x} cy={pos.y} r="5" fill="#0D9488" stroke="white" strokeWidth="2" />
+                        );
+                      })}
+                    </svg>
+                  </div>
+
+                  {renderPrintableFooter('Halaman 1')}
+                </div>
+
+                {/* Page 2: Detail Skor PAPI Kostick (7 Klaster) */}
+                <div id="printable-papi-page-2" style={{ background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+                  {renderPrintableHeader('Detail Skor 7 Klaster', 'Hal. 2 / 2')}
+
+                  <div style={{ marginBottom: '1.25rem' }}>
+                    <h3 style={{ margin: 0, color: '#0F172A', fontSize: '1.25rem', fontWeight: 800 }}>
+                      Detail Skor PAPI Kostick (7 Klaster Aspek Kerja)
+                    </h3>
+                    <p style={{ margin: '4px 0 0 0', color: '#64748B', fontSize: '0.85rem' }}>
+                      Distribusi perolehan skor skala 0-9 untuk masing-masing dimensi peran dan kebutuhan kerja.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+                    {papiClusters.map(cluster => (
+                      <div key={cluster.name} style={{ background: '#F8FAFC', border: `1px solid ${cluster.color}40`, borderRadius: '12px', overflow: 'hidden' }}>
+                        <div style={{ background: cluster.color, color: 'white', padding: '0.75rem 1rem', fontWeight: 700, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          {cluster.name}
+                        </div>
+                        <div style={{ padding: '1rem' }}>
+                          {cluster.traits.map(trait => (
+                             <div key={trait} style={{ display: 'flex', alignItems: 'center', marginBottom: '0.75rem' }}>
+                              <div style={{ width: '25px', fontWeight: 800, color: cluster.color }}>{trait}</div>
+                              <div style={{ flex: 1, background: '#E2E8F0', height: '8px', borderRadius: '4px', margin: '0 1rem', position: 'relative' }}>
+                                <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${(scores[trait] / 9) * 100}%`, background: cluster.color, borderRadius: '4px' }}></div>
+                              </div>
+                              <div style={{ width: '25px', textAlign: 'right', fontWeight: 700, color: '#334155' }}>{scores[trait]}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {renderPrintableFooter('Halaman 2')}
+                </div>
+
+                {/* Tabel Norma PAPI Kostick (Outside PDF, displayed on screen) */}
+                {renderPapiNormTable()}
+
+                {/* Rincian Lembar Jawaban (Outside PDF, displayed on screen) */}
+                {renderQuestionAnswersGrid()}
+              </div>
+            );
+          })()
         ) : (
           <div>
             {/* Executive Result Section (Captured into PDF) */}
@@ -2883,584 +3729,6 @@ export default function ReportDetailPage() {
                         </div>
                       </div>
                     );
-                  } else if (selectedTest === 'DISC') {
-                    let dM = 0, iM = 0, sM = 0, cM = 0;
-                    let dL = 0, iL = 0, sL = 0, cL = 0;
-
-                    questions.forEach((q, idx) => {
-                      const ans = currentAnswers.find((a: any) => a.questionId === q.id);
-                      if (ans) {
-                        try {
-                          const parsed = JSON.parse(ans.selectedOption);
-                          const qNum = idx + 1;
-                          if (discScoringKeys[qNum]) {
-                            const mappedMost = discScoringKeys[qNum].most[parsed.most];
-                            if (mappedMost === 'D') dM++;
-                            if (mappedMost === 'I') iM++;
-                            if (mappedMost === 'S') sM++;
-                            if (mappedMost === 'C') cM++;
-                            
-                            const mappedLeast = discScoringKeys[qNum].least[parsed.least];
-                            if (mappedLeast === 'D') dL++;
-                            if (mappedLeast === 'I') iL++;
-                            if (mappedLeast === 'S') sL++;
-                            if (mappedLeast === 'C') cL++;
-                          }
-                        } catch(e) {}
-                      }
-                    });
-
-                    const diffD = dM - dL;
-                    const diffI = iM - iL;
-                    const diffS = sM - sL;
-                    const diffC = cM - cL;
-
-                    const scaleD = getDiscScale('D', diffD);
-                    const scaleI = getDiscScale('I', diffI);
-                    const scaleS = getDiscScale('S', diffS);
-                    const scaleC = getDiscScale('C', diffC);
-
-                    const getSvgY = (metric: string, score: number) => {
-                      return mapScoreToYPercent(metric, score);
-                    };
-
-                    const mostPoints = `12.5,${getSvgY('DM', dM)} 37.5,${getSvgY('IM', iM)} 62.5,${getSvgY('SM', sM)} 87.5,${getSvgY('CM', cM)}`;
-                    const leastPoints = `12.5,${getSvgY('DL', dL)} 37.5,${getSvgY('IL', iL)} 62.5,${getSvgY('SL', sL)} 87.5,${getSvgY('CL', cL)}`;
-                    const changePoints = `12.5,${getSvgY('DC', diffD)} 37.5,${getSvgY('IC', diffI)} 62.5,${getSvgY('SC', diffS)} 87.5,${getSvgY('CC', diffC)}`;
-
-                    const bgScores: Record<string, { m: string; s: (number | string)[] }[]> = {
-                      MOST: [
-                        { m: 'DM', s: [21, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 1, 0] },
-                        { m: 'IM', s: [19, 11, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] },
-                        { m: 'SM', s: [20, 14, 12, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] },
-                        { m: 'CM', s: [17, 13, 11, 9, 8, 7, 6, 4, 3, 2, 1, 0] }
-                      ],
-                      LEAST: [
-                        { m: 'DL', s: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 20] },
-                        { m: 'IL', s: [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 19] },
-                        { m: 'SL', s: [0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 19] },
-                        { m: 'CL', s: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17] }
-                      ],
-                      CHANGE: [
-                        { m: 'DC', s: ['+21', '+18', '+15', '+14', '+13', '+12', '+10', '+9', '+8', '+7', '+5', '+3', '+1', '0', '-2', '-3', '-4', '-6', '-7', '-9', '-10', '-11', '-12', '-16', '-20'] },
-                        { m: 'IC', s: ['+18', '+10', '+8', '+7', '+6', '+5', '+4', '+3', '+2', '+1', '0', '-1', '-2', '-3', '-4', '-5', '-6', '-7', '-8', '-9', '-10', '-18'] },
-                        { m: 'SC', s: ['+20', '+15', '+11', '+10', '+9', '+8', '+7', '+5', '+4', '+3', '+2', '+1', '0', '-1', '-2', '-3', '-4', '-6', '-7', '-8', '-9', '-10', '-15', '-18'] },
-                        { m: 'CC', s: ['+17', '+10', '+6', '+5', '+4', '+3', '+2', '+1', '0', '-1', '-2', '-3', '-4', '-5', '-6', '-7', '-8', '-9', '-10', '-13', '-15', '-19', '-22'] }
-                      ]
-                    };
-
-                    const graphMeta = {
-                      MOST: { num: 'Graph 1', badge: 'MOST', sub: 'Mask, Public Self', stroke: '#2563EB' },
-                      LEAST: { num: 'Graph 2', badge: 'LEAST', sub: 'Core, Private Self', stroke: '#DC2626' },
-                      CHANGE: { num: 'Graph 3', badge: 'CHANGE', sub: 'Mirror, Perceived Self', stroke: '#16A34A' }
-                    };
-
-                    const drawGraph = (points: string, graphType: 'MOST' | 'LEAST' | 'CHANGE', scales?: number[]) => {
-                      const meta = graphMeta[graphType];
-                      const color = meta.stroke;
-
-                      return (
-                        <div style={{ flex: '1 1 320px', background: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                          {/* Header */}
-                          <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
-                            <div style={{ fontSize: '15px', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                              <span style={{ fontWeight: 600 }}>{meta.num}</span>
-                              <span style={{ background: '#000', color: '#fff', padding: '2px 8px', borderRadius: '3px', fontWeight: 800, fontSize: '13px', letterSpacing: '0.5px' }}>
-                                {meta.badge}
-                              </span>
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px', fontStyle: 'italic' }}>
-                              {meta.sub}
-                            </div>
-                            
-                            {/* D I S C Black badges above columns */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', width: 'calc(100% - 24px)', margin: '10px 0 6px 0' }}>
-                              {['D', 'I', 'S', 'C'].map((char) => (
-                                <div key={char} style={{ display: 'flex', justifyContent: 'center' }}>
-                                  <span style={{ 
-                                    background: '#000', 
-                                    color: '#fff', 
-                                    width: '24px', 
-                                    height: '24px', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center', 
-                                    fontWeight: 900, 
-                                    fontSize: '13px',
-                                    borderRadius: '3px'
-                                  }}>
-                                    {char}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          
-                          {/* The Grid Box */}
-                          <div style={{ position: 'relative', width: '100%', height: '820px', border: '2px solid #000', paddingRight: '24px', background: '#FAFAFA' }}>
-                             
-                             {/* Background Horizontal Grid Lines */}
-                             {/* Level 8 (Top) */}
-                             <div style={{ position: 'absolute', top: '0%', left: 0, right: '24px', borderTop: '2px solid #000' }}></div>
-                             {/* Level 6 */}
-                             <div style={{ position: 'absolute', top: '12.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
-                             {/* Level 4 (Dashed SD +1) */}
-                             <div style={{ position: 'absolute', top: '25%', left: 0, right: '24px', borderTop: '1.5px dashed #334155' }}></div>
-                             {/* Level 2 */}
-                             <div style={{ position: 'absolute', top: '37.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
-                             {/* Level 0 (Bold Midline) */}
-                             <div style={{ position: 'absolute', top: '50%', left: 0, right: '24px', borderTop: '2.5px solid #000' }}></div>
-                             {/* Level -2 */}
-                             <div style={{ position: 'absolute', top: '62.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
-                             {/* Level -4 (Dashed SD -1) */}
-                             <div style={{ position: 'absolute', top: '75%', left: 0, right: '24px', borderTop: '1.5px dashed #334155' }}></div>
-                             {/* Level -6 */}
-                             <div style={{ position: 'absolute', top: '87.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
-                             {/* Level -8 (Bottom) */}
-                             <div style={{ position: 'absolute', top: '100%', left: 0, right: '24px', borderTop: '2px solid #000' }}></div>
-  
-                             {/* Vertical column dividers */}
-                             <div style={{ position: 'absolute', top: 0, bottom: 0, left: '25%', borderLeft: '1px solid #CBD5E1' }}></div>
-                             <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', borderLeft: '1px solid #CBD5E1' }}></div>
-                             <div style={{ position: 'absolute', top: 0, bottom: 0, left: '75%', borderLeft: '1px solid #CBD5E1' }}></div>
-  
-                             {/* Scale Labels on the Right */}
-                             <div style={{ position: 'absolute', top: '0%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>8</div>
-                             <div style={{ position: 'absolute', top: '12.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>6</div>
-                             <div style={{ position: 'absolute', top: '25%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>4</div>
-                             <div style={{ position: 'absolute', top: '37.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>2</div>
-                             <div style={{ position: 'absolute', top: '50%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.8rem', color: '#0F172A', fontWeight: 900 }}>0</div>
-                             <div style={{ position: 'absolute', top: '62.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>-2</div>
-                             <div style={{ position: 'absolute', top: '75%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>-4</div>
-                             <div style={{ position: 'absolute', top: '87.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>-6</div>
-                             <div style={{ position: 'absolute', top: '100%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>-8</div>
-  
-                             {/* Background Numbers */}
-                             {bgScores[graphType].map((col, cIdx) => (
-                               <div key={cIdx}>
-                                 {col.s.map((s, sIdx) => {
-                                    const numVal = typeof s === 'string' ? parseFloat(s.replace('+', '')) : s;
-                                    const yPerc = mapScoreToYPercent(col.m, numVal);
-                                    const xPerc = [12.5, 37.5, 62.5, 87.5][cIdx];
-                                    return (
-                                      <div key={sIdx} style={{
-                                        position: 'absolute',
-                                        left: `${xPerc}%`,
-                                        top: `${yPerc}%`,
-                                        transform: 'translate(-50%, -50%)',
-                                        fontSize: '0.66rem',
-                                        fontWeight: 600,
-                                        color: '#64748B',
-                                        pointerEvents: 'none',
-                                        zIndex: 1
-                                      }}>
-                                        {s}
-                                      </div>
-                                    );
-                                 })}
-                               </div>
-                             ))}
-  
-                             {/* The dynamic chart line */}
-                             <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', top: 0, left: 0, right: '24px', width: 'calc(100% - 24px)', overflow: 'visible', zIndex: 5 }}>
-                               <polyline points={points} fill="none" stroke={color} strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
-                             </svg>
-                             
-                             {/* Container for dots matching SVG dimensions exactly */}
-                             <div style={{ position: 'absolute', top: 0, left: 0, right: '24px', height: '100%', zIndex: 10 }}>
-                               {points.split(' ').map((p, i) => {
-                                 const [x, y] = p.split(',');
-                                 return (
-                                   <div key={i} style={{
-                                     position: 'absolute',
-                                     left: `${x}%`,
-                                     top: `${y}%`,
-                                     width: '12px',
-                                     height: '12px',
-                                     backgroundColor: color,
-                                     borderRadius: '50%',
-                                     transform: 'translate(-50%, -50%)',
-                                     border: '2.5px solid white',
-                                     boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                                   }} />
-                                 );
-                               })}
-                             </div>
-                          </div>
-                          
-                          {scales && (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', marginTop: '16px', gap: '8px' }}>
-                              <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '6px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-                                <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>SKALA D</div>
-                                <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0F172A' }}>{scales[0]}</div>
-                              </div>
-                              <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '6px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-                                <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>SKALA I</div>
-                                <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0F172A' }}>{scales[1]}</div>
-                              </div>
-                              <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '6px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-                                <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>SKALA S</div>
-                                <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0F172A' }}>{scales[2]}</div>
-                              </div>
-                              <div style={{ textAlign: 'center', background: '#F8FAFC', padding: '6px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
-                                <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>SKALA C</div>
-                                <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#0F172A' }}>{scales[3]}</div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    };
-
-                    return (
-                                        <div style={{ marginTop: '2rem' }}>
-                        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.5rem', marginBottom: '2rem' }}>
-                          <h3 style={{ margin: '0 0 1rem 0', color: '#1E293B', fontSize: '1.1rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rekapitulasi Skor Mentah</h3>
-                          <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', background: 'white', borderRadius: '8px', overflow: 'hidden', minWidth: '400px' }}>
-                              <thead>
-                                <tr style={{ background: '#F1F5F9', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                  <th style={{ padding: '16px', border: '1px solid #E2E8F0' }}>Dimensi</th>
-                                  <th style={{ padding: '16px', border: '1px solid #E2E8F0' }}>Mask Publik (Most)</th>
-                                  <th style={{ padding: '16px', border: '1px solid #E2E8F0' }}>Inti Diri (Least)</th>
-                                  <th style={{ padding: '16px', border: '1px solid #E2E8F0' }}>Cermin Diri (Change)</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '800', color: '#DC2626', fontSize: '1.1rem' }}>D</td>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{dM}</td>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{dL}</td>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{diffD}</td>
-                                </tr>
-                                <tr>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '800', color: '#EAB308', fontSize: '1.1rem' }}>I</td>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{iM}</td>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{iL}</td>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{diffI}</td>
-                                </tr>
-                                <tr>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '800', color: '#16A34A', fontSize: '1.1rem' }}>S</td>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{sM}</td>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{sL}</td>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{diffS}</td>
-                                </tr>
-                                <tr>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '800', color: '#2563EB', fontSize: '1.1rem' }}>C</td>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{cM}</td>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{cL}</td>
-                                  <td style={{ padding: '16px', border: '1px solid #E2E8F0', fontWeight: '700', fontSize: '1.1rem' }}>{diffC}</td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                        
-                        <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-                          {drawGraph(mostPoints, 'MOST')}
-                          {drawGraph(leastPoints, 'LEAST')}
-                          {drawGraph(changePoints, 'CHANGE', [scaleD, scaleI, scaleS, scaleC])}
-                        </div>
-                      </div>
-                    );
-                  } else if (selectedTest.startsWith('PAPI')) {
-                    // PAPI Kostick Score Calculation
-                    const scores: Record<string, number> = { N: 0, G: 0, A: 0, L: 0, P: 0, I: 0, T: 0, V: 0, X: 0, S: 0, B: 0, O: 0, R: 0, D: 0, C: 0, Z: 0, E: 0, K: 0, F: 0, W: 0 };
-                    
-                    questions.forEach((q, idx) => {
-                      const ans = currentAnswers.find((a: any) => a.questionId === q.id);
-                      if (ans) {
-                        try {
-                          const parsed = JSON.parse(ans.selectedOption);
-                          const qNum = idx + 1;
-                          if (papiScoringKeys[qNum]) {
-                            let choice = '';
-                            if (parsed === 'A' || parsed === 'B') choice = parsed;
-                            else if (parsed.answer) choice = parsed.answer;
-                            else if (parsed.selectedOption) choice = parsed.selectedOption;
-                            else if (typeof parsed === 'string') choice = parsed;
-
-                            if (choice === 'A' && papiScoringKeys[qNum].A) {
-                              scores[papiScoringKeys[qNum].A]++;
-                            } else if (choice === 'B' && papiScoringKeys[qNum].B) {
-                              scores[papiScoringKeys[qNum].B]++;
-                            }
-                          }
-                        } catch(e) {
-                          const qNum = idx + 1;
-                          const choice = ans.selectedOption;
-                          if (papiScoringKeys[qNum]) {
-                            if (choice === 'A' && papiScoringKeys[qNum].A) scores[papiScoringKeys[qNum].A]++;
-                            else if (choice === 'B' && papiScoringKeys[qNum].B) scores[papiScoringKeys[qNum].B]++;
-                          }
-                        }
-                      }
-                    });
-
-                    // Configuration for Radar Chart
-                    const getPapiNorm = (trait: string, score: number) => {
-                      if (trait === 'L' || trait === 'P') return score <= 4 ? '2-' : score <= 7 ? '3' : score === 8 ? '4' : '5';
-                      if (trait === 'I') return score <= 2 ? '2-' : score <= 5 ? '3' : score === 6 ? '4' : score === 7 ? '5' : '2+';
-                      if (trait === 'C') return score <= 2 ? '2-' : score === 3 ? '3' : score === 4 ? '4' : score === 5 ? '5' : '2+';
-                      if (trait === 'D') return score <= 3 ? '2-' : score <= 6 ? '3' : score <= 8 ? '4' : '5';
-                      if (trait === 'R') return score <= 4 ? 'P' : 'T';
-                      if (trait === 'N' || trait === 'A') return score <= 2 ? '2-' : score <= 5 ? '3' : score <= 8 ? '4' : '5';
-                      if (trait === 'G') return score <= 2 ? '2-' : score <= 5 ? '3' : score === 6 ? '4' : score === 7 ? '5' : '2+';
-                      if (trait === 'F') return score <= 1 ? '2-' : score <= 3 ? '3' : score === 4 ? '4' : score === 5 ? '5' : '2+';
-                      if (trait === 'W') return score <= 4 ? '2-' : score <= 7 ? '3' : score === 8 ? '4' : '5';
-                      if (trait === 'T') return score <= 3 ? '2-' : score === 4 ? '3' : score === 5 ? '4' : score === 6 ? '5' : '2+';
-                      if (trait === 'V') return score <= 4 ? '2-' : score <= 7 ? '3' : score === 8 ? '4' : '5';
-                      if (trait === 'Z') return score <= 2 ? '2-' : score <= 5 ? '3' : score === 6 ? '4' : score === 7 ? '5' : '2+';
-                      if (trait === 'E') return score <= 1 ? '2-' : score <= 4 ? '3' : score === 5 ? '4' : score === 6 ? '5' : '2+';
-                      if (trait === 'K') return score <= 2 ? '2-' : score === 3 ? '5' : score === 4 ? '4' : score <= 7 ? '3' : '2+';
-                      if (trait === 'X') return score <= 1 ? '2-' : score <= 3 ? '3' : score === 4 ? '4' : score === 5 ? '5' : '2+';
-                      if (trait === 'S') return score <= 5 ? '2-' : score <= 7 ? '3' : score === 8 ? '4' : '5';
-                      if (trait === 'B' || trait === 'O') return score <= 2 ? '2-' : score === 3 ? '3' : score === 4 ? '4' : score === 5 ? '5' : '2+';
-                      return '-';
-                    };
-
-                    const papiOrder = ['N', 'G', 'A', 'L', 'P', 'I', 'T', 'V', 'X', 'S', 'B', 'O', 'R', 'D', 'C', 'Z', 'E', 'K', 'F', 'W'];
-                    const papiClusters = [
-                      { name: 'Work Direction', traits: ['N', 'G', 'A'], color: '#2563EB' },
-                      { name: 'Leadership', traits: ['L', 'P', 'I'], color: '#DC2626' },
-                      { name: 'Activity', traits: ['T', 'V'], color: '#D97706' },
-                      { name: 'Social Nature', traits: ['X', 'S', 'B', 'O'], color: '#059669' },
-                      { name: 'Work Style', traits: ['R', 'D', 'C'], color: '#7C3AED' },
-                      { name: 'Temperament', traits: ['Z', 'E', 'K'], color: '#DB2777' },
-                      { name: 'Followership', traits: ['F', 'W'], color: '#4B5563' }
-                    ];
-
-                    const size = 800;
-                    const center = size / 2;
-                    const radarMax = 220; 
-                    
-                    const polarToCartesian = (cx: number, cy: number, r: number, angleInDegrees: number) => {
-                      const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
-                      return {
-                        x: cx + (r * Math.cos(angleInRadians)),
-                        y: cy + (r * Math.sin(angleInRadians))
-                      };
-                    };
-
-                    const describeArc = (cx: number, cy: number, innerRadius: number, outerRadius: number, startAngle: number, endAngle: number) => {
-                      const p1 = polarToCartesian(cx, cy, outerRadius, startAngle);
-                      const p2 = polarToCartesian(cx, cy, outerRadius, endAngle);
-                      const p3 = polarToCartesian(cx, cy, innerRadius, endAngle);
-                      const p4 = polarToCartesian(cx, cy, innerRadius, startAngle);
-                      const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-                      return [
-                        "M", p1.x, p1.y,
-                        "A", outerRadius, outerRadius, 0, largeArcFlag, 1, p2.x, p2.y,
-                        "L", p3.x, p3.y,
-                        "A", innerRadius, innerRadius, 0, largeArcFlag, 0, p4.x, p4.y,
-                        "Z"
-                      ].join(" ");
-                    };
-                    
-                    const getTextPath = (cx: number, cy: number, radius: number, startAngle: number, endAngle: number) => {
-                      const midAngle = (startAngle + endAngle) / 2;
-                      const isBottom = midAngle > 90 && midAngle < 270;
-                      if (isBottom) {
-                        const p1 = polarToCartesian(cx, cy, radius, endAngle);
-                        const p2 = polarToCartesian(cx, cy, radius, startAngle);
-                        const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-                        return `M ${p1.x} ${p1.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${p2.x} ${p2.y}`;
-                      } else {
-                        const p1 = polarToCartesian(cx, cy, radius, startAngle);
-                        const p2 = polarToCartesian(cx, cy, radius, endAngle);
-                        const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-                        return `M ${p1.x} ${p1.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${p2.x} ${p2.y}`;
-                      }
-                    };
-
-                    const getCoordinatesForValue = (trait: string, value: number, index: number) => {
-                      const angle = index * 18 + 9;
-                      const isReverse = ['Z', 'E', 'K'].includes(trait);
-                      const r = isReverse ? ((9 - value) / 9) * radarMax : (value / 9) * radarMax;
-                      return polarToCartesian(center, center, r, angle);
-                    };
-
-                    const categories = [
-                      { name: 'ARAH KERJA', start: 0, end: 54, color: '#DC2626' },
-                      { name: 'KEPEMIMPINAN', start: 54, end: 108, color: '#C026D3' },
-                      { name: 'AKTIFITAS', start: 108, end: 144, color: '#2563EB' },
-                      { name: 'PERGAULAN', start: 144, end: 216, color: '#06B6D4' },
-                      { name: 'GAYA KERJA', start: 216, end: 270, color: '#10B981' },
-                      { name: 'SIFAT', start: 270, end: 324, color: '#EAB308' },
-                      { name: 'KETAATAN', start: 324, end: 360, color: '#F97316' },
-                    ];
-                    
-                    const papiWheel = [
-                      { trait: 'N', label: ['Menyelesaikan', 'Tugas Pribadi'] },
-                      { trait: 'G', label: ['Peranan Sbg', 'Pekerja Keras'] },
-                      { trait: 'A', label: ['Hasrat untuk', 'Berprestasi'] },
-                      { trait: 'L', label: ['Peranan Sbg', 'Pemimpin'] },
-                      { trait: 'P', label: ['Mengendalikan', 'Orang Lain'] },
-                      { trait: 'I', label: ['Mudah Membuat', 'Keputusan'] },
-                      { trait: 'T', label: ['Tempo Kerja'] },
-                      { trait: 'V', label: ['Stamina'] },
-                      { trait: 'S', label: ['Pergaulan', 'Luas'] },
-                      { trait: 'B', label: ['Kebutuhan', 'Terhadap', 'Kelompok'] },
-                      { trait: 'O', label: ['Kebutuhan utk', 'Mendekati', 'dan Menyayangi'] },
-                      { trait: 'X', label: ['Mendapatkan', 'Perhatian'] },
-                      { trait: 'C', label: ['Suka Pekerjaan', 'yang Teratur'] },
-                      { trait: 'D', label: ['Suka Pekerjaan', 'yang Terperinci'] },
-                      { trait: 'R', label: ['Tipe Teoritis'] },
-                      { trait: 'Z', label: ['Hasrat untuk', 'Berubah'] },
-                      { trait: 'E', label: ['Pengendalian', 'Emosi'] },
-                      { trait: 'K', label: ['Agresifitas'] },
-                      { trait: 'F', label: ['Dukungan', 'utk Atasan'] },
-                      { trait: 'W', label: ['Kebutuhan utk', 'Taat Aturan', 'dan Arahan'] },
-                    ];
-
-                    const polygonPoints = papiWheel.map((item, i) => {
-                      const pos = getCoordinatesForValue(item.trait, scores[item.trait] || 0, i);
-                      return `${pos.x},${pos.y}`;
-                    }).join(' ');
-
-                    return (
-                                        <div style={{ marginTop: '2rem' }}>
-                        <div style={{ background: 'white', padding: '2rem', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', marginBottom: '2rem' }}>
-                          <h3 style={{ margin: '0 0 1.5rem 0', color: '#1E293B', fontSize: '1.25rem', textAlign: 'center' }}>Grafik Cakram PAPI Kostick</h3>
-                          
-                          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', overflowX: 'auto', padding: '1rem 0' }}>
-                            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: 'visible', fontFamily: 'sans-serif' }}>
-                              <defs>
-                                {categories.map((cat, i) => (
-                                  <path key={`path-${i}`} id={`catPath-${i}`} d={getTextPath(center, center, 360, cat.start, cat.end)} fill="none" />
-                                ))}
-                              </defs>
-
-                              {/* Categories Outer Band */}
-                              {categories.map((cat, i) => (
-                                <g key={`cat-${i}`}>
-                                  <path d={describeArc(center, center, 340, 380, cat.start, cat.end)} fill={cat.color} stroke="white" strokeWidth="2" />
-                                  <text fill="white" fontSize="18" fontWeight="800" letterSpacing="1">
-                                    <textPath href={`#catPath-${i}`} startOffset="50%" textAnchor="middle" dominantBaseline="middle">
-                                      {cat.name}
-                                    </textPath>
-                                  </text>
-                                </g>
-                              ))}
-
-                              {/* Letter Band */}
-                              {papiWheel.map((item, i) => {
-                                const angle = i * 18;
-                                let catIdx = 0;
-                                categories.forEach((c, cidx) => { if (angle >= c.start && angle < c.end) catIdx = cidx; });
-                                const isLightGreen = catIdx % 2 !== 0;
-                                const greenColor = isLightGreen ? '#A3E635' : '#65A30D';
-                                const textPos = polarToCartesian(center, center, 320, angle + 9);
-                                
-                                                                return (
-                                                                <g key={`letter-${i}`}>
-                                    <path d={describeArc(center, center, 300, 340, angle, angle + 18)} fill={greenColor} stroke="white" strokeWidth="2" />
-                                    <text x={textPos.x} y={textPos.y} fill="white" fontSize="24" fontWeight="900" textAnchor="middle" dominantBaseline="middle">
-                                      {item.trait}
-                                    </text>
-                                  </g>
-                                );
-                              })}
-
-                              {/* Description Band */}
-                              {papiWheel.map((item, i) => {
-                                const angle = i * 18;
-                                const midAngle = angle + 9;
-                                const textPos = polarToCartesian(center, center, 260, midAngle);
-                                const isBottom = midAngle > 90 && midAngle < 270;
-                                const rotAngle = isBottom ? midAngle - 180 : midAngle;
-                                
-                                                                return (
-                                                                <g key={`desc-${i}`}>
-                                    <path d={describeArc(center, center, 220, 300, angle, angle + 18)} fill="#FEF9C3" stroke="white" strokeWidth="2" />
-                                    <g transform={`translate(${textPos.x}, ${textPos.y}) rotate(${rotAngle})`}>
-                                      {item.label.map((line, lidx) => (
-                                        <text key={lidx} y={(lidx - (item.label.length - 1)/2) * 12} fill="#475569" fontSize="9" fontWeight="700" textAnchor="middle" dominantBaseline="middle">
-                                          {line}
-                                        </text>
-                                      ))}
-                                    </g>
-                                  </g>
-                                );
-                              })}
-
-                              {/* Radar Area & Concentric Circles */}
-                              <circle cx={center} cy={center} r={radarMax} fill="white" />
-                              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((val) => {
-                                return (
-                                  <circle key={`rad-${val}`} cx={center} cy={center} r={(val / 9) * radarMax} fill="none" stroke={val === 9 ? '#94A3B8' : '#E2E8F0'} strokeWidth={val === 9 ? 2 : 1} strokeDasharray={val === 9 ? '0' : '4 4'} />
-                                );
-                              })}
-
-                              {/* Radar Spokes & Values */}
-                              {papiWheel.map((item, i) => {
-                                const angle = i * 18 + 9;
-                                const edgePos = polarToCartesian(center, center, radarMax, angle);
-                                const isReverse = ['Z', 'E', 'K'].includes(item.trait);
-                                
-                                return (
-                                  <g key={`spoke-${i}`}>
-                                    <line x1={center} y1={center} x2={edgePos.x} y2={edgePos.y} stroke="#E2E8F0" strokeWidth="1" />
-                                    
-                                    {/* Draw numbers 1-9 along the spoke */}
-                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(val => {
-                                      const scoreVal = isReverse ? (9 - val) : val;
-                                      const pos = polarToCartesian(center, center, (val / 9) * radarMax, angle);
-                                      // Add slight rotation to text so it aligns with the spoke
-                                      const textRot = (angle > 90 && angle < 270) ? angle - 180 : angle;
-                                      return (
-                                        <g key={`val-${val}`} transform={`translate(${pos.x}, ${pos.y}) rotate(${textRot})`}>
-                                          <rect x="-4" y="-6" width="8" height="12" fill="white" opacity="0.7" />
-                                          <text fill="#64748B" fontSize="9" fontWeight="600" textAnchor="middle" dominantBaseline="middle">
-                                            {scoreVal}
-                                          </text>
-                                        </g>
-                                      );
-                                    })}
-                                  </g>
-                                );
-                              })}
-                              <circle cx={center} cy={center} r="2" fill="#1E293B" />
-
-                              {/* Data Polygon */}
-                              <polygon points={polygonPoints} fill="rgba(37, 99, 235, 0.2)" stroke="#2563EB" strokeWidth="2.5" />
-                              
-                              {/* Data Points */}
-                              {papiWheel.map((item, i) => {
-                                const pos = getCoordinatesForValue(item.trait, scores[item.trait] || 0, i);
-                                return (
-                                  <circle key={`dot-${i}`} cx={pos.x} cy={pos.y} r="5" fill="#2563EB" stroke="white" strokeWidth="2" />
-                                );
-                              })}
-                            </svg>
-                          </div>
-                        </div>
-
-                        <div style={{ background: 'white', padding: '2rem', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-                          <h3 style={{ margin: '0 0 1.5rem 0', color: '#1E293B', fontSize: '1.25rem' }}>Detail Skor PAPI Kostick</h3>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-                            {papiClusters.map(cluster => (
-                              <div key={cluster.name} style={{ background: '#F8FAFC', border: `1px solid ${cluster.color}40`, borderRadius: '12px', overflow: 'hidden' }}>
-                                <div style={{ background: cluster.color, color: 'white', padding: '0.75rem 1rem', fontWeight: 600, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                  {cluster.name}
-                                </div>
-                                <div style={{ padding: '1rem' }}>
-                                  {cluster.traits.map(trait => (
-                                    <div key={trait} style={{ display: 'flex', alignItems: 'center', marginBottom: '0.75rem' }}>
-                                      <div style={{ width: '25px', fontWeight: 800, color: cluster.color }}>{trait}</div>
-                                      <div style={{ flex: 1, background: '#E2E8F0', height: '8px', borderRadius: '4px', margin: '0 1rem', position: 'relative' }}>
-                                        <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${(scores[trait] / 9) * 100}%`, background: cluster.color, borderRadius: '4px' }}></div>
-                                      </div>
-                                      <div style={{ width: '25px', textAlign: 'right', fontWeight: 700, color: '#334155' }}>{scores[trait]}</div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    );
                   } else {
                     const pct = questions.length > 0 ? Math.round((rawScore / questions.length) * 100) : 0;
                     return (
@@ -3490,8 +3758,6 @@ export default function ReportDetailPage() {
               {renderPrintableFooter()}
             </div>
 
-            {/* Tabel Norma PAPI Kostick (Outside PDF, displayed on screen) */}
-            {renderPapiNormTable()}
 
             {/* Rincian Lembar Jawaban (Outside PDF, displayed on screen) */}
             {renderQuestionAnswersGrid()}
