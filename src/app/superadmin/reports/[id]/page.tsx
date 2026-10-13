@@ -431,7 +431,12 @@ export default function ReportDetailPage() {
     setGeneratingPdf(true);
     try {
       const { jsPDF } = await import('jspdf');
-      const html2canvas = (await import('html2canvas')).default;
+      let html2canvas: any;
+      try {
+        html2canvas = (await import('html2canvas-pro')).default;
+      } catch {
+        html2canvas = (await import('html2canvas')).default;
+      }
 
       const canvas = await html2canvas(cardElem, {
         scale: 2.2,
