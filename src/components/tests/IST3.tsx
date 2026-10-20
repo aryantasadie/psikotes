@@ -97,7 +97,7 @@ export default function IST3() {
                 <p style={{ margin: '0 0 5px 0' }}>A) Pasir &nbsp; B) Air &nbsp; C) Kapal &nbsp; D) Ombak &nbsp; E) Ikan</p>
               </div>
               <p style={{ margin: '0 0 4px 0', color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : B (Air)</p>
-              <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Alasan: Hutan terutama terdiri dari pohon, sebagaimana laut terutama terdiri dari air.</p>
+              <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Alasan: Hutan isinya kumpulan Pohon. Berarti Laut isinya kumpulan Air.</p>
             </div>
           </div>
           <button 
