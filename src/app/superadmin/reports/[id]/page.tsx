@@ -597,7 +597,76 @@ export default function ReportDetailPage() {
           useCORS: true,
           backgroundColor: '#FFFFFF',
           logging: false,
-          windowWidth: 1320
+          windowWidth: 1320,
+          onclone: (clonedDoc: Document) => {
+            // Replace each SVG in clonedDoc with a high-res HTML5 2D canvas
+            // to guarantee identical, distortion-free lines and dots in the PDF export
+            const svgs = clonedDoc.querySelectorAll<SVGElement>('svg.disc-trend-svg');
+            svgs.forEach((svg) => {
+              const parent = svg.parentElement;
+              if (!parent) return;
+
+              const rect = parent.getBoundingClientRect();
+              const w = (rect.width && rect.width > 50) ? rect.width : (parent.clientWidth && parent.clientWidth > 50) ? parent.clientWidth : 340.6;
+              const h = (rect.height && rect.height > 50) ? rect.height : (parent.clientHeight && parent.clientHeight > 50) ? parent.clientHeight : 820;
+
+              const dataPointsStr = svg.getAttribute('data-points') || '';
+              const strokeColor = svg.getAttribute('data-color') || '#2563EB';
+
+              if (!dataPointsStr) return;
+
+              const pts = dataPointsStr.split(' ').filter(Boolean).map((p) => {
+                const [xPercent, yPercent] = p.split(',').map(Number);
+                return {
+                  x: ((isNaN(xPercent) ? 0 : xPercent) / 100) * w,
+                  y: ((isNaN(yPercent) ? 50 : yPercent) / 100) * h
+                };
+              });
+
+              if (pts.length === 0) return;
+
+              // Create high-resolution canvas matching the plot area
+              const cv = clonedDoc.createElement('canvas');
+              cv.width = w * 2;
+              cv.height = h * 2;
+              cv.style.position = 'absolute';
+              cv.style.top = '0';
+              cv.style.left = '0';
+              cv.style.width = '100%';
+              cv.style.height = '100%';
+              cv.style.zIndex = '10';
+
+              const ctx = cv.getContext('2d');
+              if (ctx) {
+                ctx.scale(2, 2);
+
+                // Draw connecting trendlines
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                ctx.moveTo(pts[0].x, pts[0].y);
+                for (let i = 1; i < pts.length; i++) {
+                  ctx.lineTo(pts[i].x, pts[i].y);
+                }
+                ctx.stroke();
+
+                // Draw dots (circles)
+                pts.forEach((pt) => {
+                  ctx.beginPath();
+                  ctx.arc(pt.x, pt.y, 6.5, 0, Math.PI * 2);
+                  ctx.fillStyle = strokeColor;
+                  ctx.fill();
+                  ctx.lineWidth = 2.5;
+                  ctx.strokeStyle = '#FFFFFF';
+                  ctx.stroke();
+                });
+              }
+
+              parent.replaceChild(cv, svg);
+            });
+          }
         });
 
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -3062,6 +3131,10 @@ export default function ReportDetailPage() {
             const drawGraph = (points: string, graphType: 'MOST' | 'LEAST' | 'CHANGE', scales?: number[]) => {
               const meta = graphMeta[graphType];
               const color = meta.stroke;
+              const parsedPoints = points ? points.split(' ').filter(Boolean).map(p => {
+                const [x, y] = p.split(',').map(Number);
+                return { x: isNaN(x) ? 0 : x, y: isNaN(y) ? 50 : y };
+              }) : [];
 
               return (
                 <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem', display: 'flex', flexDirection: 'column', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
@@ -3077,109 +3150,154 @@ export default function ReportDetailPage() {
                       {meta.sub}
                     </div>
                     
-                    {/* D I S C Black badges above columns */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', width: 'calc(100% - 24px)', margin: '10px 0 6px 0' }}>
-                      {['D', 'I', 'S', 'C'].map((char) => (
-                        <div key={char} style={{ display: 'flex', justifyContent: 'center' }}>
-                          <span style={{ 
-                            background: '#000', 
-                            color: '#fff', 
-                            width: '24px', 
-                            height: '24px', 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'center', 
-                            fontWeight: 900, 
-                            fontSize: '13px',
-                            borderRadius: '3px'
-                          }}>
-                            {char}
-                          </span>
-                        </div>
-                      ))}
+                    {/* D I S C Black badges above columns - flex aligned with plot area */}
+                    <div style={{ display: 'flex', width: '100%', margin: '10px 0 6px 0' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', flex: 1 }}>
+                        {['D', 'I', 'S', 'C'].map((char) => (
+                          <div key={char} style={{ display: 'flex', justifyContent: 'center' }}>
+                            <span style={{ 
+                              background: '#000', 
+                              color: '#fff', 
+                              width: '24px', 
+                              height: '24px', 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center', 
+                              fontWeight: 900, 
+                              fontSize: '13px',
+                              borderRadius: '3px'
+                            }}>
+                              {char}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ width: '26px', flexShrink: 0 }} />
                     </div>
                   </div>
                   
-                  {/* The Grid Box */}
-                  <div style={{ position: 'relative', width: '100%', height: '820px', border: '2px solid #000', paddingRight: '24px', background: '#FAFAFA' }}>
+                  {/* The Grid Box: Flex container separating plot area and scale column */}
+                  <div style={{ display: 'flex', width: '100%', height: '820px', border: '2px solid #000', background: '#FAFAFA' }}>
                      
-                     {/* Background Horizontal Grid Lines */}
-                     <div style={{ position: 'absolute', top: '0%', left: 0, right: '24px', borderTop: '2px solid #000' }}></div>
-                     <div style={{ position: 'absolute', top: '12.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
-                     <div style={{ position: 'absolute', top: '25%', left: 0, right: '24px', borderTop: '1.5px dashed #334155' }}></div>
-                     <div style={{ position: 'absolute', top: '37.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
-                     <div style={{ position: 'absolute', top: '50%', left: 0, right: '24px', borderTop: '2.5px solid #000' }}></div>
-                     <div style={{ position: 'absolute', top: '62.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
-                     <div style={{ position: 'absolute', top: '75%', left: 0, right: '24px', borderTop: '1.5px dashed #334155' }}></div>
-                     <div style={{ position: 'absolute', top: '87.5%', left: 0, right: '24px', borderTop: '1px dotted #64748B' }}></div>
-                     <div style={{ position: 'absolute', top: '100%', left: 0, right: '24px', borderTop: '2px solid #000' }}></div>
+                     {/* 1. Exactly 4 Equal Columns Plot Area (flex: 1) */}
+                     <div style={{ position: 'relative', flex: 1, height: '100%', overflow: 'hidden' }}>
 
-                     {/* Vertical column dividers */}
-                     <div style={{ position: 'absolute', top: 0, bottom: 0, left: '25%', borderLeft: '1px solid #CBD5E1' }}></div>
-                     <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', borderLeft: '1px solid #CBD5E1' }}></div>
-                     <div style={{ position: 'absolute', top: 0, bottom: 0, left: '75%', borderLeft: '1px solid #CBD5E1' }}></div>
+                       {/* Background Horizontal Grid Lines */}
+                       <div style={{ position: 'absolute', top: '0%', left: 0, right: 0, borderTop: '2px solid #000' }}></div>
+                       <div style={{ position: 'absolute', top: '12.5%', left: 0, right: 0, borderTop: '1px dotted #64748B' }}></div>
+                       <div style={{ position: 'absolute', top: '25%', left: 0, right: 0, borderTop: '1.5px dashed #334155' }}></div>
+                       <div style={{ position: 'absolute', top: '37.5%', left: 0, right: 0, borderTop: '1px dotted #64748B' }}></div>
+                       <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, borderTop: '2.5px solid #000' }}></div>
+                       <div style={{ position: 'absolute', top: '62.5%', left: 0, right: 0, borderTop: '1px dotted #64748B' }}></div>
+                       <div style={{ position: 'absolute', top: '75%', left: 0, right: 0, borderTop: '1.5px dashed #334155' }}></div>
+                       <div style={{ position: 'absolute', top: '87.5%', left: 0, right: 0, borderTop: '1px dotted #64748B' }}></div>
+                       <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, borderTop: '2px solid #000' }}></div>
 
-                     {/* Scale Labels on the Right */}
-                     <div style={{ position: 'absolute', top: '0%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>8</div>
-                     <div style={{ position: 'absolute', top: '12.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>6</div>
-                     <div style={{ position: 'absolute', top: '25%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>4</div>
-                     <div style={{ position: 'absolute', top: '37.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>2</div>
-                     <div style={{ position: 'absolute', top: '50%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.8rem', color: '#0F172A', fontWeight: 900 }}>0</div>
-                     <div style={{ position: 'absolute', top: '62.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>-2</div>
-                     <div style={{ position: 'absolute', top: '75%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>-4</div>
-                     <div style={{ position: 'absolute', top: '87.5%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.72rem', color: '#0F172A', fontWeight: 700 }}>-6</div>
-                     <div style={{ position: 'absolute', top: '100%', right: '5px', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#0F172A', fontWeight: 800 }}>-8</div>
+                       {/* Vertical column dividers */}
+                       <div style={{ position: 'absolute', top: 0, bottom: 0, left: '25%', borderLeft: '1px solid #CBD5E1' }}></div>
+                       <div style={{ position: 'absolute', top: 0, bottom: 0, left: '50%', borderLeft: '1px solid #CBD5E1' }}></div>
+                       <div style={{ position: 'absolute', top: 0, bottom: 0, left: '75%', borderLeft: '1px solid #CBD5E1' }}></div>
 
-                     {/* Background Numbers */}
-                     {bgScores[graphType].map((col, cIdx) => (
-                       <div key={cIdx}>
-                         {col.s.map((s, sIdx) => {
-                            const numVal = typeof s === 'string' ? parseFloat(s.replace('+', '')) : s;
-                            const yPerc = mapScoreToYPercent(col.m, numVal);
-                            const xPerc = [12.5, 37.5, 62.5, 87.5][cIdx];
-                            return (
-                              <div key={sIdx} style={{
-                                position: 'absolute',
-                                left: `${xPerc}%`,
-                                top: `${yPerc}%`,
-                                transform: 'translate(-50%, -50%)',
-                                fontSize: '0.66rem',
-                                fontWeight: 600,
-                                color: '#64748B',
-                                pointerEvents: 'none',
-                                zIndex: 1
-                              }}>
-                                {s}
-                              </div>
-                            );
+                       {/* Background Numbers */}
+                       {bgScores[graphType].map((col, cIdx) => (
+                         <div key={cIdx}>
+                           {col.s.map((s, sIdx) => {
+                              const numVal = typeof s === 'string' ? parseFloat(s.replace('+', '')) : s;
+                              const yPerc = mapScoreToYPercent(col.m, numVal);
+                              const xPerc = [12.5, 37.5, 62.5, 87.5][cIdx];
+                              return (
+                                <div key={sIdx} style={{
+                                  position: 'absolute',
+                                  left: `${xPerc}%`,
+                                  top: `${yPerc}%`,
+                                  transform: 'translate(-50%, -50%)',
+                                  fontSize: '0.66rem',
+                                  fontWeight: 600,
+                                  color: '#64748B',
+                                  pointerEvents: 'none',
+                                  zIndex: 1
+                                }}>
+                                  {s}
+                                </div>
+                              );
+                           })}
+                         </div>
+                       ))}
+
+                       {/* The dynamic chart line and dots together in the exact same SVG */}
+                       <svg
+                         className="disc-trend-svg"
+                         data-points={points}
+                         data-color={color}
+                         style={{
+                           position: 'absolute',
+                           top: 0,
+                           left: 0,
+                           width: '100%',
+                           height: '100%',
+                           overflow: 'visible',
+                           zIndex: 10
+                         }}
+                       >
+                         {/* Connecting Line Segments */}
+                         {parsedPoints.slice(0, -1).map((pt, idx) => {
+                           const nextPt = parsedPoints[idx + 1];
+                           return (
+                             <line
+                               key={`line-${idx}`}
+                               x1={`${pt.x}%`}
+                               y1={`${pt.y}%`}
+                               x2={`${nextPt.x}%`}
+                               y2={`${nextPt.y}%`}
+                               stroke={color}
+                               strokeWidth="3"
+                               strokeLinecap="round"
+                             />
+                           );
                          })}
-                       </div>
-                     ))}
 
-                     {/* The dynamic chart line */}
-                     <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', top: 0, left: 0, right: '24px', width: 'calc(100% - 24px)', overflow: 'visible', zIndex: 5 }}>
-                       <polyline points={points} fill="none" stroke={color} strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
-                     </svg>
-                     
-                     {/* Container for dots matching SVG dimensions exactly */}
-                     <div style={{ position: 'absolute', top: 0, left: 0, right: '24px', height: '100%', zIndex: 10 }}>
-                       {points.split(' ').map((p, i) => {
-                         const [x, y] = p.split(',');
-                         return (
-                           <div key={i} style={{
-                             position: 'absolute',
-                             left: `${x}%`,
-                             top: `${y}%`,
-                             width: '12px',
-                             height: '12px',
-                             backgroundColor: color,
-                             borderRadius: '50%',
-                             transform: 'translate(-50%, -50%)',
-                             border: '2.5px solid white',
-                             boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
-                           }} />
-                         );
-                       })}
+                         {/* Circular Dots */}
+                         {parsedPoints.map((pt, idx) => (
+                           <circle
+                             key={`circle-${idx}`}
+                             cx={`${pt.x}%`}
+                             cy={`${pt.y}%`}
+                             r="6.5"
+                             fill={color}
+                             stroke="#FFFFFF"
+                             strokeWidth="2.5"
+                           />
+                         ))}
+                       </svg>
+                     </div>
+
+                     {/* 2. Dedicated Scale Column on the Right (26px) */}
+                     <div style={{ position: 'relative', width: '26px', height: '100%', borderLeft: '1px solid #CBD5E1', background: '#F8FAFC', flexShrink: 0 }}>
+                       {[
+                         { top: '0%', text: '8', bold: 800, size: '0.75rem' },
+                         { top: '12.5%', text: '6', bold: 700, size: '0.72rem' },
+                         { top: '25%', text: '4', bold: 800, size: '0.75rem' },
+                         { top: '37.5%', text: '2', bold: 700, size: '0.72rem' },
+                         { top: '50%', text: '0', bold: 900, size: '0.8rem' },
+                         { top: '62.5%', text: '-2', bold: 700, size: '0.72rem' },
+                         { top: '75%', text: '-4', bold: 800, size: '0.75rem' },
+                         { top: '87.5%', text: '-6', bold: 700, size: '0.72rem' },
+                         { top: '100%', text: '-8', bold: 800, size: '0.75rem' },
+                       ].map((item, idx) => (
+                         <div key={idx} style={{
+                           position: 'absolute',
+                           top: item.top,
+                           left: 0,
+                           right: 0,
+                           transform: 'translateY(-50%)',
+                           textAlign: 'center',
+                           fontSize: item.size,
+                           color: '#0F172A',
+                           fontWeight: item.bold
+                         }}>
+                           {item.text}
+                         </div>
+                       ))}
                      </div>
                   </div>
                   
