@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
@@ -9,11 +9,26 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [timeoutNotice, setTimeoutNotice] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isTimeoutSession = sessionStorage.getItem('session_timeout_notice');
+      const urlParams = new URLSearchParams(window.location.search);
+      const isTimeoutQuery = urlParams.get('reason') === 'timeout';
+
+      if (isTimeoutSession === '1' || isTimeoutQuery) {
+        setTimeoutNotice(true);
+        sessionStorage.removeItem('session_timeout_notice');
+      }
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setTimeoutNotice(false);
     setLoading(true);
 
     // 1. Immediately request fullscreen on user click gesture (synchronous)
@@ -116,6 +131,14 @@ export default function LoginPage() {
             Portal Psikotes & Assessment Center Engine
           </p>
         </div>
+
+        {/* Alert Timeout Notice */}
+        {timeoutNotice && (
+          <div className="bg-amber-50 border border-amber-300 text-amber-800 text-xs p-3.5 rounded-xl text-center font-medium shadow-sm flex items-center justify-center gap-2">
+            <span className="text-sm">⏱️</span>
+            <span>Sesi Anda telah berakhir otomatis karena tidak ada kegiatan selama 3 jam. Silakan masuk kembali.</span>
+          </div>
+        )}
 
         {/* Alert Error */}
         {error && (
