@@ -594,7 +594,7 @@ export default function ReportDetailPage() {
         return;
       }
 
-      // 3. DISC: 1 Halaman Landscape (Cuma Grafiknya Doang, Pas Sesuai Ukuran Web & Tidak Terbelah)
+      // 3. DISC: 1 Halaman Portrait (Cuma Grafiknya Doang, Pas Sesuai Ukuran Web & Tidak Terbelah)
       if (selectedTest === 'DISC') {
         const discElem = document.getElementById('printable-disc-graphs');
         if (!discElem) {
@@ -603,14 +603,14 @@ export default function ReportDetailPage() {
         }
 
         const pdf = new jsPDF({
-          orientation: 'landscape',
+          orientation: 'portrait',
           unit: 'mm',
           format: 'a4',
           compress: true
         });
 
-        const pageWidth = 297;
-        const pageHeight = 210;
+        const pageWidth = 210;
+        const pageHeight = 297;
         const margin = 8;
         const usableWidth = pageWidth - (margin * 2);
         const usableHeight = pageHeight - (margin * 2);
