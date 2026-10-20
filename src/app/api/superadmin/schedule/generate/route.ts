@@ -35,8 +35,13 @@ export async function POST(req: Request) {
       customSequence
     } = await req.json();
 
-    if (!jobPositionId || !prefix || !count || count <= 0 || count > 200) {
+    if (!prefix || !count || count <= 0 || count > 200) {
       return NextResponse.json({ error: 'Input tidak valid. Jumlah akun harus 1-200.' }, { status: 400 });
+    }
+
+    // Jika Standar Jabatan tidak dipilih, wajib menentukan minimal 1 alat tes mandiri
+    if (!jobPositionId && (!Array.isArray(customSequence) || customSequence.length === 0)) {
+      return NextResponse.json({ error: 'Harap pilih Standar Jabatan atau tentukan minimal 1 alat tes.' }, { status: 400 });
     }
 
     // Get Client Name if clientId is provided
@@ -51,70 +56,76 @@ export async function POST(req: Request) {
       }
     }
 
-    // Get Job Position & its PsychographPreset
-    const jobPosition = await prisma.jobPosition.findUnique({
-      where: { id: parseInt(jobPositionId) },
-      include: {
-        psychographPreset: true
-      }
-    });
-
-    if (!jobPosition) {
-      return NextResponse.json({ error: 'Standar Jabatan tidak ditemukan' }, { status: 400 });
-    }
-
+    let jobPosition: any = null;
     let baseSequence: string[] = [];
 
-    // 1. Get base sequence from template test or psychograph preset mapping
-    if (jobPosition.psychographPresetId) {
-      const templateTest = await prisma.test.findFirst({
-        where: {
-          psychographPresetId: jobPosition.psychographPresetId,
-          jobPositionId: null
-        },
-        orderBy: { id: 'asc' }
-      });
-      if (templateTest?.sequence && templateTest.sequence.trim() !== '') {
-        try { baseSequence = JSON.parse(templateTest.sequence); } catch (e) {}
-      }
-    }
-
-    if (baseSequence.length === 0 && jobPosition.psychographPreset?.mapping) {
-      try {
-        const mapping = JSON.parse(jobPosition.psychographPreset.mapping);
-        const instrumentsSet = new Set<string>();
-        mapping.forEach((cat: any) => {
-          cat.aspects?.forEach((asp: any) => {
-            if (asp.checked && Array.isArray(asp.instruments)) {
-              asp.instruments.forEach((inst: string) => {
-                if (!inst) return;
-                const instLower = inst.toLowerCase().trim();
-                if (inst === "WPT") instrumentsSet.add("WPT");
-                else if (instLower.startsWith("tiki")) instrumentsSet.add(inst);
-                else if (instLower.startsWith("ist subtes")) instrumentsSet.add(inst.replace(/subtes\s+/i, ""));
-                else if (instLower.startsWith("ist")) instrumentsSet.add(inst);
-                else if (instLower.startsWith("papi")) instrumentsSet.add("PAPI KOSTICK");
-                else if (instLower.startsWith("disc")) instrumentsSet.add("DISC");
-                else if (instLower.startsWith("cfit")) instrumentsSet.add(inst);
-                else if (instLower.startsWith("kraepelin") || instLower.startsWith("kreapelin")) instrumentsSet.add("Kraepelin");
-                else if (instLower.startsWith("wartegg")) instrumentsSet.add("Wartegg");
-                else instrumentsSet.add(inst);
-              });
-            }
-          });
-        });
-        if (instrumentsSet.size > 0) {
-          baseSequence = Array.from(instrumentsSet);
+    // Jika ada jobPositionId yang dipilih
+    if (jobPositionId) {
+      jobPosition = await prisma.jobPosition.findUnique({
+        where: { id: parseInt(jobPositionId) },
+        include: {
+          psychographPreset: true
         }
-      } catch (e) {}
-    }
+      });
 
-    if (baseSequence.length === 0) {
-      baseSequence = ["WPT", "DISC", "PAPI KOSTICK"];
+      if (!jobPosition) {
+        return NextResponse.json({ error: 'Standar Jabatan tidak ditemukan' }, { status: 400 });
+      }
+
+      // 1. Get base sequence from template test or psychograph preset mapping
+      if (jobPosition.psychographPresetId) {
+        const templateTest = await prisma.test.findFirst({
+          where: {
+            psychographPresetId: jobPosition.psychographPresetId,
+            jobPositionId: null
+          },
+          orderBy: { id: 'asc' }
+        });
+        if (templateTest?.sequence && templateTest.sequence.trim() !== '') {
+          try { baseSequence = JSON.parse(templateTest.sequence); } catch (e) {}
+        }
+      }
+
+      if (baseSequence.length === 0 && jobPosition.psychographPreset?.mapping) {
+        try {
+          const mapping = JSON.parse(jobPosition.psychographPreset.mapping);
+          const instrumentsSet = new Set<string>();
+          mapping.forEach((cat: any) => {
+            cat.aspects?.forEach((asp: any) => {
+              if (asp.checked && Array.isArray(asp.instruments)) {
+                asp.instruments.forEach((inst: string) => {
+                  if (!inst) return;
+                  const instLower = inst.toLowerCase().trim();
+                  if (inst === "WPT") instrumentsSet.add("WPT");
+                  else if (instLower.startsWith("tiki")) instrumentsSet.add(inst);
+                  else if (instLower.startsWith("ist subtes")) instrumentsSet.add(inst.replace(/subtes\s+/i, ""));
+                  else if (instLower.startsWith("ist")) instrumentsSet.add(inst);
+                  else if (instLower.startsWith("papi")) instrumentsSet.add("PAPI KOSTICK");
+                  else if (instLower.startsWith("disc")) instrumentsSet.add("DISC");
+                  else if (instLower.startsWith("cfit")) instrumentsSet.add(inst);
+                  else if (instLower.startsWith("kraepelin") || instLower.startsWith("kreapelin")) instrumentsSet.add("Kraepelin");
+                  else if (instLower.startsWith("wartegg")) instrumentsSet.add("Wartegg");
+                  else instrumentsSet.add(inst);
+                });
+              }
+            });
+          });
+          if (instrumentsSet.size > 0) {
+            baseSequence = Array.from(instrumentsSet);
+          }
+        } catch (e) {}
+      }
+
+      if (baseSequence.length === 0) {
+        baseSequence = ["WPT", "DISC", "PAPI KOSTICK"];
+      }
     }
 
     // 2. Normalize and combine base sequence with customSequence (if provided) without duplicates
-    const combinedRaw = [...baseSequence, ...(Array.isArray(customSequence) ? customSequence : [])];
+    const combinedRaw = jobPosition
+      ? [...baseSequence, ...(Array.isArray(customSequence) ? customSequence : [])]
+      : (Array.isArray(customSequence) && customSequence.length > 0 ? customSequence : ["WPT"]);
+
     const finalSet = new Set<string>();
     combinedRaw.forEach((tool: string) => {
       if (!tool) return;
@@ -138,21 +149,21 @@ export async function POST(req: Request) {
     const startDate = sessionDate ? new Date(sessionDate) : new Date();
     const posTitle = positionName && positionName.trim() !== '' 
       ? positionName.trim() 
-      : (jobPosition.name || 'Sesi Ujian');
+      : (jobPosition ? (jobPosition.name || 'Sesi Ujian') : (finalSequenceArr.length > 0 ? `Tes Mandiri (${finalSequenceArr.join(', ')})` : 'Tes Mandiri'));
 
     const finalBatchTitle = batchTitle && batchTitle.trim() !== ''
       ? batchTitle.trim()
       : `${posTitle} - ${clientNameStr}`;
 
-    // Create a new Batch Test Session
+    // Create a new Batch Test Session (jobPositionId & psychographPresetId can be null for standalone test batches)
     const newTest = await prisma.test.create({
       data: {
         title: finalBatchTitle,
-        jobPositionId: jobPosition.id,
+        jobPositionId: jobPosition ? jobPosition.id : null,
         clientId: clientId ? parseInt(clientId) : null,
         startDate: startDate,
         sequence: testSequence,
-        psychographPresetId: jobPosition.psychographPresetId || null,
+        psychographPresetId: jobPosition?.psychographPresetId || null,
       }
     });
 
@@ -202,12 +213,12 @@ export async function POST(req: Request) {
         }
       });
 
-      // Assign to Test Participant
+      // Assign to Test Participant (jobPositionId optional)
       await prisma.testParticipant.create({
         data: {
           userId: user.id,
           testId: newTest.id,
-          jobPositionId: jobPosition.id,
+          jobPositionId: jobPosition ? jobPosition.id : null,
           status: 'pending',
           plainPassword: passwordPlain
         }

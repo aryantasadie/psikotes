@@ -114,10 +114,19 @@ export default function SchedulePage() {
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedJobPositionId || !prefix || !count) return;
+    if (!prefix || !count) {
+      alert('Prefix username dan jumlah akun wajib diisi.');
+      return;
+    }
 
-    if (useCustomTools && selectedCustomTools.length === 0) {
-      alert('Silakan pilih minimal 1 alat tes spesifik yang akan diujikan.');
+    // Jika tanpa Standar Jabatan, wajib memilih minimal 1 alat tes
+    if (!selectedJobPositionId && selectedCustomTools.length === 0) {
+      alert('Silakan pilih minimal 1 alat tes yang akan diujikan jika tidak menggunakan Standar Jabatan.');
+      return;
+    }
+
+    if (selectedJobPositionId && useCustomTools && selectedCustomTools.length === 0) {
+      alert('Silakan pilih minimal 1 alat tes spesifik yang akan diujikan jika mengaktifkan alat tes manual.');
       return;
     }
 
@@ -126,9 +135,13 @@ export default function SchedulePage() {
     setGeneratedAccounts([]);
 
     try {
+      const finalPositionName = positionName.trim() || (selectedJobPositionId 
+        ? (jobPositions.find(j => String(j.id) === String(selectedJobPositionId))?.name || 'Sesi Ujian') 
+        : (selectedCustomTools.length > 0 ? `Tes Mandiri (${selectedCustomTools.join(', ')})` : 'Tes Mandiri'));
+
       const payload: any = {
-        positionName: positionName.trim(),
-        testId: parseInt(selectedJobPositionId),
+        positionName: finalPositionName,
+        testId: selectedJobPositionId ? parseInt(selectedJobPositionId) : null,
         sessionDate,
         clientId: selectedClientId ? parseInt(selectedClientId) : null,
         testerId: selectedTesterId ? parseInt(selectedTesterId) : null,
@@ -136,7 +149,7 @@ export default function SchedulePage() {
         count: parseInt(count)
       };
 
-      if (useCustomTools && selectedCustomTools.length > 0) {
+      if ((useCustomTools || !selectedJobPositionId) && selectedCustomTools.length > 0) {
         payload.customSequence = selectedCustomTools;
       }
 
@@ -245,26 +258,36 @@ export default function SchedulePage() {
 
           <form onSubmit={handleGenerate} className="space-y-4">
 
-            {/* Nama Jabatan (Input Manual Ketik) */}
+            {/* Nama Sesi / Jabatan (Input Manual Ketik, Opsional) */}
             <div>
               <label className="block text-[12px] font-bold text-slate-700 mb-1.5">
-                Nama Jabatan <span className="text-rose-500">*</span>
+                Nama Sesi / Jabatan <span className="text-slate-400 font-normal">(Opsional)</span>
               </label>
               <input
                 type="text"
-                placeholder="Ketik nama jabatan (contoh: Staff Admin / Management Trainee)"
+                placeholder="Contoh: Staff Admin / Tes Mandiri WPT / Batch 1"
                 value={positionName}
                 onChange={e => setPositionName(e.target.value)}
                 className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-[13px] text-slate-900 focus:outline-none focus:border-teal-400 bg-white placeholder-slate-400"
-                required
               />
             </div>
 
-            {/* Standar Jabatan */}
+            {/* Standar Jabatan (Opsional jika ingin pilih alat tes mandiri saja) */}
             <div>
-              <label className="block text-[12px] font-bold text-slate-700 mb-1.5">
-                Standar Jabatan Posisi <span className="text-rose-500">*</span>
-              </label>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-[12px] font-bold text-slate-700">
+                  Standar Jabatan Posisi <span className="text-slate-400 font-normal">(Opsional jika tes mandiri)</span>
+                </label>
+                {selectedJobPositionId && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedJobPositionId('')}
+                    className="text-[11px] text-rose-500 hover:text-rose-700 font-semibold cursor-pointer underline"
+                  >
+                    Batal pilih standar jabatan
+                  </button>
+                )}
+              </div>
               {loadingOptions ? (
                 <p className="text-[12px] text-slate-400">Memuat Standar Jabatan…</p>
               ) : (
@@ -272,49 +295,66 @@ export default function SchedulePage() {
                   value={selectedJobPositionId}
                   onChange={e => setSelectedJobPositionId(e.target.value)}
                   className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-[13px] text-slate-900 focus:outline-none focus:border-teal-400 bg-white"
-                  required
                 >
-                  <option value="">— Pilih Standar Jabatan —</option>
+                  <option value="">— Tanpa Standar Jabatan (Pilih Alat Tes Mandiri Saja) —</option>
                   {jobPositions.map(t => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
               )}
+              {!selectedJobPositionId && (
+                <p className="text-[11px] text-teal-600 mt-1 font-medium">
+                  💡 Mode Tes Mandiri aktif: Anda dapat langsung memilih alat tes yang ingin diujikan di bawah tanpa mengisi standar jabatan.
+                </p>
+              )}
             </div>
 
-            {/* Selection Mode Override for Test Tools (Simplified & Clean) */}
+            {/* Selection Mode for Test Tools */}
             <div className="pt-2 border-t border-slate-100 space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={useCustomTools}
-                  onChange={e => {
-                    setUseCustomTools(e.target.checked);
-                    if (!e.target.checked) setSelectedCustomTools([]);
-                  }}
-                  className="w-3.5 h-3.5 rounded accent-teal-600 cursor-pointer"
-                />
-                <span className="text-[12px] font-semibold text-slate-700">Pilih alat tes manual (opsional / diluar template)</span>
-              </label>
+              {selectedJobPositionId ? (
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={useCustomTools}
+                    onChange={e => {
+                      setUseCustomTools(e.target.checked);
+                      if (!e.target.checked) setSelectedCustomTools([]);
+                    }}
+                    className="w-3.5 h-3.5 rounded accent-teal-600 cursor-pointer"
+                  />
+                  <span className="text-[12px] font-semibold text-slate-700">Pilih alat tes manual (opsional / kustomisasi template)</span>
+                </label>
+              ) : (
+                <div className="flex items-center justify-between pb-0.5">
+                  <span className="text-[12px] font-bold text-slate-800">
+                    Pilih Alat Tes yang Diujikan <span className="text-rose-500">*</span>
+                  </span>
+                  <span className="text-[11px] text-slate-400">Pilih minimal 1 alat tes</span>
+                </div>
+              )}
 
-              {useCustomTools && (
-                <div className="pl-5 pt-1 space-y-2">
-                  <div className="grid grid-cols-3 gap-y-1.5 gap-x-2 text-[12px] text-slate-600">
+              {(useCustomTools || !selectedJobPositionId) && (
+                <div className={`${selectedJobPositionId ? 'pl-5' : ''} pt-1 space-y-2`}>
+                  <div className="grid grid-cols-3 gap-2 text-[12px] text-slate-700">
                     {AVAILABLE_TEST_TOOLS.map(tool => (
-                      <label key={tool.id} className="flex items-center gap-1.5 cursor-pointer hover:text-slate-900">
+                      <label key={tool.id} className="flex items-center gap-2 cursor-pointer bg-slate-50 hover:bg-slate-100/80 p-2.5 rounded-xl border border-slate-200/70 transition-colors">
                         <input
                           type="checkbox"
                           checked={selectedCustomTools.includes(tool.id)}
                           onChange={() => toggleCustomTool(tool.id)}
-                          className="w-3 h-3 rounded accent-teal-600 cursor-pointer"
+                          className="w-3.5 h-3.5 rounded accent-teal-600 cursor-pointer"
                         />
-                        <span className="truncate">{tool.label}</span>
+                        <span className="truncate font-semibold text-slate-800">{tool.label}</span>
                       </label>
                     ))}
                   </div>
-                  {selectedCustomTools.length > 0 && (
-                    <p className="text-[11px] text-teal-600 font-medium pt-1">
-                      Tes terpilih ({selectedCustomTools.length}): {selectedCustomTools.join(', ')}
+                  {selectedCustomTools.length > 0 ? (
+                    <p className="text-[11px] text-teal-600 font-semibold pt-1">
+                      ✓ Tes terpilih ({selectedCustomTools.length}): {selectedCustomTools.join(', ')}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-rose-500 font-medium pt-1">
+                      ⚠️ Belum ada alat tes yang dipilih. Silakan centang minimal 1 alat tes di atas.
                     </p>
                   )}
                 </div>
