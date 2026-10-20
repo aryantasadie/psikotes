@@ -738,92 +738,117 @@ export default function ReportDetailPage() {
     }
   };
 
-  const renderPrintableHeader = (customSub?: string, pageInfo?: string) => (
-    <div style={{ borderBottom: '2px solid #0d9488', paddingBottom: '14px', marginBottom: '18px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ 
-            background: 'linear-gradient(135deg, #0f766e, #0d9488)', 
-            color: 'white', 
-            fontWeight: 900, 
-            fontSize: '16px', 
-            padding: '6px 14px', 
-            borderRadius: '6px',
-            letterSpacing: '0.5px' 
-          }}>
-            HR PUBLIK
-          </div>
-          <div>
-            <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '1px' }}>
-              Assessment & Psychological Testing Center
+  const getExamDate = (): Date | null => {
+    if (!participant) return null;
+    if (participant.startTime) return new Date(participant.startTime);
+    if (participant.answers && participant.answers.length > 0) {
+      const ansWithDate = participant.answers.find((a: any) => a.answeredAt);
+      if (ansWithDate?.answeredAt) return new Date(ansWithDate.answeredAt);
+    }
+    if (participant.logs && participant.logs.length > 0) {
+      const logWithDate = participant.logs.find((l: any) => l.createdAt);
+      if (logWithDate?.createdAt) return new Date(logWithDate.createdAt);
+    }
+    if (participant.endTime) return new Date(participant.endTime);
+    if (participant.test?.startDate) return new Date(participant.test.startDate);
+    if (participant.user?.createdAt) return new Date(participant.user.createdAt);
+    return null;
+  };
+
+  const renderPrintableHeader = (customSub?: string, pageInfo?: string) => {
+    const pageLabel = pageInfo || (customSub && customSub.startsWith('Hal.') ? customSub : undefined);
+    const examDate = getExamDate();
+    const formattedExamDate = examDate
+      ? examDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+      : '-';
+
+    return (
+      <div style={{ borderBottom: '2px solid #0d9488', paddingBottom: '14px', marginBottom: '18px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ 
+              background: 'linear-gradient(135deg, #0f766e, #0d9488)', 
+              color: 'white', 
+              fontWeight: 900, 
+              fontSize: '16px', 
+              padding: '6px 14px', 
+              borderRadius: '6px',
+              letterSpacing: '0.5px' 
+            }}>
+              HR PUBLIK
             </div>
-            <div style={{ fontSize: '17px', fontWeight: 800, color: '#0F172A' }}>
-              LAPORAN HASIL TES: {selectedTest.toUpperCase()} {customSub ? `(${customSub})` : ''}
+            <div>
+              <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                Assessment & Psychological Testing Center
+              </div>
+              <div style={{ fontSize: '17px', fontWeight: 800, color: '#0F172A' }}>
+                LAPORAN HASIL TES: {selectedTest.toUpperCase()}
+              </div>
             </div>
           </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {pageInfo && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {pageLabel && (
+              <span style={{ 
+                display: 'inline-block',
+                background: '#F1F5F9', 
+                color: '#475569', 
+                border: '1px solid #CBD5E1',
+                padding: '4px 10px', 
+                borderRadius: '16px', 
+                fontSize: '11px', 
+                fontWeight: 700 
+              }}>
+                {pageLabel}
+              </span>
+            )}
             <span style={{ 
               display: 'inline-block',
-              background: '#F1F5F9', 
-              color: '#475569', 
-              border: '1px solid #CBD5E1',
-              padding: '4px 10px', 
+              background: '#F0FDFA', 
+              color: '#0F766E', 
+              border: '1px solid #99F6E4',
+              padding: '4px 12px', 
               borderRadius: '16px', 
               fontSize: '11px', 
               fontWeight: 700 
             }}>
-              {pageInfo}
+              Dokumen Resmi CBT
             </span>
-          )}
-          <span style={{ 
-            display: 'inline-block',
-            background: '#F0FDFA', 
-            color: '#0F766E', 
-            border: '1px solid #99F6E4',
-            padding: '4px 12px', 
-            borderRadius: '16px', 
-            fontSize: '11px', 
-            fontWeight: 700 
-          }}>
-            Dokumen Resmi CBT
-          </span>
+          </div>
         </div>
-      </div>
 
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-        gap: '10px', 
-        background: '#F8FAFC', 
-        padding: '10px 14px', 
-        borderRadius: '8px', 
-        border: '1px solid #E2E8F0' 
-      }}>
-        <div>
-          <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Nama Kandidat</div>
-          <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>{participant.user?.name || '-'}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Username / ID</div>
-          <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>{participant.user?.username || participant.user?.email || '-'}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Posisi / Jadwal</div>
-          <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
-            {participant.test?.title?.split('-')[0]?.trim() || participant.jobPosition?.name || participant.test?.jobPosition?.name || 'Umum'}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+          gap: '10px', 
+          background: '#F8FAFC', 
+          padding: '10px 14px', 
+          borderRadius: '8px', 
+          border: '1px solid #E2E8F0' 
+        }}>
+          <div>
+            <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Nama Kandidat</div>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>{participant?.user?.name || '-'}</div>
           </div>
-        </div>
-        <div>
-          <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Waktu Ujian</div>
-          <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
-            {participant.startTime ? new Date(participant.startTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
+          <div>
+            <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Username / ID</div>
+            <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>{participant?.user?.username || participant?.user?.email || '-'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Posisi / Jadwal</div>
+            <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
+              {participant?.test?.title?.split('-')[0]?.trim() || participant?.jobPosition?.name || participant?.test?.jobPosition?.name || 'Umum'}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase' }}>Waktu Ujian</div>
+            <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
+              {formattedExamDate}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderPrintableFooter = (pageStr?: string) => (
     <div style={{ 
@@ -1718,7 +1743,7 @@ export default function ReportDetailPage() {
             Detail Jawaban: {participant.user.name}
           </h2>
           <p style={{ color: '#64748B' }}>
-            {(participant.test?.title?.split('-')[0]?.trim() || participant.jobPosition?.name || participant.test?.jobPosition?.name || 'Posisi General')} &bull; Dikerjakan pada {participant.startTime ? new Date(participant.startTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
+            {(participant.test?.title?.split('-')[0]?.trim() || participant.jobPosition?.name || participant.test?.jobPosition?.name || 'Posisi General')} &bull; Dikerjakan pada {getExamDate() ? getExamDate()!.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
           </p>
         </div>
         
@@ -3333,7 +3358,7 @@ export default function ReportDetailPage() {
 
                   <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
                     <h3 style={{ margin: 0, color: '#0F172A', fontSize: '1.25rem', fontWeight: 800 }}>
-                      Grafik Kepribadian DISC (Profil Grafis 3 Cermin)
+                      Grafik Kepribadian DISC
                     </h3>
                     <p style={{ margin: '4px 0 0 0', color: '#64748B', fontSize: '0.85rem' }}>
                       Perbandingan Graph 1 (Mask, Public Self), Graph 2 (Core, Private Self), dan Graph 3 (Mirror, Perceived Self).

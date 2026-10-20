@@ -667,7 +667,13 @@ export default function ReportPdfPage() {
 
   const candidateName = participant.user?.name || '-';
   const candidatePosition = participant.test?.title?.split('-')[0]?.trim() || jobPosition?.name || '-';
-  const testDate = participant.startTime ? new Date(participant.startTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
+  const rawTestDate = participant.startTime 
+    || (participant.answers && participant.answers.find((a: any) => a.answeredAt)?.answeredAt)
+    || (participant.logs && participant.logs.find((l: any) => l.createdAt)?.createdAt)
+    || participant.endTime
+    || participant.test?.startDate 
+    || participant.user?.createdAt;
+  const testDate = rawTestDate ? new Date(rawTestDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
   const recommendation = psychoResults.recommendation || 'DIPERTIMBANGKAN';
 
   return (

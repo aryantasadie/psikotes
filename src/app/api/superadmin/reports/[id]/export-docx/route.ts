@@ -119,7 +119,7 @@ export async function GET(
     const participant = await prisma.testParticipant.findUnique({
       where: { id: participantId },
       include: {
-        user: { select: { id: true, name: true, username: true, email: true, license: true } },
+        user: { select: { id: true, name: true, username: true, email: true, license: true, createdAt: true } },
         jobPosition: { include: { grayAreas: true, psychographPreset: true } },
         test: {
           include: {
@@ -197,8 +197,9 @@ export async function GET(
 
     const candidateName = participant.user?.name || 'Peserta';
     const positionName = participant.test?.title?.split('-')[0]?.trim() || jobPosition?.name || 'Posisi General';
-    const examDate = participant.startTime
-      ? new Date(participant.startTime).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+    const rawExamDate = participant.startTime || participant.test?.startDate || (participant.user as any)?.createdAt;
+    const examDate = rawExamDate
+      ? new Date(rawExamDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
       : '-';
     const currentDateStr = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 
