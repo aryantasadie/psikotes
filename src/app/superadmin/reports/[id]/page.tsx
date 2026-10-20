@@ -458,7 +458,7 @@ export default function ReportDetailPage() {
         const usableWidth = pageWidth - (margin * 2);
         const usableHeight = pageHeight - (margin * 2);
 
-        // Halaman 1
+        // Halaman 1: Portrait (Metrik & Standar Norma)
         const canvas1 = await html2canvas(page1Elem, {
           scale: 2.2,
           useCORS: true,
@@ -478,25 +478,45 @@ export default function ReportDetailPage() {
         const yOff1 = margin + (usableHeight - printH1) / 2;
         pdf.addImage(img1, 'JPEG', xOff1, yOff1, printW1, printH1);
 
-        // Halaman 2
-        pdf.addPage('a4', 'portrait');
+        // Halaman 2: Landscape Khusus Grafik Kurva 50 Kolom (Pas 1 Lembar Penuh, Tidak Terpotong)
+        pdf.addPage('a4', 'landscape');
+        const pageWidthL = 297;
+        const pageHeightL = 210;
+        const marginL = 8;
+        const usableWidthL = pageWidthL - (marginL * 2);
+        const usableHeightL = pageHeightL - (marginL * 2);
+
         const canvas2 = await html2canvas(page2Elem, {
           scale: 2.2,
           useCORS: true,
           backgroundColor: '#FFFFFF',
           logging: false,
-          windowWidth: 1200
+          windowWidth: 1350,
+          onclone: (clonedDoc: Document) => {
+            const el2 = clonedDoc.getElementById('printable-kraepelin-page-2');
+            if (el2) {
+              el2.style.width = '1280px';
+              el2.style.maxWidth = 'none';
+              const overflowDivs = el2.querySelectorAll('div');
+              overflowDivs.forEach((d) => {
+                if (d.style.overflowX === 'auto' || d.style.overflow === 'auto') {
+                  d.style.overflowX = 'visible';
+                  d.style.overflow = 'visible';
+                }
+              });
+            }
+          }
         });
         const img2 = canvas2.toDataURL('image/jpeg', 0.95);
         const ratio2 = canvas2.height / canvas2.width;
-        let printW2 = usableWidth;
-        let printH2 = usableWidth * ratio2;
-        if (printH2 > usableHeight) {
-          printH2 = usableHeight;
-          printW2 = usableHeight / ratio2;
+        let printW2 = usableWidthL;
+        let printH2 = usableWidthL * ratio2;
+        if (printH2 > usableHeightL) {
+          printH2 = usableHeightL;
+          printW2 = usableHeightL / ratio2;
         }
-        const xOff2 = margin + (usableWidth - printW2) / 2;
-        const yOff2 = margin + (usableHeight - printH2) / 2;
+        const xOff2 = marginL + (usableWidthL - printW2) / 2;
+        const yOff2 = marginL + (usableHeightL - printH2) / 2;
         pdf.addImage(img2, 'JPEG', xOff2, yOff2, printW2, printH2);
 
         pdf.save(`Hasil_${cleanTest}_${cleanCandidate}.pdf`);
