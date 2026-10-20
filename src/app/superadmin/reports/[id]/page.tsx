@@ -2523,58 +2523,128 @@ export default function ReportDetailPage() {
                     })}
                   </div>
 
-                  {/* Tabel Standar Interpretasi Norma Kraepelin */}
-                  <div style={{ background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '1.25rem', marginBottom: '1.25rem' }}>
-                    <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '13px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      Tabel Standar Interpretasi Norma Kraepelin
-                    </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', fontSize: '12px' }}>
-                      <div style={{ background: '#FFFFFF', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                        <strong style={{ color: '#0F766E' }}>PANKER (Kecepatan Kerja)</strong>
-                        <p style={{ margin: '4px 0 0 0', color: '#64748B', lineHeight: '1.4' }}>
-                          Tempo pengerjaan & energi psikis produktif kandidat. Skor: <strong>{pankerRaw}</strong> (Skala {pankerNorm}).
-                        </p>
-                      </div>
-                      <div style={{ background: '#FFFFFF', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                        <strong style={{ color: '#0F766E' }}>TINKER (Ketelitian Kerja)</strong>
-                        <p style={{ margin: '4px 0 0 0', color: '#64748B', lineHeight: '1.4' }}>
-                          Fokus ketelitian & resiko kesalahan di bawah batas waktu. Error: <strong>{tinkerRaw}</strong> (Skala {tinkerNorm}).
-                        </p>
-                      </div>
-                      <div style={{ background: '#FFFFFF', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                        <strong style={{ color: '#0F766E' }}>JANKER (Kestabilan Ritme)</strong>
-                        <p style={{ margin: '4px 0 0 0', color: '#64748B', lineHeight: '1.4' }}>
-                          Keteraturan ritme performa & kestabilan antar kolom. Selisih: <strong>{jankerRaw}</strong> (Skala {jankerNorm}).
-                        </p>
-                      </div>
-                      <div style={{ background: '#FFFFFF', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                        <strong style={{ color: '#0F766E' }}>HANKER (Ketahanan Kerja)</strong>
-                        <p style={{ margin: '4px 0 0 0', color: '#64748B', lineHeight: '1.4' }}>
-                          Daya tahan mental/fisik menghadapi beban berulang. Hasil: <strong>Skala {hankerNorm}</strong>.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  {/* Tabel Standar Interpretasi Norma Kraepelin (Penjelasan Kategorisasi) */}
+                  {(() => {
+                    const pankerCat = getKraepelinCatLabel(pankerNorm);
+                    const tinkerCat = getKraepelinCatLabel(tinkerNorm);
+                    const jankerCat = getKraepelinCatLabel(jankerNorm);
+                    const hankerCat = getKraepelinCatLabel(hankerNorm);
 
-                  {/* Ringkasan Statistik */}
-                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'space-around', background: '#F0FDFA', border: '1px solid #99F6E4', borderRadius: '10px', padding: '12px', textAlign: 'center', flexWrap: 'wrap' }}>
-                    <div>
-                      <div style={{ fontSize: '11px', color: '#0F766E', fontWeight: 700 }}>RATA-RATA / KOLOM</div>
-                      <div style={{ fontSize: '18px', fontWeight: 900, color: '#0F172A' }}>{(columnScores.reduce((a, b) => a + b, 0) / 50).toFixed(1)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: '#0F766E', fontWeight: 700 }}>SKOR TERTINGGI (MAX)</div>
-                      <div style={{ fontSize: '18px', fontWeight: 900, color: '#047857' }}>{maxScore}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: '#0F766E', fontWeight: 700 }}>SKOR TERENDAH (MIN)</div>
-                      <div style={{ fontSize: '18px', fontWeight: 900, color: '#DC2626' }}>{minScore}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: '#0F766E', fontWeight: 700 }}>GARIS TENGAH (MIDPOINT)</div>
-                      <div style={{ fontSize: '18px', fontWeight: 900, color: '#0F766E' }}>{midScore}</div>
-                    </div>
-                  </div>
+                    return (
+                      <div style={{ background: '#F8FAFC', borderRadius: '14px', border: '1px solid #E2E8F0', padding: '1.25rem', marginBottom: '1.25rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
+                          <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                            Tabel Standar Interpretasi Norma Kraepelin
+                          </h4>
+                          <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>
+                            Pedoman Rentang Penilaian Standar Norma (Skala 1 - 5)
+                          </span>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', fontSize: '11.5px' }}>
+                          {/* PANKER Card */}
+                          <div style={{ background: '#FFFFFF', padding: '12px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                <strong style={{ color: '#0F766E', fontSize: '12px' }}>PANKER (Kecepatan Kerja)</strong>
+                                <span style={{ fontSize: '10.5px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px', background: pankerCat.bg, color: pankerCat.color }}>
+                                  {pankerCat.text}
+                                </span>
+                              </div>
+                              <p style={{ margin: '0 0 8px 0', color: '#64748B', fontSize: '11px', lineHeight: '1.4' }}>
+                                Mengukur tempo pengerjaan & energi produktif per kolom:
+                              </p>
+                              <div style={{ background: '#F8FAFC', padding: '8px 10px', borderRadius: '8px', border: '1px solid #F1F5F9', marginBottom: '8px', lineHeight: '1.65', color: '#334155' }}>
+                                <div>• Skor ≥ 18 : <strong>Tinggi Sekali (Sangat Cepat)</strong></div>
+                                <div>• Skor 14 – 17 : <strong>Tinggi (Cepat)</strong></div>
+                                <div>• Skor 12 – 13 : <strong>Sedang (Rata-rata Normal)</strong></div>
+                                <div>• Skor 10 – 11 : <strong>Agak Rendah (Kurang Cepat)</strong></div>
+                                <div>• Skor ≤ 9 : <strong>Rendah Sekali (Lambat)</strong></div>
+                              </div>
+                            </div>
+                            <p style={{ margin: 0, paddingTop: '6px', borderTop: '1px dashed #E2E8F0', color: '#0F172A', fontWeight: 700, fontSize: '11.5px' }}>
+                              Hasil: Skor <strong>{pankerRaw}</strong> &bull; {pankerCat.text} (Skala {pankerNorm})
+                            </p>
+                          </div>
+
+                          {/* TINKER Card */}
+                          <div style={{ background: '#FFFFFF', padding: '12px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                <strong style={{ color: '#0F766E', fontSize: '12px' }}>TINKER (Ketelitian Kerja)</strong>
+                                <span style={{ fontSize: '10.5px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px', background: tinkerCat.bg, color: tinkerCat.color }}>
+                                  {tinkerCat.text}
+                                </span>
+                              </div>
+                              <p style={{ margin: '0 0 8px 0', color: '#64748B', fontSize: '11px', lineHeight: '1.4' }}>
+                                Mengukur ketelitian & kontrol kesalahan di bawah tekanan waktu:
+                              </p>
+                              <div style={{ background: '#F8FAFC', padding: '8px 10px', borderRadius: '8px', border: '1px solid #F1F5F9', marginBottom: '8px', lineHeight: '1.65', color: '#334155' }}>
+                                <div>• 0 – 2 error : <strong>Tinggi Sekali (Sangat Teliti)</strong></div>
+                                <div>• 3 – 6 error : <strong>Tinggi (Teliti)</strong></div>
+                                <div>• 7 – 10 error : <strong>Sedang (Cukup Teliti)</strong></div>
+                                <div>• 11 – 15 error : <strong>Agak Rendah (Kurang Teliti)</strong></div>
+                                <div>• ≥ 16 error : <strong>Rendah Sekali (Sering Salah)</strong></div>
+                              </div>
+                            </div>
+                            <p style={{ margin: 0, paddingTop: '6px', borderTop: '1px dashed #E2E8F0', color: '#0F172A', fontWeight: 700, fontSize: '11.5px' }}>
+                              Hasil: Error <strong>{tinkerRaw}</strong> &bull; {tinkerCat.text} (Skala {tinkerNorm})
+                            </p>
+                          </div>
+
+                          {/* JANKER Card */}
+                          <div style={{ background: '#FFFFFF', padding: '12px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                <strong style={{ color: '#0F766E', fontSize: '12px' }}>JANKER (Kestabilan Ritme)</strong>
+                                <span style={{ fontSize: '10.5px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px', background: jankerCat.bg, color: jankerCat.color }}>
+                                  {jankerCat.text}
+                                </span>
+                              </div>
+                              <p style={{ margin: '0 0 8px 0', color: '#64748B', fontSize: '11px', lineHeight: '1.4' }}>
+                                Mengukur stabilitas ritme kerja (selisih kolom tertinggi & terendah):
+                              </p>
+                              <div style={{ background: '#F8FAFC', padding: '8px 10px', borderRadius: '8px', border: '1px solid #F1F5F9', marginBottom: '8px', lineHeight: '1.65', color: '#334155' }}>
+                                <div>• Selisih 0 – 3 : <strong>Tinggi Sekali (Sangat Stabil)</strong></div>
+                                <div>• Selisih 4 – 7 : <strong>Tinggi (Stabil)</strong></div>
+                                <div>• Selisih 8 – 9 : <strong>Sedang (Cukup Stabil)</strong></div>
+                                <div>• Selisih 10 – 12 : <strong>Agak Rendah (Kurang Stabil)</strong></div>
+                                <div>• Selisih ≥ 13 : <strong>Rendah Sekali (Fluktuatif)</strong></div>
+                              </div>
+                            </div>
+                            <p style={{ margin: 0, paddingTop: '6px', borderTop: '1px dashed #E2E8F0', color: '#0F172A', fontWeight: 700, fontSize: '11.5px' }}>
+                              Hasil: Selisih <strong>{jankerRaw}</strong> &bull; {jankerCat.text} (Skala {jankerNorm})
+                            </p>
+                          </div>
+
+                          {/* HANKER Card */}
+                          <div style={{ background: '#FFFFFF', padding: '12px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                <strong style={{ color: '#0F766E', fontSize: '12px' }}>HANKER (Ketahanan Kerja)</strong>
+                                <span style={{ fontSize: '10.5px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px', background: hankerCat.bg, color: hankerCat.color }}>
+                                  {hankerCat.text}
+                                </span>
+                              </div>
+                              <p style={{ margin: '0 0 8px 0', color: '#64748B', fontSize: '11px', lineHeight: '1.4' }}>
+                                Mengukur daya tahan mental dan konsistensi stamina kerja secara agregat:
+                              </p>
+                              <div style={{ background: '#F8FAFC', padding: '8px 10px', borderRadius: '8px', border: '1px solid #F1F5F9', marginBottom: '8px', lineHeight: '1.65', color: '#334155' }}>
+                                <div>• Nilai H ≥ 90 : <strong>Tinggi Sekali (Daya Tahan Prima)</strong></div>
+                                <div>• Nilai H 70 – 89 : <strong>Tinggi (Daya Tahan Kuat)</strong></div>
+                                <div>• Nilai H 60 – 69 : <strong>Sedang (Daya Tahan Cukup)</strong></div>
+                                <div>• Nilai H 50 – 59 : <strong>Agak Rendah (Mudah Lelah)</strong></div>
+                                <div>• Nilai H &lt; 50 : <strong>Rendah Sekali (Stamina Rendah)</strong></div>
+                              </div>
+                            </div>
+                            <p style={{ margin: 0, paddingTop: '6px', borderTop: '1px dashed #E2E8F0', color: '#0F172A', fontWeight: 700, fontSize: '11.5px' }}>
+                              Hasil: Skala <strong>{hankerNorm}</strong> &bull; {hankerCat.text}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {renderPrintableFooter('Halaman 1')}
                 </div>
@@ -3706,7 +3776,7 @@ export default function ReportDetailPage() {
                     </svg>
                   </div>
 
-                  {renderPrintableFooter('Halaman 1')}
+                                    {renderPrintableFooter('Halaman 1')}
                 </div>
 
                 {/* Page 2: Detail Skor PAPI Kostick (7 Klaster) */}
