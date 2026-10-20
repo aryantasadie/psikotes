@@ -90,7 +90,8 @@ export default function IST6() {
               <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>Tentukan angka lanjutan yang tepat sesuai pola deret berikut:</p>
               <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '10px' }}>
                 <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>6 &nbsp; 9 &nbsp; 12 &nbsp; 15 &nbsp; 18 &nbsp; 21 &nbsp; ?</p>
-                <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : 24 (pola +3)</p>
+                <p style={{ margin: '0 0 4px 0', color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : 24</p>
+                <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Alasan: pola +3</p>
               </div>
             </div>
           </div>
