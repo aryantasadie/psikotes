@@ -234,18 +234,92 @@ export default function DISC() {
   if (showInstruction) {
     return (
       <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ maxWidth: '700px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>DISC - Personality Profile</h2>
-          <div style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
-            <p style={{ margin: '0 0 10px 0' }}><strong>Pengisian :</strong></p>
-            <ol style={{ margin: '0', paddingLeft: '20px' }}>
-              <li>Test ini terdiri dari 24 Soal</li>
-              <li>Setiap soal terdiri dari dua bagian. Bagian MOST ( Cenderung paling sesuai dengan diri ) dan LEAST ( cenderung paling tidak sesuai )</li>
-              <li>Pilih SATU JAWABAN pada masing masing MOST &amp; LEAST</li>
-              <li>Jawaban Most dan Least pada setiap no TIDAK BOLEH SAMA.</li>
-              <li>Waktu pengerjaan 15 menit (Wajib menyelesaikan seluruh soal)</li>
-              <li>Satu account hanya untuk satu kali kesempatan pengisian</li>
-            </ol>
+        <div style={{ maxWidth: '760px', width: '100%', background: 'white', padding: '45px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
+          {/* Badge & Title */}
+          <div style={{ display: 'inline-block', padding: '6px 16px', background: '#e0f2fe', color: '#0369a1', borderRadius: '20px', fontSize: '13px', fontWeight: '700', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '12px' }}>
+            Instruksi Pengerjaan
+          </div>
+          <h2 style={{ fontSize: '28px', color: '#1e293b', margin: '0 0 8px 0', fontWeight: '800' }}>
+            DISC Personality Profile
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '15px', margin: '0 0 25px 0' }}>
+            Harap baca panduan pengisian di bawah ini dengan seksama sebelum memulai tes.
+          </p>
+
+          {/* Quick Info Badges */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '25px', textAlign: 'left' }}>
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                📋
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Jumlah Soal</div>
+                <div style={{ fontSize: '15px', color: '#1e293b', fontWeight: '700' }}>24 Nomor</div>
+              </div>
+            </div>
+
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                ⏱️
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Waktu Pengerjaan</div>
+                <div style={{ fontSize: '15px', color: '#1e293b', fontWeight: '700' }}>15 Menit</div>
+              </div>
+            </div>
+
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#f3e8ff', color: '#7e22ce', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
+                👤
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '500' }}>Kesempatan</div>
+                <div style={{ fontSize: '15px', color: '#1e293b', fontWeight: '700' }}>1x Pengerjaan</div>
+              </div>
+            </div>
+          </div>
+
+          {/* MOST & LEAST Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px', marginBottom: '25px', textAlign: 'left' }}>
+            {/* MOST Card */}
+            <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: '14px', padding: '18px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <span style={{ background: '#0284c7', color: 'white', padding: '3px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '800' }}>
+                  MOST (M)
+                </span>
+                <span style={{ fontSize: '14px', fontWeight: '700', color: '#0369a1' }}>Paling Sesuai</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '14px', color: '#334155', lineHeight: '1.5' }}>
+                Pilih <strong>SATU</strong> pernyataan yang cenderung <strong>paling menggambarkan</strong> atau paling sesuai dengan diri Anda.
+              </p>
+            </div>
+
+            {/* LEAST Card */}
+            <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '14px', padding: '18px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <span style={{ background: '#e11d48', color: 'white', padding: '3px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '800' }}>
+                  LEAST (L)
+                </span>
+                <span style={{ fontSize: '14px', fontWeight: '700', color: '#be123c' }}>Paling Tidak Sesuai</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '14px', color: '#334155', lineHeight: '1.5' }}>
+                Pilih <strong>SATU</strong> pernyataan yang cenderung <strong>paling tidak sesuai</strong> atau paling jauh dari karakter diri Anda.
+              </p>
+            </div>
+          </div>
+
+          {/* Important Rules List */}
+          <div style={{ textAlign: 'left', background: '#f8fafc', padding: '20px 22px', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '30px' }}>
+            <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>⚠️</span> <strong>Aturan &amp; Ketentuan Pengisian:</strong>
+            </div>
+            <ul style={{ margin: 0, paddingLeft: '22px', color: '#475569', fontSize: '14px', lineHeight: '1.7' }}>
+              <li>Pada setiap nomor, Anda <strong>wajib memilih 1 MOST</strong> dan <strong>1 LEAST</strong>.</li>
+              <li>Pilihan MOST dan LEAST pada nomor yang sama <strong>TIDAK BOLEH pada baris pernyataan yang sama</strong>.</li>
+              <li>Waktu pengerjaan <strong>15 menit</strong> dan wajib menyelesaikan seluruh 24 nomor soal.</li>
+              <li>Jawablah secara spontan, jujur, dan apa adanya. Tidak ada jawaban benar ataupun salah.</li>
+              <li>Setiap akun hanya memiliki <strong>1 kali kesempatan</strong> pengisian tes.</li>
+            </ul>
           </div>
           <button 
             type="button"
