@@ -424,11 +424,14 @@ export default function ReportDetailPage() {
   const handleDownloadTestResultPdf = async () => {
     setGeneratingPdf(true);
     try {
+      // @ts-ignore
       const { jsPDF } = await import('jspdf');
       let html2canvas: any;
       try {
+        // @ts-ignore
         html2canvas = (await import('html2canvas-pro')).default;
       } catch {
+        // @ts-ignore
         html2canvas = (await import('html2canvas')).default;
       }
 
