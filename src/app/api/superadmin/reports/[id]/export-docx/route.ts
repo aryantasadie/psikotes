@@ -22,6 +22,9 @@ import {
 // Default Aspect Descriptions & Mapping
 const ASPECT_DESCRIPTIONS: Record<string, string> = {
   "Inteligensi Umum": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
+  "Intelegensi umum": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
+  "Intelegensi Umum": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
+  "IQ / Kapasitas Intelektual": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
   "Daya Analisa": "Mampu mengolah dan mengidentifikasi keterkaitan informasi; menghubungkan data dari berbagai sumber.",
   "Logika Berpikir": "Kemampuan untuk berpikir runtut, terarah, praktis dan logis dengan penalaran masuk akal.",
   "Daya Abstraksi": "Kemampuan untuk menelaah persoalan dari berbagai sudut pandang dan berpikir antisipatif.",
@@ -576,7 +579,17 @@ export async function GET(
                   new Paragraph({
                     children: [
                       new TextRun({
-                        text: asp.description || ASPECT_DESCRIPTIONS[aspectName] || "-",
+                        text: (() => {
+                          if (asp.description && String(asp.description).trim()) return String(asp.description).trim();
+                          if (ASPECT_DESCRIPTIONS[aspectName]) return ASPECT_DESCRIPTIONS[aspectName];
+                          const norm = aspectName.trim().toLowerCase();
+                          for (const [k, v] of Object.entries(ASPECT_DESCRIPTIONS)) {
+                            const kNorm = k.toLowerCase();
+                            if (kNorm === norm) return v;
+                            if ((norm.includes('intelegensi') || norm.includes('inteligensi') || norm.includes('iq')) && (kNorm.includes('intelegensi') || kNorm.includes('inteligensi') || kNorm.includes('iq'))) return v;
+                          }
+                          return "-";
+                        })(),
                         font: "Arial",
                         size: 14, // 7pt
                         color: "475569",

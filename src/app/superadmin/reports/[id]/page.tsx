@@ -1745,6 +1745,8 @@ export default function ReportDetailPage() {
                         const descriptions: Record<string, string> = {
                           ...ASPECT_DESCRIPTIONS,
                           "Inteligensi Umum": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
+                          "Intelegensi umum": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
+                          "Intelegensi Umum": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
                           "Daya Analisa": "Mampu mengolah dan mengidentifikasi topik-topik serta keterkaitan dari informasi-informasi tersebut; menghubungkan & membandingkan data-data dari berbagai sumber, mengidentifikasi hubungan sebab akibat.",
                           "Logika Berpikir": "Kemampuan untuk berpikir runtut, terarah, praktis dan logis dengan penalaran yang masuk akal",
                           "Daya Abstraksi": "Kemampuan untuk menelaah persoalan dari beberapa sudut pandang, memprediksi dan kemampuan berpikir antisipatif",
@@ -1753,6 +1755,18 @@ export default function ReportDetailPage() {
                           "Kepekaan": "Mampu memahami perasaan orang lain, dan mampu menempatkan diri pada situasi yang dihadapi orang lain (berempati)",
                           "Kepercayaan Diri": "Yakin pada kemampuan dirinya, bisa bersikap tegas, asertif",
                           "Sosiabilitas": "Memiliki minat dan perhatian terhadap orang lain, mampu menciptakan impresi yang baik dalam situasi sosial, bisa menjalin hubungan dgn berbagai tipe orang"
+                        };
+
+                        const resolveAspectDesc = (aspObj: any, aspName: string) => {
+                          if (aspObj?.description && String(aspObj.description).trim()) return String(aspObj.description).trim();
+                          if (descriptions[aspName]) return descriptions[aspName];
+                          const norm = aspName.trim().toLowerCase();
+                          for (const [k, v] of Object.entries(descriptions)) {
+                            const kNorm = k.toLowerCase();
+                            if (kNorm === norm) return v;
+                            if ((norm.includes('intelegensi') || norm.includes('inteligensi') || norm.includes('iq')) && (kNorm.includes('intelegensi') || kNorm.includes('inteligensi') || kNorm.includes('iq'))) return v;
+                          }
+                          return "Deskripsi aspek belum tersedia.";
                         };
 
                         return mapping.map((cat: any, cIdx: number) => {
@@ -1777,7 +1791,7 @@ export default function ReportDetailPage() {
                                                 <td style={{ padding: '16px 24px' }}>
                                                     <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '13px', marginBottom: '4px' }}>{aspectName}</div>
                                                     <div style={{ fontSize: '11px', color: '#64748B', lineHeight: '1.4' }}>
-                                                        {asp.description || descriptions[aspectName] || "Deskripsi aspek belum tersedia."}
+                                                        {resolveAspectDesc(asp, aspectName)}
                                                     </div>
                                                 </td>
                                                 {[1, 2, 3, 4, 5].map(score => {

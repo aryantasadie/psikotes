@@ -15,6 +15,9 @@ const SCORE_LABELS = [
 
 export const ASPECT_DESCRIPTIONS: Record<string, string> = {
   "IQ / Kapasitas Intelektual": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
+  "Intelegensi umum": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
+  "Inteligensi Umum": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
+  "Intelegensi Umum": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
   "Daya Analisa": "Mampu mengolah dan mengidentifikasi topik-topik serta keterkaitan dari informasi-informasi tersebut; menghubungkan & membandingkan data-data dari berbagai sumber, mengidentifikasi hubungan sebab akibat.",
   "Logika Berpikir": "Kemampuan untuk berpikir runtut, terarah, praktis dan logis dengan penalaran yang masuk akal",
   "Daya Abstraksi": "Kemampuan untuk menelaah persoalan dari beberapa sudut pandang, memprediksi dan kemampuan berpikir antisipatif",
@@ -39,7 +42,12 @@ export const ASPECT_DESCRIPTIONS: Record<string, string> = {
   "Pengambilan Keputusan": "Kemampuan untuk memilih solusi terbaik dari berbagai alternatif dengan cepat dan tepat.",
 };
 
-type ActiveCategory = { category: string; aspects: string[] };
+export interface ActiveAspect {
+  name: string;
+  description?: string;
+}
+
+export type ActiveCategory = { category: string; aspects: ActiveAspect[] };
 
 /* ─── Page ──────────────────────────────────────────────── */
 export default function JobPositionBuilder() {
@@ -49,12 +57,43 @@ export default function JobPositionBuilder() {
   const [presets, setPresets]               = useState<any[]>([]);
   const [activeCategories, setActiveCategories] = useState<ActiveCategory[]>([]);
   const [flatAspects, setFlatAspects]       = useState<string[]>([]);
+  const [aspectDescriptions, setAspectDescriptions] = useState<Record<string, string>>({});
   const [grayAreas, setGrayAreas]           = useState<Record<string, { targetScore: number }>>({});
   const [saving, setSaving]                 = useState(false);
   const [error, setError]                   = useState('');
   const [editId, setEditId]                 = useState<number | null>(null);
   const [updatedAt, setUpdatedAt]           = useState<string | null>(null);
   const router = useRouter();
+
+  // Helper resolusi deskripsi aspek
+  const getAspectDescription = (aspect: ActiveAspect | string) => {
+    const aspectName = typeof aspect === 'string' ? aspect : aspect.name;
+    const directDesc = typeof aspect === 'object' ? aspect.description : undefined;
+
+    // 1. Utamakan deskripsi kustom langsung dari mapping preset yang diedit user
+    if (directDesc && directDesc.trim()) return directDesc.trim();
+
+    // 2. Cek kamus deskripsi kustom dari preset aktif
+    if (aspectDescriptions[aspectName] && aspectDescriptions[aspectName].trim()) {
+      return aspectDescriptions[aspectName].trim();
+    }
+
+    // 3. Cek exact match di kamus acuan
+    if (ASPECT_DESCRIPTIONS[aspectName]) return ASPECT_DESCRIPTIONS[aspectName];
+
+    // 4. Normalisasi pencocokan case-insensitive
+    const norm = aspectName.trim().toLowerCase();
+    for (const [k, v] of Object.entries(ASPECT_DESCRIPTIONS)) {
+      const kNorm = k.toLowerCase();
+      if (kNorm === norm) return v;
+      if ((norm.includes('intelegensi') || norm.includes('inteligensi') || norm.includes('iq')) &&
+          (kNorm.includes('intelegensi') || kNorm.includes('inteligensi') || kNorm.includes('iq'))) {
+        return v;
+      }
+    }
+
+    return '—';
+  };
 
   // Load preset list
   useEffect(() => {
@@ -83,6 +122,17 @@ export default function JobPositionBuilder() {
           d.grayAreas.forEach((ga: any) => { map[ga.parameter] = { targetScore: ga.targetScore }; });
           setGrayAreas(map);
         }
+        if (d.psychographPreset) {
+          setPresets(prev => {
+            const idx = prev.findIndex(p => p.id === d.psychographPreset.id);
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = d.psychographPreset;
+              return updated;
+            }
+            return [...prev, d.psychographPreset];
+          });
+        }
       });
   }, []);
 
@@ -95,12 +145,27 @@ export default function JobPositionBuilder() {
       const mapping = JSON.parse(preset.mapping);
       const cats: ActiveCategory[] = [];
       const flat: string[] = [];
+      const descMap: Record<string, string> = {};
+
       mapping.forEach((cat: any) => {
-        const active = cat.aspects.filter((a: any) => a.checked).map((a: any) => a.name);
-        if (active.length > 0) { cats.push({ category: cat.category, aspects: active }); flat.push(...active); }
+        const active: ActiveAspect[] = (cat.aspects || [])
+          .filter((a: any) => a.checked)
+          .map((a: any) => {
+            const aspName = a.name;
+            const aspDesc = a.description || '';
+            if (aspDesc) descMap[aspName] = aspDesc;
+            return { name: aspName, description: aspDesc };
+          });
+
+        if (active.length > 0) {
+          cats.push({ category: cat.category, aspects: active });
+          active.forEach(a => flat.push(a.name));
+        }
       });
+
       setActiveCategories(cats);
       setFlatAspects(flat);
+      setAspectDescriptions(prev => ({ ...prev, ...descMap }));
       setGrayAreas(prev => {
         const updated = { ...prev };
         flat.forEach(a => { if (!updated[a]) updated[a] = { targetScore: 3 }; });
@@ -244,14 +309,16 @@ export default function JobPositionBuilder() {
                       </td>
                     </tr>
                     {/* Aspect rows */}
-                    {group.aspects.map((aspect, ai) => {
-                      const selected = grayAreas[aspect]?.targetScore || 3;
+                    {group.aspects.map((aspectItem) => {
+                      const aspectName = typeof aspectItem === 'string' ? aspectItem : aspectItem.name;
+                      const aspectDesc = getAspectDescription(aspectItem);
+                      const selected = grayAreas[aspectName]?.targetScore || 3;
                       return (
-                        <tr key={aspect} className="border-b border-slate-100 hover:bg-slate-50/60 transition-colors">
+                        <tr key={aspectName} className="border-b border-slate-100 hover:bg-slate-50/60 transition-colors">
                           <td className="px-6 py-4">
-                            <p className="text-[13px] font-semibold text-slate-900">{aspect}</p>
+                            <p className="text-[13px] font-semibold text-slate-900">{aspectName}</p>
                             <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed max-w-sm">
-                              {ASPECT_DESCRIPTIONS[aspect] || '—'}
+                              {aspectDesc}
                             </p>
                           </td>
                           {SCORE_LABELS.map(s => (
@@ -260,7 +327,7 @@ export default function JobPositionBuilder() {
                                 type="button"
                                 onClick={() => setGrayAreas(prev => ({
                                   ...prev,
-                                  [aspect]: { ...prev[aspect], targetScore: s.value },
+                                  [aspectName]: { ...prev[aspectName], targetScore: s.value },
                                 }))}
                                 className="flex items-center justify-center cursor-pointer group mx-auto focus:outline-none"
                               >
