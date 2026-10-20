@@ -165,6 +165,7 @@ export async function GET() {
     isAllCompleted,
     isPaused,
     pausedMessage,
+    disableMedia: Boolean(participant.test?.disableMedia),
     isStopped: false
   });
 }

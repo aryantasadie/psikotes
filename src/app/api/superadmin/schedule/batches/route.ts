@@ -113,6 +113,7 @@ export async function GET() {
         sequence: parsedSequence,
         pausedTests: parsedPausedTests,
         isPaused: Boolean(b.isPaused),
+        disableMedia: Boolean(b.disableMedia),
         pauseMessage: b.pauseMessage || null,
         participants: b.participants.map((p) => {
           let unpausedArr: string[] = [];

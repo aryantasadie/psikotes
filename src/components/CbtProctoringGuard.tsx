@@ -24,6 +24,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
   const [isStopped, setIsStopped] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [pausedMessage, setPausedMessage] = useState('');
+  const [disableMedia, setDisableMedia] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const screenVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -53,6 +54,12 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
           setParticipantId(data.participantId);
           localStorage.setItem('current_participant_id', String(data.participantId));
         }
+        if (data.disableMedia) {
+          setDisableMedia(true);
+          setConsentGranted(true);
+          setWebcamActive(true);
+          setScreenActive(true);
+        }
       })
       .catch(console.error);
   }, []);
@@ -78,6 +85,16 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
             }
             return prev;
           });
+        }
+
+        if (data.disableMedia !== undefined) {
+          const dm = Boolean(data.disableMedia);
+          setDisableMedia(dm);
+          if (dm) {
+            setConsentGranted(true);
+            setWebcamActive(true);
+            setScreenActive(true);
+          }
         }
 
         const stopped = Boolean(data.isStopped);
@@ -132,6 +149,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   // Initialize Webcam
   const setupWebcam = async () => {
+    if (disableMedia) return;
     if (streamRef.current) {
       if (videoRef.current && videoRef.current.srcObject !== streamRef.current) {
         videoRef.current.srcObject = streamRef.current;
@@ -215,6 +233,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
 
   // Initialize Desktop/Mobile Screen Recording
   const setupScreenShare = async () => {
+    if (disableMedia) return;
     if (screenActive || screenInitializing.current || screenStreamRef.current) return;
     screenInitializing.current = true;
 
@@ -305,7 +324,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
   };
 
   useEffect(() => {
-    if (!consentGranted) return;
+    if (!consentGranted || disableMedia) return;
 
     setupWebcam();
     setupScreenShare();
@@ -809,7 +828,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
   // 📸 Trigger Foto 1 (Awal - 1x) & Foto 2 (Tepat 10 Menit Kemudian - 1x Saja)
   useEffect(() => {
     const currentPId = participantId || (typeof window !== 'undefined' && localStorage.getItem('current_participant_id') ? parseInt(localStorage.getItem('current_participant_id')!, 10) : null);
-    if (!currentPId) return;
+    if (!currentPId || disableMedia) return;
 
     const p1DoneKey = `cbt_photo1_done_${currentPId}`;
     const p2DoneKey = `cbt_photo2_done_${currentPId}`;
@@ -880,7 +899,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     let isBroadcasting = false;
 
     const broadcastNow = async () => {
-      if (isBroadcasting) return;
+      if (isBroadcasting || disableMedia) return;
       isBroadcasting = true;
       try {
         const testeeName = sessionStorage.getItem('testee_name') || localStorage.getItem('testee_name') || undefined;
@@ -1100,7 +1119,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
     } catch (e) {}
   };
 
-  const isPermissionGranted = webcamActive && screenActive;
+  const isPermissionGranted = disableMedia || (webcamActive && screenActive);
 
   // Cegah hydration mismatch antara SSR dan Client
   if (!mounted) {
@@ -1121,7 +1140,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
   }
 
   // TAHAP AWAL: Lembar Persetujuan Data & Rekaman (Sebelum Meminta Izin Kamera / Layar)
-  if (!consentGranted) {
+  if (!consentGranted && !disableMedia) {
     return (
       <div
         style={{
@@ -1285,7 +1304,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       </main>
 
       {/* MANDATORY PERMISSION OVERLAY (UJIAN TIDAK BISA DIMULAI JIKA BELUM ACC KAMERA & LAYAR) */}
-      {!isPermissionGranted && (
+      {!disableMedia && !isPermissionGranted && (
         <div style={{
           position: 'fixed',
           inset: 0,

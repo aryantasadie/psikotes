@@ -32,7 +32,8 @@ export async function POST(req: Request) {
       testerId,
       prefix,
       count,
-      customSequence
+      customSequence,
+      disableMedia
     } = await req.json();
 
     if (!prefix || !count || count <= 0 || count > 200) {
@@ -164,6 +165,7 @@ export async function POST(req: Request) {
         startDate: startDate,
         sequence: testSequence,
         psychographPresetId: jobPosition?.psychographPresetId || null,
+        disableMedia: Boolean(disableMedia),
       }
     });
 

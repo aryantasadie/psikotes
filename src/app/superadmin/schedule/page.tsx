@@ -13,6 +13,7 @@ interface BatchAccount {
 
 interface BatchSession {
   id: number;
+  disableMedia?: boolean;
   title: string;
   startDate?: string | null;
   jobPositionName: string;
@@ -51,6 +52,7 @@ export default function SchedulePage() {
   const [selectedTesterId, setSelectedTesterId] = useState('');
   const [prefix, setPrefix] = useState('');
   const [count, setCount] = useState('');
+  const [disableMedia, setDisableMedia] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Custom Test Tools Override State (Simplified)
@@ -146,7 +148,8 @@ export default function SchedulePage() {
         clientId: selectedClientId ? parseInt(selectedClientId) : null,
         testerId: selectedTesterId ? parseInt(selectedTesterId) : null,
         prefix: prefix.trim(),
-        count: parseInt(count)
+        count: parseInt(count),
+        disableMedia: Boolean(disableMedia)
       };
 
       if ((useCustomTools || !selectedJobPositionId) && selectedCustomTools.length > 0) {
@@ -442,6 +445,32 @@ export default function SchedulePage() {
               </div>
             </div>
 
+            {/* Pengaturan Pengawasan Media: Kamera & Share Screen */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={disableMedia}
+                  onChange={e => setDisableMedia(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 rounded accent-teal-600 cursor-pointer"
+                />
+                <div>
+                  <span className="text-[12.5px] font-bold text-slate-800 block">
+                    Matikan Kamera &amp; Share Screen (Mode Ringan untuk 50+ Peserta)
+                  </span>
+                  <span className="text-[11px] text-slate-500 leading-relaxed block mt-0.5">
+                    <strong>Default:</strong> Kamera &amp; Share Screen aktif. Centang opsi ini jika sesi ujian diikuti banyak peserta (&gt;50 orang) agar server sangat ringan, hemat kuota Supabase, dan peserta tanpa webcam dapat langsung ujian tanpa terblokir.
+                  </span>
+                </div>
+              </label>
+              {disableMedia && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[11px] px-2.5 py-1.5 rounded-lg font-medium flex items-center gap-1.5 mt-1">
+                  <span>⚡</span>
+                  <span><strong>Mode Ringan Aktif:</strong> Peserta sesi ini tidak akan diminta akses kamera atau rekam layar, dan tidak ada pengiriman foto ke server.</span>
+                </div>
+              )}
+            </div>
+
             <button
               type="submit"
               disabled={submitting}
@@ -569,6 +598,15 @@ export default function SchedulePage() {
                       <p className="text-[11px] text-slate-400 mt-0.5">
                         {batch.startDate ? new Date(batch.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Tanpa Tanggal'}
                       </p>
+                      {batch.disableMedia ? (
+                        <span className="inline-block mt-1 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded">
+                          ⚡ Mode Ringan (Tanpa Cam & Layar)
+                        </span>
+                      ) : (
+                        <span className="inline-block mt-1 text-[10px] font-semibold text-slate-500 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
+                          📹 Cam & Layar Aktif
+                        </span>
+                      )}
                     </td>
 
                     <td className="px-4 py-3.5 text-[12px] font-semibold text-slate-700">

@@ -61,6 +61,7 @@ model Test {
   pausedTests      String?  // JSON array of test types to pause BEFORE starting, e.g. ["PAPI_KOSTICK", "KRAEPELIN"]
   pauseMessage     String?  // Optional custom message shown during emergency pause
   isPaused         Boolean  @default(false) // Emergency pause status for entire batch
+  disableMedia     Boolean? @default(false) // Nonaktifkan Kamera & ShareScreen untuk mode ringan
   startDate        DateTime?
   endDate          DateTime?
   clientId         Int?
