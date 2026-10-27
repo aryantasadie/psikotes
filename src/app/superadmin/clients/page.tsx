@@ -14,7 +14,9 @@ import {
   Phone, 
   Loader2,
   Power,
-  Coins
+  Coins,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -91,6 +93,7 @@ export default function ClientsManagementPage() {
 
   const [formError, setFormError] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [showClientPassword, setShowClientPassword] = useState<boolean>(false);
 
   useEffect(() => {
     fetchClients();
@@ -583,12 +586,25 @@ export default function ClientsManagementPage() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-slate-700">Password Akun</label>
-                <Input
-                  type="password"
-                  placeholder={editingClient ? 'Kosongkan jika tetap' : 'Password login'}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                />
+                <div className="relative flex items-center">
+                  <Input
+                    type={showClientPassword ? 'text' : 'password'}
+                    placeholder={editingClient ? 'Kosongkan jika tetap' : 'Password login'}
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowClientPassword(prev => !prev)}
+                    className="absolute right-3 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors cursor-pointer p-1"
+                    aria-label={showClientPassword ? 'Sembunyikan password' : 'Lihat password'}
+                    title={showClientPassword ? 'Sembunyikan password' : 'Lihat password'}
+                    tabIndex={-1}
+                  >
+                    {showClientPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
             </div>
 

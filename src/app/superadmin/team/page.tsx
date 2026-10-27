@@ -13,7 +13,9 @@ import {
   Layers, 
   CheckCircle2, 
   XCircle, 
-  Loader2 
+  Loader2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -85,6 +87,7 @@ export default function TeamManagementPage() {
 
   const [formError, setFormError] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [showTeamPassword, setShowTeamPassword] = useState<boolean>(false);
 
   useEffect(() => {
     fetchTeamData();
@@ -663,12 +666,25 @@ export default function TeamManagementPage() {
               <label className="text-xs font-bold text-slate-700">
                 Password Akun
               </label>
-              <Input
-                type="password"
-                placeholder={editingMember ? 'Kosongkan jika tidak diubah' : 'Masukkan password baru'}
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              />
+              <div className="relative flex items-center">
+                <Input
+                  type={showTeamPassword ? 'text' : 'password'}
+                  placeholder={editingMember ? 'Kosongkan jika tidak diubah' : 'Masukkan password baru'}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowTeamPassword(prev => !prev)}
+                  className="absolute right-3 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors cursor-pointer p-1"
+                  aria-label={showTeamPassword ? 'Sembunyikan password' : 'Lihat password'}
+                  title={showTeamPassword ? 'Sembunyikan password' : 'Lihat password'}
+                  tabIndex={-1}
+                >
+                  {showTeamPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             <DialogFooter className="pt-2">

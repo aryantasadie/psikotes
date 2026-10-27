@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { LogIn, Clock } from 'lucide-react';
+import { LogIn, Clock, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [timeoutNotice, setTimeoutNotice] = useState(false);
@@ -174,14 +175,31 @@ export default function LoginPage() {
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                 Kata Sandi / Password
               </label>
-              <Input 
-                type="password" 
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                disabled={loading}
-                placeholder="Masukkan kata sandi..."
-              />
+              <div className="relative flex items-center">
+                <Input 
+                  type={showPassword ? 'text' : 'password'} 
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  placeholder="Masukkan kata sandi..."
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  className="absolute right-3 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors cursor-pointer p-1"
+                  aria-label={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+                  title={showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
             
             <Button 
