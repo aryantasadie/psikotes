@@ -213,10 +213,10 @@ export default function PAPI() {
 
   if (showInstruction) {
     return (
-      <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ maxWidth: '700px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>PAPI Kostick Test</h2>
-          <div style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
+      <div className="test-instruction-wrapper" style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="test-instruction-card" style={{ maxWidth: '700px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
+          <h2 className="test-instruction-title" style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>PAPI Kostick Test</h2>
+          <div className="test-instruction-box" style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
             <p style={{ margin: '0 0 10px 0' }}><strong>Instruksi Pengerjaan:</strong></p>
             <ul style={{ margin: '0', paddingLeft: '20px' }}>
               <li>Tes ini terdiri dari <strong>90 pasang pernyataan</strong>.</li>
@@ -227,6 +227,7 @@ export default function PAPI() {
           </div>
           <button 
             type="button"
+            className="test-instruction-btn"
             onClick={() => {
               if (typeof window !== 'undefined' && ((window as any).__CBT_IS_PAUSED__ || (window as any).__CBT_IS_STOPPED__)) return;
               setShowInstruction(false);

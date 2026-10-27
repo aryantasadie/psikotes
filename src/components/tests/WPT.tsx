@@ -170,22 +170,29 @@ export default function WPT() {
 
   if (showInstruction) {
     return (
-      <div style={{ padding: '16px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ maxWidth: '680px', width: '100%', background: 'white', padding: 'clamp(24px, 5vw, 45px)', borderRadius: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-          <h2 style={{ fontSize: 'clamp(22px, 5vw, 30px)', color: '#2c3e50', marginBottom: '16px', fontWeight: '800' }}>WPT - Wonderlic Personnel Test</h2>
-          <div style={{ textAlign: 'left', background: '#f8fbff', padding: '20px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '28px', lineHeight: '1.7', color: '#444', fontSize: '15px' }}>
+      <div className="test-instruction-wrapper" style={{ padding: '16px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="test-instruction-card" style={{ maxWidth: '680px', width: '100%', background: 'white', padding: 'clamp(24px, 5vw, 45px)', borderRadius: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
+          <h2 className="test-instruction-title" style={{ fontSize: 'clamp(22px, 5vw, 30px)', color: '#2c3e50', marginBottom: '16px', fontWeight: '800' }}>WPT - Wonderlic Personnel Test</h2>
+          <div className="test-instruction-box" style={{ textAlign: 'left', background: '#f8fbff', padding: '20px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '28px', lineHeight: '1.7', color: '#444', fontSize: '15px' }}>
             <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 12 Menit (Waktu berjalan otomatis di latar belakang dan tes akan otomatis selesai jika waktu habis)</p>
             <p style={{ margin: '0 0 10px 0' }}><strong>Jumlah Soal:</strong> 50 Soal</p>
             <p style={{ margin: '0 0 15px 0' }}>Tes ini terdiri dari berbagai jenis pertanyaan: logika kata, hitungan matematika, dan pola gambar. Beberapa soal dapat memiliki lebih dari 1 pilihan jawaban. Kerjakan secepat dan seteliti mungkin.</p>
-            <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #ddd', marginTop: '16px' }}>
+            <div className="test-instruction-example" style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #ddd', marginTop: '16px' }}>
               <h4 style={{ margin: '0 0 12px 0', color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '8px' }}>CONTOH SOAL</h4>
               <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>Bulan terakhir pada tahun adalah?</p>
-              <p style={{ margin: '0 0 5px 0' }}>1. Januari &nbsp; 2. Maret &nbsp; 3. Juli &nbsp; 4. Desember &nbsp; 5. Oktober</p>
+              <div className="test-example-options" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px', marginBottom: '8px' }}>
+                <span>1. Januari</span>
+                <span>2. Maret</span>
+                <span>3. Juli</span>
+                <span>4. Desember</span>
+                <span>5. Oktober</span>
+              </div>
               <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Jawaban: 4. Desember</p>
             </div>
           </div>
           <button 
             type="button"
+            className="test-instruction-btn"
             onClick={() => {
               if (typeof window !== 'undefined' && ((window as any).__CBT_IS_PAUSED__ || (window as any).__CBT_IS_STOPPED__)) return;
               setShowInstruction(false);

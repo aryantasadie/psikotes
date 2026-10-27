@@ -80,21 +80,27 @@ export default function IST3() {
 
   if (showInstruction) {
     return (
-      <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ maxWidth: '700px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>
+      <div className="test-instruction-wrapper" style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="test-instruction-card" style={{ maxWidth: '700px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
+          <h2 className="test-instruction-title" style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>
             IST 3 - Hubungan Kata / Analogi Verbal (Analogien)
           </h2>
-          <div style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
+          <div className="test-instruction-box" style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
             <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 7 Menit (Otomatis berpindah jika waktu habis)</p>
             <p style={{ margin: '0 0 15px 0' }}>
               <strong>Petunjuk:</strong> Ditentukan tiga kata. Antara kata pertama dan kata kedua terdapat suatu hubungan tertentu. Pilihlah dari 5 pilihan kata (A, B, C, D, E) kata yang memiliki hubungan yang sama dengan kata ketiga.
             </p>
-            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #ddd', marginTop: '20px' }}>
+            <div className="test-instruction-example" style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #ddd', marginTop: '20px' }}>
               <h4 style={{ margin: '0 0 15px 0', color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>CONTOH SOAL</h4>
               <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '10px' }}>
                 <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>Hutan : Pohon = Laut : ?</p>
-                <p style={{ margin: '0 0 5px 0' }}>A) Pasir &nbsp; B) Air &nbsp; C) Kapal &nbsp; D) Ombak &nbsp; E) Ikan</p>
+                <div className="test-example-options" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px' }}>
+                  <span>A) Pasir</span>
+                  <span>B) Air</span>
+                  <span>C) Kapal</span>
+                  <span>D) Ombak</span>
+                  <span>E) Ikan</span>
+                </div>
               </div>
               <p style={{ margin: '0 0 4px 0', color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : B (Air)</p>
               <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Alasan: Hutan isinya kumpulan Pohon. Berarti Laut isinya kumpulan Air.</p>
@@ -102,6 +108,7 @@ export default function IST3() {
           </div>
           <button 
             type="button"
+            className="test-instruction-btn"
             onClick={() => setShowInstruction(false)}
             style={{ padding: '18px 45px', fontSize: '18px', background: 'linear-gradient(to right, #3498db, #2980b9)', color: 'white', border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 10px 20px rgba(52, 152, 219, 0.3)', transition: 'transform 0.2s' }}
             onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}

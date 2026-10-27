@@ -80,19 +80,19 @@ export default function IST7() {
 
   if (showInstruction) {
     return (
-      <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ maxWidth: '780px', width: '100%', background: 'white', padding: '40px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '28px', color: '#2c3e50', marginBottom: '16px', fontWeight: '800' }}>
+      <div className="test-instruction-wrapper" style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="test-instruction-card" style={{ maxWidth: '780px', width: '100%', background: 'white', padding: '40px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
+          <h2 className="test-instruction-title" style={{ fontSize: '28px', color: '#2c3e50', marginBottom: '16px', fontWeight: '800' }}>
             IST 7 - Bentuk Ruang (Penggabungan Potongan Gambar)
           </h2>
           
-          <div style={{ textAlign: 'left', background: '#f8fbff', padding: '24px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '28px', lineHeight: '1.6', color: '#334155', fontSize: '15px' }}>
+          <div className="test-instruction-box" style={{ textAlign: 'left', background: '#f8fbff', padding: '24px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '28px', lineHeight: '1.6', color: '#334155', fontSize: '15px' }}>
             <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 7 Menit (Sistem otomatis berpindah jika waktu habis)</p>
             <p style={{ margin: '0 0 16px 0' }}>
               <strong>Petunjuk:</strong> Ditentukan sebuah bentuk yang terpotong menjadi beberapa bagian. Pilihlah dari 5 pilihan (A, B, C, D, E) bentuk utuh yang dapat tersusun jika potongan-potongan tersebut digabungkan tanpa ada bagian yang terbuang atau bertumpuk.
             </p>
             
-            <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginTop: '16px', textAlign: 'center' }}>
+            <div className="test-instruction-example" style={{ background: '#fff', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginTop: '16px', textAlign: 'center' }}>
               <h4 style={{ margin: '0 0 12px 0', color: '#1e293b', fontSize: '15px', fontWeight: 800 }}>CONTOH PETUNJUK SOAL IST 7</h4>
               <img 
                 src="/soal/ist7/contoh/contoh_1.jpeg" 
@@ -116,6 +116,7 @@ export default function IST7() {
 
           <button 
             type="button"
+            className="test-instruction-btn"
             onClick={() => setShowInstruction(false)}
             style={{ 
               padding: '16px 40px', 

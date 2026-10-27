@@ -197,10 +197,10 @@ export default function MSDT() {
 
   if (showInstruction) {
     return (
-      <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ maxWidth: '700px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>Management Style Diagnosis Test (MSDT)</h2>
-          <div style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
+      <div className="test-instruction-wrapper" style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="test-instruction-card" style={{ maxWidth: '700px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
+          <h2 className="test-instruction-title" style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>Management Style Diagnosis Test (MSDT)</h2>
+          <div className="test-instruction-box" style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
             <p style={{ margin: '0 0 10px 0' }}><strong>Instruksi Pelaksanaan:</strong></p>
             <ul style={{ margin: '0', paddingLeft: '20px' }}>
               <li>Tes ini terdiri dari <strong>64 pasang pernyataan</strong>.</li>
@@ -210,6 +210,8 @@ export default function MSDT() {
             </ul>
           </div>
           <button 
+            type="button"
+            className="test-instruction-btn"
             onClick={() => setShowInstruction(false)}
             style={{ padding: '18px 45px', fontSize: '18px', background: 'linear-gradient(to right, #3498db, #2980b9)', color: 'white', border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 10px 20px rgba(52, 152, 219, 0.3)', transition: 'transform 0.2s' }}
             onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}

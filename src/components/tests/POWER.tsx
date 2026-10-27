@@ -205,10 +205,10 @@ export default function POWER() {
 
   if (showInstruction) {
     return (
-      <div style={{ padding: '30px', fontFamily: 'system-ui, -apple-system, sans-serif', background: '#F8FAFC', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ maxWidth: '700px', background: 'white', padding: '45px', borderRadius: '20px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '28px', color: '#0F172A', marginBottom: '20px', fontWeight: '800' }}>POWER LEADER Test</h2>
-          <div style={{ textAlign: 'left', background: '#F0FDFA', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #0D9488', marginBottom: '35px', lineHeight: '1.7', color: '#334155', fontSize: '15px' }}>
+      <div className="test-instruction-wrapper" style={{ padding: '30px', fontFamily: 'system-ui, -apple-system, sans-serif', background: '#F8FAFC', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="test-instruction-card" style={{ maxWidth: '700px', background: 'white', padding: '45px', borderRadius: '20px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', textAlign: 'center' }}>
+          <h2 className="test-instruction-title" style={{ fontSize: '28px', color: '#0F172A', marginBottom: '20px', fontWeight: '800' }}>POWER LEADER Test</h2>
+          <div className="test-instruction-box" style={{ textAlign: 'left', background: '#F0FDFA', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #0D9488', marginBottom: '35px', lineHeight: '1.7', color: '#334155', fontSize: '15px' }}>
             <p style={{ margin: '0 0 10px 0' }}><strong>Instruksi Pelaksanaan:</strong></p>
             <ul style={{ margin: '0', paddingLeft: '20px' }}>
               <li>Tes ini terdiri dari <strong>50 pasang pernyataan</strong>.</li>
@@ -218,6 +218,8 @@ export default function POWER() {
             </ul>
           </div>
           <button 
+            type="button"
+            className="test-instruction-btn"
             onClick={() => setShowInstruction(false)}
             style={{ padding: '16px 45px', fontSize: '16px', background: '#0D9488', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 12px rgba(13, 148, 136, 0.25)', transition: 'background 0.2s' }}
             onMouseOver={(e) => e.currentTarget.style.background = '#0F766E'}

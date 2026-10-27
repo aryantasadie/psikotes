@@ -338,14 +338,14 @@ export default function KraepelinTest() {
   /* ─── 1. INSTRUCTION / ONBOARDING SCREEN ─── */
   if (phase === 'instruction') {
     return (
-      <div style={{ minHeight: '100dvh', background: '#F8FAFC', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 14px', fontFamily: '"Inter", system-ui, sans-serif' }}>
-        <div style={{ maxWidth: '720px', width: '100%', background: '#FFFFFF', borderRadius: '24px', padding: 'clamp(24px, 5vw, 40px)', boxShadow: '0 20px 40px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0', textAlign: 'center', maxHeight: '94dvh', overflowY: 'auto' }}>
+      <div className="test-instruction-wrapper" style={{ minHeight: '100dvh', background: '#F8FAFC', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 14px', fontFamily: '"Inter", system-ui, sans-serif' }}>
+        <div className="test-instruction-card" style={{ maxWidth: '720px', width: '100%', background: '#FFFFFF', borderRadius: '24px', padding: 'clamp(24px, 5vw, 40px)', boxShadow: '0 20px 40px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0', textAlign: 'center', maxHeight: '94dvh', overflowY: 'auto' }}>
           
           <div style={{ width: '56px', height: '56px', background: '#EFF6FF', color: '#2563EB', borderRadius: '18px', display: 'grid', placeItems: 'center', fontSize: '28px', margin: '0 auto 16px' }}>
             ⚡
           </div>
 
-          <h1 style={{ fontSize: 'clamp(20px, 4vw, 26px)', fontWeight: 900, color: '#0F172A', marginBottom: '6px' }}>
+          <h1 className="test-instruction-title" style={{ fontSize: 'clamp(20px, 4vw, 26px)', fontWeight: 900, color: '#0F172A', marginBottom: '6px' }}>
             Tes Kraepelin (Kecepatan & Ketelitian Kerja)
           </h1>
           <p style={{ color: '#64748B', fontSize: '13.5px', marginBottom: '22px' }}>
@@ -353,7 +353,7 @@ export default function KraepelinTest() {
           </p>
 
           {/* Contoh Visual Gambar & Petunjuk Pengerjaan */}
-          <div style={{ background: '#F0F9FF', borderRadius: '16px', border: '1.5px solid #BAE6FD', padding: '20px', textAlign: 'left', marginBottom: '26px' }}>
+          <div className="test-instruction-box" style={{ background: '#F0F9FF', borderRadius: '16px', border: '1.5px solid #BAE6FD', padding: '20px', textAlign: 'left', marginBottom: '26px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
               <span style={{ background: '#0284C7', color: 'white', borderRadius: '6px', padding: '2px 8px', fontSize: '11.5px', fontWeight: 800, letterSpacing: '0.5px' }}>PETUNJUK</span>
               <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0369A1' }}>
@@ -405,6 +405,7 @@ export default function KraepelinTest() {
 
           <button
             type="button"
+            className="test-instruction-btn"
             onClick={() => {
               if (typeof window !== 'undefined') {
                 const isPaused = Boolean((window as any).__CBT_IS_PAUSED__);

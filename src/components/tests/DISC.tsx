@@ -233,21 +233,21 @@ export default function DISC() {
 
   if (showInstruction) {
     return (
-      <div style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ maxWidth: '680px', width: '100%', background: 'white', padding: '40px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-          <h2 style={{ fontSize: '28px', color: '#2c3e50', margin: '0 0 16px 0', fontWeight: '800' }}>
+      <div className="test-instruction-wrapper" style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="test-instruction-card" style={{ maxWidth: '680px', width: '100%', background: 'white', padding: '40px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
+          <h2 className="test-instruction-title" style={{ fontSize: '28px', color: '#2c3e50', margin: '0 0 16px 0', fontWeight: '800' }}>
             DISC - Personality Profile
           </h2>
 
           {/* Quick Info Bar */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap', marginBottom: '28px', padding: '12px 18px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', color: '#475569' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '24px', padding: '10px 14px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '13.5px', color: '#475569' }}>
             <span>📋 <strong>24 Soal</strong></span>
             <span>⏱️ Waktu: <strong>15 Menit</strong> (Wajib selesai semua)</span>
             <span>👤 <strong>1x Kesempatan</strong></span>
           </div>
 
           {/* Clean Instruction Box */}
-          <div style={{ textAlign: 'left', background: '#f8fbff', padding: '24px 28px', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '32px' }}>
+          <div className="test-instruction-box" style={{ textAlign: 'left', background: '#f8fbff', padding: '24px 28px', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '32px' }}>
             <h4 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '700', color: '#1e293b' }}>
               Cara Menjawab (Per Nomor):
             </h4>
@@ -273,6 +273,7 @@ export default function DISC() {
           </div>
           <button 
             type="button"
+            className="test-instruction-btn"
             onClick={() => {
               if (typeof window !== 'undefined' && ((window as any).__CBT_IS_PAUSED__ || (window as any).__CBT_IS_STOPPED__)) return;
               setShowInstruction(false);
