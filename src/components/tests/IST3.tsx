@@ -88,22 +88,25 @@ export default function IST3() {
           <div className="test-instruction-box" style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
             <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 7 Menit (Otomatis berpindah jika waktu habis)</p>
             <p style={{ margin: '0 0 15px 0' }}>
-              <strong>Petunjuk:</strong> Ditentukan tiga kata. Antara kata pertama dan kata kedua terdapat suatu hubungan tertentu. Pilihlah dari 5 pilihan kata (A, B, C, D, E) kata yang memiliki hubungan yang sama dengan kata ketiga.
+              <strong>Petunjuk Pengerjaan:</strong> Pada subtes ini, ditentukan tiga kata. Antara kata pertama dan kata kedua terdapat suatu hubungan tertentu. Carilah dari kelima kata pilihan yang tersedia, kata yang mempunyai hubungan yang sama dengan kata ketiga.
             </p>
             <div className="test-instruction-example" style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #ddd', marginTop: '20px' }}>
               <h4 style={{ margin: '0 0 15px 0', color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>CONTOH SOAL</h4>
-              <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '10px' }}>
-                <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>Hutan : Pohon = Laut : ?</p>
-                <div className="test-example-options" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px' }}>
-                  <span>A) Pasir</span>
-                  <span>B) Air</span>
-                  <span>C) Kapal</span>
-                  <span>D) Ombak</span>
-                  <span>E) Ikan</span>
+              <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+                <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', fontSize: '17px', color: '#2c3e50' }}>hutan : pohon = tembok : ?</p>
+                <div className="test-example-options" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', marginBottom: '10px', fontSize: '15px' }}>
+                  <span>A) batu bata</span>
+                  <span>B) rumah</span>
+                  <span>C) semen</span>
+                  <span>D) putih</span>
+                  <span>E) dinding</span>
                 </div>
+                <p style={{ margin: 0, fontStyle: 'italic', color: '#666', fontSize: '14px' }}>Manakah jawaban yang paling tepat?</p>
               </div>
-              <p style={{ margin: '0 0 4px 0', color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : B (Air)</p>
-              <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Alasan: Hutan isinya kumpulan Pohon. Berarti Laut isinya kumpulan Air.</p>
+              <p style={{ margin: '0 0 6px 0', color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : A (batu bata)</p>
+              <p style={{ margin: 0, color: '#333', fontSize: '14.5px', lineHeight: '1.6' }}>
+                <strong>Penjelasan:</strong> Hubungan antara <em>hutan</em> dan <em>pohon</em> ialah bahwa hutan terdiri atas pohon-pohon, maka hubungan antara <em>tembok</em> dan salah satu kata pilihan ialah bahwa tembok terdiri atas batu-bata. Oleh karena itu, huruf <strong>A</strong> yang harus dipilih.
+              </p>
             </div>
           </div>
           <button 
