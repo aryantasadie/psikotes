@@ -20,7 +20,9 @@ import {
   CheckCircle2,
   Clock,
   Unlock,
-  ShieldAlert
+  ShieldAlert,
+  Power,
+  XCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +55,7 @@ interface BatchAccount {
   username: string;
   name: string;
   status: string;
+  accountStatus?: string;
   password: string;
   failedAttempts?: number;
   lockedUntil?: string | null;
@@ -128,6 +131,12 @@ export default function SchedulePage() {
   const [editClientId, setEditClientId] = useState('');
   const [editTesterId, setEditTesterId] = useState('');
   const [updatingBatch, setUpdatingBatch] = useState(false);
+
+  // Edit Participant Modal State
+  const [editingParticipant, setEditingParticipant] = useState<BatchAccount | null>(null);
+  const [editPartName, setEditPartName] = useState('');
+  const [editPartPassword, setEditPartPassword] = useState('');
+  const [savingParticipant, setSavingParticipant] = useState(false);
 
   useEffect(() => {
     fetchOptions();
@@ -276,6 +285,104 @@ export default function SchedulePage() {
         fetchBatches();
       } else {
         alert(data.error || 'Gagal membuka kunci peserta');
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan koneksi.');
+    }
+  };
+
+  const handleToggleParticipantStatus = async (acc: BatchAccount) => {
+    const newStatus = acc.accountStatus === 'inactive' ? 'active' : 'inactive';
+    const actionName = newStatus === 'active' ? 'mengaktifkan' : 'menonaktifkan';
+    if (!confirm(`Yakin ingin ${actionName} akun peserta "${acc.name}" (${acc.username})?`)) return;
+
+    try {
+      const res = await fetch('/api/superadmin/schedule/participants', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participantId: acc.id,
+          userId: acc.userId,
+          status: newStatus
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (selectedBatchModal) {
+          const updated = selectedBatchModal.participants.map(p =>
+            p.id === acc.id ? { ...p, accountStatus: newStatus } : p
+          );
+          setSelectedBatchModal({ ...selectedBatchModal, participants: updated });
+        }
+        fetchBatches();
+      } else {
+        alert(data.error || 'Gagal mengubah status akun peserta');
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan koneksi.');
+    }
+  };
+
+  const handleOpenEditParticipant = (acc: BatchAccount) => {
+    setEditingParticipant(acc);
+    setEditPartName(acc.name);
+    setEditPartPassword(acc.password || '');
+  };
+
+  const handleSaveEditParticipant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingParticipant) return;
+    setSavingParticipant(true);
+    try {
+      const res = await fetch('/api/superadmin/schedule/participants', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participantId: editingParticipant.id,
+          userId: editingParticipant.userId,
+          name: editPartName,
+          password: editPartPassword
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (selectedBatchModal) {
+          const updated = selectedBatchModal.participants.map(p =>
+            p.id === editingParticipant.id ? { ...p, name: editPartName, password: editPartPassword } : p
+          );
+          setSelectedBatchModal({ ...selectedBatchModal, participants: updated });
+        }
+        setEditingParticipant(null);
+        fetchBatches();
+      } else {
+        alert(data.error || 'Gagal menyimpan perubahan peserta');
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan koneksi.');
+    } finally {
+      setSavingParticipant(false);
+    }
+  };
+
+  const handleDeleteParticipant = async (acc: BatchAccount) => {
+    if (!confirm(`Yakin ingin menghapus akun peserta "${acc.name}" (${acc.username})? Semua data ujiannya akan terhapus permanen.`)) return;
+    try {
+      const res = await fetch(`/api/superadmin/schedule/participants?id=${acc.id}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (selectedBatchModal) {
+          const updated = selectedBatchModal.participants.filter(p => p.id !== acc.id);
+          setSelectedBatchModal({
+            ...selectedBatchModal,
+            totalParticipants: Math.max(0, selectedBatchModal.totalParticipants - 1),
+            participants: updated
+          });
+        }
+        fetchBatches();
+      } else {
+        alert(data.error || 'Gagal menghapus peserta');
       }
     } catch (e) {
       alert('Terjadi kesalahan koneksi.');
@@ -827,7 +934,7 @@ export default function SchedulePage() {
       {/* Modal Detail Akun & Password */}
       <Dialog open={!!selectedBatchModal} onOpenChange={(open) => !open && setSelectedBatchModal(null)}>
         {selectedBatchModal && (
-          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0">
+          <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col p-0">
             <DialogHeader className="p-5 border-b border-slate-100">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex flex-col gap-0.5">
@@ -870,7 +977,9 @@ export default function SchedulePage() {
                       <TableHead className="text-xs font-bold uppercase text-slate-500">Nama Peserta</TableHead>
                       <TableHead className="text-xs font-bold uppercase text-slate-500">Username</TableHead>
                       <TableHead className="text-xs font-bold uppercase text-slate-500">Password</TableHead>
-                      <TableHead className="text-xs font-bold uppercase text-slate-500">Status</TableHead>
+                      <TableHead className="text-xs font-bold uppercase text-slate-500">Status Ujian</TableHead>
+                      <TableHead className="text-xs font-bold uppercase text-slate-500">Status Akun</TableHead>
+                      <TableHead className="text-xs font-bold uppercase text-slate-500 text-right">Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -885,51 +994,97 @@ export default function SchedulePage() {
                           </code>
                         </TableCell>
                         <TableCell>
-                          {acc.isPermanentLocked ? (
-                            <div className="flex items-center gap-1.5">
-                              <Badge variant="destructive" className="text-xs gap-1 bg-rose-50 text-rose-700 border-rose-200">
-                                <ShieldAlert className="w-3 h-3 text-rose-600" />
-                                <span>Terkunci Permanen</span>
-                              </Badge>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleUnlockParticipant(acc)}
-                                className="h-6 px-2 text-[11px] gap-1 text-emerald-700 border-emerald-300 hover:bg-emerald-50 font-bold"
-                                title="Buka Kunci Akun Peserta"
-                              >
-                                <Unlock className="w-3 h-3 text-emerald-600" />
-                                <span>Buka</span>
-                              </Button>
-                            </div>
-                          ) : (acc.lockedUntil && new Date(acc.lockedUntil) > new Date()) ? (
-                            <div className="flex items-center gap-1.5">
-                              <Badge variant="warning" className="text-xs gap-1 bg-amber-50 text-amber-700 border-amber-200">
-                                <Clock className="w-3 h-3 text-amber-600" />
-                                <span>Terkunci (1.5m)</span>
-                              </Badge>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleUnlockParticipant(acc)}
-                                className="h-6 px-2 text-[11px] gap-1 text-emerald-700 border-emerald-300 hover:bg-emerald-50 font-bold"
-                                title="Buka Kunci Akun Peserta"
-                              >
-                                <Unlock className="w-3 h-3 text-emerald-600" />
-                                <span>Buka</span>
-                              </Button>
-                            </div>
-                          ) : acc.status === 'completed' ? (
-                            <Badge variant="success" className="text-xs gap-1">
+                          {acc.status === 'completed' ? (
+                            <Badge variant="success" className="text-xs gap-1 font-semibold">
                               <CheckCircle2 className="w-3 h-3" />
                               <span>Selesai</span>
                             </Badge>
+                          ) : acc.status === 'in_progress' ? (
+                            <Badge variant="warning" className="text-xs gap-1 bg-amber-50 text-amber-700 border-amber-200 font-semibold">
+                              <Clock className="w-3 h-3 text-amber-600" />
+                              <span>Sedang Tes</span>
+                            </Badge>
                           ) : (
-                            <Badge variant="warning" className="text-xs gap-1">
-                              <Clock className="w-3 h-3" />
+                            <Badge variant="secondary" className="text-xs gap-1 font-semibold text-slate-600 bg-slate-100">
+                              <Clock className="w-3 h-3 text-slate-400" />
                               <span>Belum</span>
                             </Badge>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          {acc.isPermanentLocked ? (
+                            <Badge variant="destructive" className="gap-1 font-semibold text-xs bg-rose-50 text-rose-700 border-rose-200">
+                              <ShieldAlert className="w-3 h-3 text-rose-600" />
+                              <span>Terkunci</span>
+                            </Badge>
+                          ) : (acc.lockedUntil && new Date(acc.lockedUntil) > new Date()) ? (
+                            <Badge variant="warning" className="gap-1 font-semibold text-xs bg-amber-50 text-amber-700 border-amber-200">
+                              <Clock className="w-3 h-3 text-amber-600" />
+                              <span>Terkunci (1.5m)</span>
+                            </Badge>
+                          ) : acc.accountStatus === 'inactive' ? (
+                            <Badge variant="secondary" className="gap-1 font-semibold text-xs text-slate-600 bg-slate-100 border border-slate-200">
+                              <XCircle className="w-3 h-3 text-slate-500" />
+                              <span>Nonaktif</span>
+                            </Badge>
+                          ) : (
+                            <Badge variant="success" className="gap-1 font-semibold text-xs">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Aktif</span>
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="inline-flex items-center gap-1.5 justify-end">
+                            {(acc.isPermanentLocked || (acc.lockedUntil && new Date(acc.lockedUntil) > new Date())) && (
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => handleUnlockParticipant(acc)}
+                                className="h-8 px-2.5 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs"
+                                title="Buka Kunci Akun Peserta"
+                              >
+                                <Unlock className="w-3.5 h-3.5" />
+                                <span>Buka Kunci</span>
+                              </Button>
+                            )}
+
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenEditParticipant(acc)}
+                              className="h-8 px-2.5 text-xs gap-1 text-slate-700"
+                              title="Edit Nama / Password"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span>Edit</span>
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleToggleParticipantStatus(acc)}
+                              className={`h-8 px-2.5 text-xs gap-1 ${
+                                acc.accountStatus !== 'inactive'
+                                  ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50'
+                                  : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'
+                              }`}
+                              title={acc.accountStatus !== 'inactive' ? 'Nonaktifkan Akun' : 'Aktifkan Akun'}
+                            >
+                              <Power className="w-3.5 h-3.5" />
+                              <span>{acc.accountStatus !== 'inactive' ? 'Nonaktifkan' : 'Aktifkan'}</span>
+                            </Button>
+
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteParticipant(acc)}
+                              className="h-8 px-2 text-xs bg-rose-600 hover:bg-rose-700 text-white"
+                              title="Hapus Peserta"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -937,6 +1092,88 @@ export default function SchedulePage() {
                 </Table>
               </div>
             </div>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      {/* Modal Edit Peserta Individual */}
+      <Dialog open={!!editingParticipant} onOpenChange={(open) => !open && setEditingParticipant(null)}>
+        {editingParticipant && (
+          <DialogContent className="max-w-sm p-6">
+            <DialogHeader className="pb-3 border-b border-slate-100">
+              <DialogTitle className="text-base font-bold text-slate-900">
+                Edit Akun Peserta
+              </DialogTitle>
+              <CardDescription className="text-xs text-slate-500">
+                Ubah nama peserta atau atur ulang kata sandi login.
+              </CardDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleSaveEditParticipant} className="flex flex-col gap-4 pt-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700">
+                  Nama Lengkap Peserta <span className="text-rose-500">*</span>
+                </label>
+                <Input
+                  type="text"
+                  value={editPartName}
+                  onChange={e => setEditPartName(e.target.value)}
+                  required
+                  className="text-xs"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700">Username / ID Akun</label>
+                <Input
+                  type="text"
+                  value={editingParticipant.username}
+                  disabled
+                  className="text-xs bg-slate-100 font-mono text-slate-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700">
+                  Kata Sandi / Password <span className="text-rose-500">*</span>
+                </label>
+                <Input
+                  type="text"
+                  value={editPartPassword}
+                  onChange={e => setEditPartPassword(e.target.value)}
+                  required
+                  className="text-xs font-mono font-bold text-teal-700"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditingParticipant(null)}
+                  disabled={savingParticipant}
+                  className="text-xs"
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={savingParticipant || !editPartName.trim() || !editPartPassword.trim()}
+                  className="text-xs gap-1.5 bg-teal-600 hover:bg-teal-700"
+                >
+                  {savingParticipant ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Menyimpan…</span>
+                    </>
+                  ) : (
+                    <span>Simpan Perubahan</span>
+                  )}
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         )}
       </Dialog>
