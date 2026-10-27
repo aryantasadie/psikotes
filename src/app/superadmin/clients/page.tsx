@@ -16,7 +16,10 @@ import {
   Power,
   Coins,
   Eye,
-  EyeOff
+  EyeOff,
+  Unlock,
+  ShieldAlert,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,6 +71,9 @@ interface ClientCompany {
   usedQuotas?: string | null;
   logoUrl?: string | null;
   totalBatches?: number;
+  failedAttempts?: number;
+  lockedUntil?: string | null;
+  isPermanentLocked?: boolean;
   createdAt: string;
 }
 
@@ -240,6 +246,27 @@ export default function ClientsManagementPage() {
       if (res.ok) fetchClients();
     } catch (e) {
       console.error('Failed to delete client:', e);
+    }
+  };
+
+  const handleUnlockClient = async (client: ClientCompany) => {
+    if (!confirm(`Buka kunci akun Klien "${client.name}" (${client.username})?`)) return;
+
+    try {
+      const res = await fetch('/api/superadmin/users/unlock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: client.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || 'Akun klien berhasil dibuka kembali!');
+        fetchClients();
+      } else {
+        alert(data.error || 'Gagal membuka kunci akun');
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan koneksi.');
     }
   };
 
@@ -449,7 +476,17 @@ export default function ClientsManagementPage() {
 
                     {/* Status Akun */}
                     <TableCell>
-                      {client.status === 'active' ? (
+                      {client.isPermanentLocked ? (
+                        <Badge variant="destructive" className="gap-1 font-semibold text-xs bg-rose-50 text-rose-700 border-rose-200">
+                          <ShieldAlert className="w-3 h-3 text-rose-600" />
+                          <span>Terkunci Permanen</span>
+                        </Badge>
+                      ) : (client.lockedUntil && new Date(client.lockedUntil) > new Date()) ? (
+                        <Badge variant="warning" className="gap-1 font-semibold text-xs bg-amber-50 text-amber-700 border-amber-200">
+                          <Clock className="w-3 h-3 text-amber-600" />
+                          <span>Terkunci (1.5m)</span>
+                        </Badge>
+                      ) : client.status === 'active' ? (
                         <Badge variant="success" className="gap-1 font-semibold text-xs">
                           <CheckCircle2 className="w-3 h-3" />
                           <span>Aktif</span>
@@ -465,6 +502,18 @@ export default function ClientsManagementPage() {
                     {/* Aksi */}
                     <TableCell className="text-right">
                       <div className="inline-flex items-center gap-1.5">
+                        {(client.isPermanentLocked || (client.lockedUntil && new Date(client.lockedUntil) > new Date())) && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleUnlockClient(client)}
+                            className="h-8 px-2.5 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs"
+                          >
+                            <Unlock className="w-3.5 h-3.5" />
+                            <span>Buka Kunci</span>
+                          </Button>
+                        )}
+
                         <Button
                           variant="outline"
                           size="sm"

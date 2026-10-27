@@ -74,7 +74,7 @@ export async function GET() {
               unpausedTests: true,
               plainPassword: true,
               user: {
-                select: { id: true, name: true, username: true }
+                select: { id: true, name: true, username: true, failedAttempts: true, lockedUntil: true, isPermanentLocked: true }
               },
               psychoResults: {
                 select: { id: true, status: true }
@@ -158,6 +158,9 @@ export async function GET() {
             name: p.user.name,
             status: p.status,
             isPaused: Boolean(p.isPaused),
+            failedAttempts: (p.user as any).failedAttempts || 0,
+            lockedUntil: (p.user as any).lockedUntil || null,
+            isPermanentLocked: Boolean((p.user as any).isPermanentLocked),
             currentTest: p.currentTest || null,
             unpausedTests: unpausedArr,
             password: p.plainPassword || '123456'

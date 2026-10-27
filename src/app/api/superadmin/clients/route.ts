@@ -25,6 +25,9 @@ export async function GET() {
         testQuotas: true,
         usedQuotas: true,
         logoUrl: true,
+        failedAttempts: true,
+        lockedUntil: true,
+        isPermanentLocked: true,
         createdAt: true,
         _count: {
           select: { participants: true }

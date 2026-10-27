@@ -18,7 +18,9 @@ import {
   FileSpreadsheet, 
   Sparkles,
   CheckCircle2,
-  Clock
+  Clock,
+  Unlock,
+  ShieldAlert
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +54,9 @@ interface BatchAccount {
   name: string;
   status: string;
   password: string;
+  failedAttempts?: number;
+  lockedUntil?: string | null;
+  isPermanentLocked?: boolean;
 }
 
 interface BatchSession {
@@ -246,6 +251,32 @@ export default function SchedulePage() {
     ).join('\n\n------------------------------\n\n');
     navigator.clipboard.writeText(text);
     alert(`Berhasil menyalin format pesan lengkap untuk ${batch.participants.length} peserta!`);
+  };
+
+  const handleUnlockParticipant = async (acc: BatchAccount) => {
+    if (!confirm(`Buka kunci akun peserta "${acc.name}" (${acc.username})?`)) return;
+    try {
+      const res = await fetch('/api/superadmin/users/unlock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: acc.userId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || 'Akun peserta berhasil dibuka!');
+        if (selectedBatchModal) {
+          const updated = selectedBatchModal.participants.map(p =>
+            p.userId === acc.userId ? { ...p, failedAttempts: 0, lockedUntil: null, isPermanentLocked: false } : p
+          );
+          setSelectedBatchModal({ ...selectedBatchModal, participants: updated });
+        }
+        fetchBatches();
+      } else {
+        alert(data.error || 'Gagal membuka kunci peserta');
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan koneksi.');
+    }
   };
 
   const handleOpenEdit = (batch: BatchSession) => {
@@ -851,7 +882,41 @@ export default function SchedulePage() {
                           </code>
                         </TableCell>
                         <TableCell>
-                          {acc.status === 'completed' ? (
+                          {acc.isPermanentLocked ? (
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="destructive" className="text-xs gap-1 bg-rose-50 text-rose-700 border-rose-200">
+                                <ShieldAlert className="w-3 h-3 text-rose-600" />
+                                <span>Terkunci Permanen</span>
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleUnlockParticipant(acc)}
+                                className="h-6 px-2 text-[11px] gap-1 text-emerald-700 border-emerald-300 hover:bg-emerald-50 font-bold"
+                                title="Buka Kunci Akun Peserta"
+                              >
+                                <Unlock className="w-3 h-3 text-emerald-600" />
+                                <span>Buka</span>
+                              </Button>
+                            </div>
+                          ) : (acc.lockedUntil && new Date(acc.lockedUntil) > new Date()) ? (
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant="warning" className="text-xs gap-1 bg-amber-50 text-amber-700 border-amber-200">
+                                <Clock className="w-3 h-3 text-amber-600" />
+                                <span>Terkunci (1.5m)</span>
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleUnlockParticipant(acc)}
+                                className="h-6 px-2 text-[11px] gap-1 text-emerald-700 border-emerald-300 hover:bg-emerald-50 font-bold"
+                                title="Buka Kunci Akun Peserta"
+                              >
+                                <Unlock className="w-3 h-3 text-emerald-600" />
+                                <span>Buka</span>
+                              </Button>
+                            </div>
+                          ) : acc.status === 'completed' ? (
                             <Badge variant="success" className="text-xs gap-1">
                               <CheckCircle2 className="w-3 h-3" />
                               <span>Selesai</span>

@@ -15,7 +15,10 @@ import {
   XCircle, 
   Loader2,
   Eye,
-  EyeOff
+  EyeOff,
+  Unlock,
+  ShieldAlert,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,6 +64,9 @@ interface TeamMember {
   role: string;
   status: string;
   assignedTestIds?: string | null;
+  failedAttempts?: number;
+  lockedUntil?: string | null;
+  isPermanentLocked?: boolean;
   createdAt: string;
 }
 
@@ -230,6 +236,27 @@ export default function TeamManagementPage() {
       if (res.ok) fetchTeamData();
     } catch (e) {
       console.error('Failed to delete member:', e);
+    }
+  };
+
+  const handleUnlockUser = async (member: TeamMember) => {
+    if (!confirm(`Buka kunci akun "${member.name}" (${member.username})? Status kunci dan counter salah akan direset.`)) return;
+
+    try {
+      const res = await fetch('/api/superadmin/users/unlock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: member.id }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || 'Akun berhasil dibuka kembali!');
+        fetchTeamData();
+      } else {
+        alert(data.error || 'Gagal membuka kunci akun');
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan koneksi.');
     }
   };
 
@@ -481,7 +508,17 @@ export default function TeamManagementPage() {
 
                     {/* Status */}
                     <TableCell>
-                      {member.status === 'active' ? (
+                      {member.isPermanentLocked ? (
+                        <Badge variant="destructive" className="gap-1 font-semibold text-xs bg-rose-50 text-rose-700 border-rose-200">
+                          <ShieldAlert className="w-3 h-3 text-rose-600" />
+                          <span>Terkunci Permanen</span>
+                        </Badge>
+                      ) : (member.lockedUntil && new Date(member.lockedUntil) > new Date()) ? (
+                        <Badge variant="warning" className="gap-1 font-semibold text-xs bg-amber-50 text-amber-700 border-amber-200">
+                          <Clock className="w-3 h-3 text-amber-600" />
+                          <span>Terkunci (1.5m)</span>
+                        </Badge>
+                      ) : member.status === 'active' ? (
                         <Badge variant="success" className="gap-1 font-semibold text-xs">
                           <CheckCircle2 className="w-3 h-3" />
                           <span>Aktif</span>
@@ -497,6 +534,18 @@ export default function TeamManagementPage() {
                     {/* Aksi */}
                     <TableCell className="text-right">
                       <div className="inline-flex items-center gap-1.5">
+                        {(member.isPermanentLocked || (member.lockedUntil && new Date(member.lockedUntil) > new Date())) && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleUnlockUser(member)}
+                            className="h-8 px-2.5 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-xs"
+                          >
+                            <Unlock className="w-3.5 h-3.5" />
+                            <span>Buka Kunci</span>
+                          </Button>
+                        )}
+
                         <Button
                           variant="outline"
                           size="sm"

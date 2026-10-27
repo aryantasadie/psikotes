@@ -29,6 +29,9 @@ export async function GET(req: Request) {
           role: true,
           status: true,
           assignedTestIds: true,
+          failedAttempts: true,
+          lockedUntil: true,
+          isPermanentLocked: true,
           createdAt: true
         },
         orderBy: { id: 'asc' }
