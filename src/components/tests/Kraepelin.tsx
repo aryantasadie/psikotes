@@ -338,32 +338,74 @@ export default function KraepelinTest() {
   /* ─── 1. INSTRUCTION / ONBOARDING SCREEN ─── */
   if (phase === 'instruction') {
     return (
-      <div style={{ minHeight: '100vh', background: '#F8FAFC', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px', fontFamily: '"Inter", system-ui, sans-serif' }}>
-        <div style={{ maxWidth: '680px', width: '100%', background: '#FFFFFF', borderRadius: '24px', padding: '44px 36px', boxShadow: '0 20px 40px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0', textAlign: 'center' }}>
+      <div style={{ minHeight: '100dvh', background: '#F8FAFC', color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 14px', fontFamily: '"Inter", system-ui, sans-serif' }}>
+        <div style={{ maxWidth: '720px', width: '100%', background: '#FFFFFF', borderRadius: '24px', padding: 'clamp(24px, 5vw, 40px)', boxShadow: '0 20px 40px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0', textAlign: 'center', maxHeight: '94dvh', overflowY: 'auto' }}>
           
-          <div style={{ width: '60px', height: '60px', background: '#EFF6FF', color: '#2563EB', borderRadius: '20px', display: 'grid', placeItems: 'center', fontSize: '30px', margin: '0 auto 20px' }}>
+          <div style={{ width: '56px', height: '56px', background: '#EFF6FF', color: '#2563EB', borderRadius: '18px', display: 'grid', placeItems: 'center', fontSize: '28px', margin: '0 auto 16px' }}>
             ⚡
           </div>
 
-          <h1 style={{ fontSize: '26px', fontWeight: 900, color: '#0F172A', marginBottom: '8px' }}>
+          <h1 style={{ fontSize: 'clamp(20px, 4vw, 26px)', fontWeight: 900, color: '#0F172A', marginBottom: '6px' }}>
             Tes Kraepelin (Kecepatan & Ketelitian Kerja)
           </h1>
-          <p style={{ color: '#64748B', fontSize: '14px', marginBottom: '28px' }}>
+          <p style={{ color: '#64748B', fontSize: '13.5px', marginBottom: '22px' }}>
             Standar Resmi Tes Kraepelin Psikologi
           </p>
 
-          <div style={{ background: '#F8FAFC', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '24px', textAlign: 'left', marginBottom: '32px', lineHeight: '1.6' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#1E293B', marginBottom: '12px' }}>
-              Petunjuk Pengerjaan:
+          {/* Aturan Pengerjaan */}
+          <div style={{ background: '#F8FAFC', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '20px', textAlign: 'left', marginBottom: '22px', lineHeight: '1.6' }}>
+            <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#1E293B', marginBottom: '10px' }}>
+              Petunjuk Utama:
             </h3>
-            <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13.5px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '7px' }}>
               <li>Jumlahkan 2 angka yang berdekatan dari <strong>BAWAH ke ATAS</strong>.</li>
-              <li>Jika hasil penjumlahan &ge; 10, ketikkan <strong>ANGKA SATUANNYA SAJA</strong> (Contoh: 8 + 7 = 15 &rarr; ketik <strong>5</strong>, 9 + 9 = 18 &rarr; ketik <strong>8</strong>).</li>
-              <li>Setiap kolom memiliki batas waktu <strong>15 detik</strong>. Waktu dan perpindahan kolom berjalan otomatis di latar belakang.</li>
-              <li>Ketika muncul peringatan <strong>PINDAH!</strong>, sistem akan otomatis beralih ke kolom berikutnya.</li>
-              <li>Gunakan tombol angka <code>0</code> s.d. <code>9</code> pada keyboard laptop atau keypad layar.</li>
-              <li>Sebelum tes resmi dimulai, Anda akan masuk ke <strong>Sesi Uji Coba / Latihan</strong> terlebih dahulu.</li>
+              <li>Jika hasil penjumlahan &ge; 10, ketikkan <strong>ANGKA SATUANNYA SAJA</strong> (Contoh: 8 + 7 = 15 &rarr; ketik <strong>5</strong>).</li>
+              <li>Setiap kolom memiliki batas waktu <strong>15 detik</strong>. Ketika muncul tanda <strong>PINDAH!</strong>, sistem akan otomatis beralih ke kolom berikutnya.</li>
+              <li>Gunakan tombol angka <code>0</code> s.d. <code>9</code> pada keyboard atau keypad layar.</li>
             </ul>
+          </div>
+
+          {/* Contoh Visual Gambar & Penjelasan */}
+          <div style={{ background: '#F0F9FF', borderRadius: '16px', border: '1.5px solid #BAE6FD', padding: '20px', textAlign: 'left', marginBottom: '26px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+              <span style={{ background: '#0284C7', color: 'white', borderRadius: '6px', padding: '2px 8px', fontSize: '11.5px', fontWeight: 800, letterSpacing: '0.5px' }}>CONTOH</span>
+              <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0369A1' }}>
+                Cara Menjawab Sesuai Tampilan Soal:
+              </h4>
+            </div>
+
+            {/* Container Gambar */}
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '12px', display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+              <img 
+                src="/kraepelin_instruction.jpg" 
+                alt="Contoh Tampilan Kolom Kraepelin" 
+                style={{ maxHeight: '180px', width: 'auto', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px' }} 
+              />
+            </div>
+
+            {/* Penjelasan Singkat Step-by-Step */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: '#0C4A6E', lineHeight: '1.5' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <span style={{ background: '#E0F2FE', color: '#0369A1', fontWeight: 800, borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px' }}>1</span>
+                <span><strong>Langkah 1 (Paling Bawah):</strong> Angka <strong>3</strong> dijumlahkan dengan <strong>8</strong> (3 + 8 = 11) &rarr; Masukkan angka <strong>1</strong> pada tanda <strong style={{ color: '#2563EB' }}>?</strong> di antara 3 dan 8.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <span style={{ background: '#E0F2FE', color: '#0369A1', fontWeight: 800, borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px' }}>2</span>
+                <span><strong>Langkah 2 (Naik ke Atas):</strong> Angka <strong>8</strong> dijumlahkan dengan <strong>4</strong> (8 + 4 = 12) &rarr; Masukkan angka <strong>2</strong> pada tanda <strong style={{ color: '#2563EB' }}>?</strong> di atasnya.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <span style={{ background: '#E0F2FE', color: '#0369A1', fontWeight: 800, borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px' }}>3</span>
+                <span><strong>Langkah 3 (Naik ke Atas):</strong> Angka <strong>4</strong> dijumlahkan dengan <strong>7</strong> (4 + 7 = 11) &rarr; Masukkan angka <strong>1</strong> pada tanda <strong style={{ color: '#2563EB' }}>?</strong> berikutnya.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <span style={{ background: '#E0F2FE', color: '#0369A1', fontWeight: 800, borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '11px' }}>4</span>
+                <span><strong>Langkah 4 (Naik ke Atas):</strong> Angka <strong>7</strong> dijumlahkan dengan <strong>2</strong> (7 + 2 = 9) &rarr; Masukkan angka <strong>9</strong> pada tanda <strong style={{ color: '#2563EB' }}>?</strong> paling atas.</span>
+              </div>
+            </div>
+
+            <p style={{ margin: '12px 0 0 0', fontSize: '12.5px', color: '#0284C7', fontWeight: 600, borderTop: '1px dashed #BAE6FD', paddingTop: '10px' }}>
+              💡 Teruskan menjumlahkan ke atas secepat dan seteliti mungkin sampai muncul tanda <strong>PINDAH!</strong>.
+            </p>
           </div>
 
           <button
