@@ -263,24 +263,24 @@ export default function TesteeSession() {
 
   if (isPaused) {
     return (
-      <div style={{ minHeight: '100vh', background: '#0F172A', padding: '40px 20px', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ maxWidth: '540px', width: '100%', background: '#1E293B', padding: '44px 36px', borderRadius: '24px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', textAlign: 'center', color: '#F8FAFC' }}>
+      <div style={{ minHeight: '100dvh', background: '#0F172A', padding: '16px', fontFamily: '"Inter", sans-serif', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <div style={{ maxWidth: '520px', width: '100%', margin: 'auto', background: '#1E293B', padding: '32px 24px', borderRadius: '20px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', textAlign: 'center', color: '#F8FAFC' }}>
           
           {/* Vertical gray JEDA badge icon */}
           <div style={{ 
-            width: '68px', 
-            height: '68px', 
+            width: '60px', 
+            height: '60px', 
             background: '#334155', 
             color: '#F8FAFC', 
-            borderRadius: '20px', 
+            borderRadius: '16px', 
             display: 'flex', 
             flexDirection: 'column',
             alignItems: 'center', 
             justifyContent: 'center', 
-            fontSize: '11px', 
+            fontSize: '10px', 
             fontWeight: 900, 
-            letterSpacing: '3px',
-            margin: '0 auto 20px',
+            letterSpacing: '2px',
+            margin: '0 auto 16px',
             border: '2px solid #475569',
             boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
           }}>
@@ -290,32 +290,32 @@ export default function TesteeSession() {
             <span>A</span>
           </div>
           
-          <span style={{ display: 'inline-block', background: '#0284C7', color: '#FFFFFF', padding: '5px 14px', borderRadius: '20px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
+          <span style={{ display: 'inline-block', background: '#0284C7', color: '#FFFFFF', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '14px' }}>
             ☕ Jeda Istirahat Antar Tes
           </span>
 
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 12px' }}>
+          <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 10px' }}>
             Sesi Sedang Dijeda Pengawas
           </h2>
 
-          <p style={{ fontSize: '0.92rem', color: '#94A3B8', margin: '0 0 24px', lineHeight: 1.6 }}>
+          <p style={{ fontSize: '0.88rem', color: '#94A3B8', margin: '0 0 20px', lineHeight: 1.5 }}>
             {pausedMessage || 'Silakan istirahat sejenak. Seluruh jawaban dari subtes sebelumnya telah tersimpan dengan aman. Pengawas akan segera membuka akses ke modul ujian berikutnya.'}
           </p>
 
           {nextTest && (
-            <div style={{ background: '#0F172A', border: '1px solid #334155', borderRadius: '16px', padding: '18px 22px', marginBottom: '24px', textAlign: 'left' }}>
-              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <div style={{ background: '#0F172A', border: '1px solid #334155', borderRadius: '14px', padding: '16px 18px', marginBottom: '20px', textAlign: 'left' }}>
+              <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Modul Tes Berikutnya
               </div>
-              <div style={{ fontSize: '18px', fontWeight: 800, color: '#38BDF8', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '17px', fontWeight: 800, color: '#38BDF8', marginTop: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span>{nextTest}</span>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#10B981', background: '#064E3B', padding: '4px 10px', borderRadius: '12px' }}>Siap Dimulai</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#10B981', background: '#064E3B', padding: '3px 9px', borderRadius: '10px' }}>Siap Dimulai</span>
               </div>
             </div>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontSize: '12px', color: '#CBD5E1', padding: '12px 18px', background: '#334155', borderRadius: '12px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '11.5px', color: '#CBD5E1', padding: '10px 14px', background: '#334155', borderRadius: '10px', lineHeight: 1.4 }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981', display: 'inline-block', flexShrink: 0, animation: 'pulse 1.5s infinite' }} />
             <span>Menunggu arahan pengawas... Halaman akan otomatis terbuka begitu sesi dilanjutkan.</span>
           </div>
         </div>
@@ -325,18 +325,18 @@ export default function TesteeSession() {
 
   if (sequence.length === 0) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC', padding: '20px', fontFamily: 'Inter, sans-serif' }}>
-        <div style={{ maxWidth: '440px', width: '100%', background: '#FFFFFF', padding: '36px 28px', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', textAlign: 'center' }}>
-          <div style={{ width: '64px', height: '64px', background: '#F1F5F9', color: '#475569', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 800, margin: '0 auto 16px' }}>
+      <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#F8FAFC', padding: '16px', fontFamily: '"Inter", sans-serif', overflowY: 'auto' }}>
+        <div style={{ maxWidth: '440px', width: '100%', margin: 'auto', background: '#FFFFFF', padding: '32px 22px', borderRadius: '20px', border: '1px solid #E2E8F0', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', textAlign: 'center' }}>
+          <div style={{ width: '56px', height: '56px', background: '#F1F5F9', color: '#475569', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 800, margin: '0 auto 14px' }}>
             INFO
           </div>
-          <h2 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0F172A', margin: '0 0 8px 0' }}>Tidak Ada Jadwal Ujian</h2>
-          <p style={{ fontSize: '0.9rem', color: '#475569', margin: '0 0 24px 0', lineHeight: 1.5 }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0F172A', margin: '0 0 8px 0' }}>Tidak Ada Jadwal Ujian</h2>
+          <p style={{ fontSize: '0.88rem', color: '#475569', margin: '0 0 20px 0', lineHeight: 1.5 }}>
             Anda saat ini tidak memiliki jadwal ujian yang aktif. Hubungi administrator jika ini adalah kekeliruan.
           </p>
           <button 
             onClick={() => signOut({ callbackUrl: '/' })} 
-            style={{ width: '100%', padding: '12px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)' }}
+            style={{ width: '100%', height: '46px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)' }}
           >
             Keluar dari Aplikasi (Logout)
           </button>
@@ -348,14 +348,14 @@ export default function TesteeSession() {
   // Jika sudah semua selesai
   if (isAllCompleted) {
     return (
-      <div style={{ minHeight: '100vh', background: '#EDEFF4', padding: '40px 20px', fontFamily: 'Inter, sans-serif' }}>
-        <div style={{ maxWidth: '600px', margin: '0 auto', background: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', textAlign: 'center' }}>
-          <div style={{ width: '80px', height: '80px', background: '#E2F4EC', color: '#1E9B71', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '40px', margin: '0 auto 20px' }}>
+      <div style={{ minHeight: '100dvh', background: '#F1F5F9', padding: '16px', fontFamily: '"Inter", sans-serif', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <div style={{ maxWidth: '520px', width: '100%', margin: 'auto', background: 'white', padding: '36px 24px', borderRadius: '20px', border: '1px solid #E2E8F0', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', textAlign: 'center' }}>
+          <div style={{ width: '70px', height: '70px', background: '#E2F4EC', color: '#1E9B71', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '36px', margin: '0 auto 16px' }}>
             🎉
           </div>
-          <h2 style={{ color: '#1E9B71', marginBottom: '10px' }}>Semua Ujian Selesai!</h2>
-          <p style={{ color: '#666', marginBottom: '30px' }}>Terima kasih telah mengikuti asesmen. Anda dapat menutup halaman ini atau keluar.</p>
-          <button onClick={() => signOut()} style={{ padding: '10px 24px', background: '#FEE2E2', color: '#991B1B', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '16px' }}>
+          <h2 style={{ color: '#0F172A', fontSize: '1.4rem', fontWeight: 800, marginBottom: '8px' }}>Semua Ujian Selesai!</h2>
+          <p style={{ color: '#64748B', fontSize: '0.9rem', marginBottom: '24px', lineHeight: 1.5 }}>Terima kasih telah mengikuti rangkaian asesmen. Anda dapat menutup halaman ini atau keluar.</p>
+          <button onClick={() => signOut()} style={{ padding: '12px 28px', background: '#FEE2E2', color: '#991B1B', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }}>
             Keluar dari Aplikasi
           </button>
         </div>
@@ -366,43 +366,126 @@ export default function TesteeSession() {
   // TAHAP 1: Form Profil (Intermeso)
   if (onboardingStage === 1) {
     return (
-      <div style={{ minHeight: '100vh', background: '#EDEFF4', padding: '40px 20px', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: '100%', maxWidth: '450px', background: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>
-          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-            <h1 style={{ margin: '0 0 10px', fontSize: '24px', color: '#161A2C', fontWeight: 800 }}>Profil Singkat</h1>
-            <p style={{ margin: 0, color: '#69728A', fontSize: '14px', lineHeight: 1.5 }}>Silakan lengkapi data diri Anda sebelum memulai rangkaian asesmen.</p>
+      <div style={{ minHeight: '100dvh', background: '#F1F5F9', padding: '16px', fontFamily: '"Inter", sans-serif', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <div style={{ 
+          width: '100%', 
+          maxWidth: '440px', 
+          margin: 'auto', 
+          background: '#FFFFFF', 
+          padding: '28px 22px', 
+          borderRadius: '20px', 
+          border: '1px solid #E2E8F0', 
+          boxShadow: '0 10px 30px rgba(0,0,0,0.06)' 
+        }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: '22px' }}>
+            <div style={{ width: '46px', height: '46px', borderRadius: '12px', background: '#F0FDFA', color: '#0D9488', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: '20px', border: '1px solid #CCFBF1' }}>
+              👤
+            </div>
+            <h1 style={{ margin: '0 0 6px', fontSize: '22px', color: '#0F172A', fontWeight: 800 }}>Profil Singkat</h1>
+            <p style={{ margin: 0, color: '#64748B', fontSize: '13.5px', lineHeight: 1.5 }}>
+              Silakan lengkapi data diri Anda sebelum memulai rangkaian asesmen.
+            </p>
           </div>
 
-          <form onSubmit={handleSubmitForm} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <form onSubmit={handleSubmitForm} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Nama Lengkap</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#334155' }}>
+                Nama Lengkap
+              </label>
               <input 
                 type="text" 
                 value={name}
                 onChange={e => setName(e.target.value)}
                 required
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #D3D8E4', fontSize: '15px', outlineColor: '#3A3F94' }}
-                placeholder="Masukkan nama Anda..."
+                style={{ 
+                  width: '100%', 
+                  height: '46px', 
+                  padding: '0 14px', 
+                  borderRadius: '10px', 
+                  border: '1.5px solid #CBD5E1', 
+                  fontSize: '16px', 
+                  color: '#0F172A',
+                  background: '#F8FAFC',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.2s, box-shadow 0.2s'
+                }}
+                onFocus={e => {
+                  e.currentTarget.style.borderColor = '#0D9488';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(13, 148, 136, 0.15)';
+                  e.currentTarget.style.background = '#FFFFFF';
+                }}
+                onBlur={e => {
+                  e.currentTarget.style.borderColor = '#CBD5E1';
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.background = '#F8FAFC';
+                }}
+                placeholder="Masukkan nama lengkap Anda..."
               />
             </div>
+
             <div>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', color: '#333' }}>Tanggal Lahir</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, marginBottom: '6px', color: '#334155' }}>
+                Tanggal Lahir
+              </label>
               <input 
                 type="date" 
                 value={dob}
                 onChange={e => setDob(e.target.value)}
                 required
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #D3D8E4', fontSize: '15px', outlineColor: '#3A3F94', fontFamily: 'inherit' }}
+                style={{ 
+                  width: '100%', 
+                  height: '46px', 
+                  padding: '0 14px', 
+                  borderRadius: '10px', 
+                  border: '1.5px solid #CBD5E1', 
+                  fontSize: '16px', 
+                  color: '#0F172A',
+                  background: '#F8FAFC',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  fontFamily: 'inherit',
+                  transition: 'border-color 0.2s, box-shadow 0.2s'
+                }}
+                onFocus={e => {
+                  e.currentTarget.style.borderColor = '#0D9488';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(13, 148, 136, 0.15)';
+                  e.currentTarget.style.background = '#FFFFFF';
+                }}
+                onBlur={e => {
+                  e.currentTarget.style.borderColor = '#CBD5E1';
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.style.background = '#F8FAFC';
+                }}
               />
             </div>
             
             <button 
               type="submit" 
-              style={{ padding: '14px', background: '#3A3F94', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px', transition: 'background 0.2s' }}
-              onMouseOver={e => e.currentTarget.style.background = '#31356f'}
-              onMouseOut={e => e.currentTarget.style.background = '#3A3F94'}
+              style={{ 
+                width: '100%',
+                height: '48px', 
+                background: 'linear-gradient(135deg, #0D9488 0%, #0F766E 100%)', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '12px', 
+                fontSize: '15px', 
+                fontWeight: 700, 
+                cursor: 'pointer', 
+                marginTop: '6px', 
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(13, 148, 136, 0.25)',
+                transition: 'all 0.2s' 
+              }}
+              onMouseOver={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+              onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
             >
-              Lanjutkan
+              <span>Lanjutkan</span>
+              <span>→</span>
             </button>
           </form>
         </div>
@@ -413,34 +496,72 @@ export default function TesteeSession() {
   // TAHAP 2: Instruksi Singkat
   if (onboardingStage === 2) {
     return (
-      <div style={{ minHeight: '100vh', background: '#EDEFF4', padding: '40px 20px', fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: '100%', maxWidth: '600px', background: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>
-          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-            <div style={{ width: '64px', height: '64px', background: '#E0E7FF', color: '#4338CA', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', margin: '0 auto 20px' }}>
-              ℹ️
+      <div style={{ minHeight: '100dvh', background: '#F1F5F9', padding: '16px', fontFamily: '"Inter", sans-serif', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <div style={{ 
+          width: '100%', 
+          maxWidth: '520px', 
+          margin: 'auto', 
+          background: '#FFFFFF', 
+          padding: '28px 22px', 
+          borderRadius: '20px', 
+          border: '1px solid #E2E8F0', 
+          boxShadow: '0 10px 30px rgba(0,0,0,0.06)' 
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '22px' }}>
+            <div style={{ width: '48px', height: '48px', background: '#EEF2FF', color: '#4F46E5', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', margin: '0 auto 12px', border: '1px solid #E0E7FF' }}>
+              📋
             </div>
-            <h1 style={{ margin: '0 0 10px', fontSize: '24px', color: '#161A2C', fontWeight: 800 }}>Persiapan Asesmen</h1>
+            <h1 style={{ margin: '0 0 6px', fontSize: '22px', color: '#0F172A', fontWeight: 800 }}>Persiapan Asesmen</h1>
+            <p style={{ margin: 0, color: '#64748B', fontSize: '13.5px' }}>
+              Halo, <strong style={{ color: '#0F172A' }}>{sessionStorage.getItem('testee_name') || 'Peserta'}</strong>! Perhatikan panduan di bawah ini:
+            </p>
           </div>
 
-          <div style={{ background: '#F8FAFC', padding: '20px', borderRadius: '12px', marginBottom: '30px' }}>
-            <p style={{ margin: '0 0 15px', color: '#334155', fontSize: '15px', lineHeight: 1.6 }}>
-              Halo, <strong>{sessionStorage.getItem('testee_name')}</strong>! Anda akan segera mengerjakan serangkaian asesmen psikologi.
-            </p>
-            <ul style={{ margin: 0, paddingLeft: '20px', color: '#334155', fontSize: '15px', lineHeight: 1.6 }}>
-              <li style={{ marginBottom: '8px' }}>Pastikan koneksi internet Anda stabil.</li>
-              <li style={{ marginBottom: '8px' }}>Cari tempat yang tenang agar Anda dapat berkonsentrasi penuh.</li>
-              <li style={{ marginBottom: '8px' }}>Pahami instruksi pada setiap awal modul sebelum menjawab.</li>
-              <li>Kerjakan setiap soal secara jujur dan mandiri.</li>
-            </ul>
+          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '18px 20px', borderRadius: '14px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13.5px', color: '#334155', lineHeight: 1.5 }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <span style={{ fontSize: '16px' }}>📶</span>
+                <span>Pastikan koneksi internet stabil & kuota mencukupi.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <span style={{ fontSize: '16px' }}>🤫</span>
+                <span>Pilihlah ruangan yang tenang agar fokus maksimal.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <span style={{ fontSize: '16px' }}>📖</span>
+                <span>Pahami instruksi pada setiap awal modul sebelum mulai menjawab.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <span style={{ fontSize: '16px' }}>⏱️</span>
+                <span>Waktu ujian berjalan otomatis dan tidak dapat dijeda secara mandiri.</span>
+              </div>
+            </div>
           </div>
 
           <button 
             onClick={handleStartTest}
-            style={{ width: '100%', padding: '16px', background: '#10B981', color: 'white', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'background 0.2s', boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.2)' }}
-            onMouseOver={e => e.currentTarget.style.background = '#059669'}
-            onMouseOut={e => e.currentTarget.style.background = '#10B981'}
+            style={{ 
+              width: '100%', 
+              height: '50px', 
+              background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '12px', 
+              fontSize: '15px', 
+              fontWeight: 700, 
+              cursor: 'pointer', 
+              transition: 'all 0.2s', 
+              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+            onMouseOver={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+            onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
           >
-            Mulai Tes Sekarang
+            <span>Mulai Tes Sekarang</span>
+            <span>→</span>
           </button>
         </div>
       </div>
