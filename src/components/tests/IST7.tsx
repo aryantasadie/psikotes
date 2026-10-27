@@ -162,27 +162,27 @@ export default function IST7() {
             </div>
           </div>
 
-          {/* Master Reference Image for IST 7 */}
-          <div style={{ background: '#F8FAFC', border: '1.5px solid #CBD5E1', borderRadius: '12px', padding: '16px', marginBottom: '24px', textAlign: 'center' }}>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: '#1E293B', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              📌 Pilihan Bentuk Ruang Target (A, B, C, D, E) — {isFirstBatch ? 'Soal No. 1–12' : 'Soal No. 13–20'}
-            </div>
-            <img 
-              src={masterReferenceImg} 
-              alt="Referensi Bentuk Ruang IST 7" 
-              style={{ maxWidth: '100%', maxHeight: '180px', borderRadius: '8px', objectFit: 'contain', border: '1px solid #E2E8F0', background: '#FFFFFF' }} 
-            />
-          </div>
-
-          {/* Question Pieces Image */}
-          <div style={{ marginBottom: '28px', textAlign: 'center' }}>
-            <div style={{ fontSize: '14px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>
-              Potongan bentuk pada Soal No. {currentIndex + 1}:
+          {/* Question Pieces Image (Soal) */}
+          <div style={{ background: '#FFFFFF', border: '1.5px solid #CBD5E1', borderRadius: '12px', padding: '16px', marginBottom: '20px', textAlign: 'center' }}>
+            <div style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', marginBottom: '10px', textAlign: 'left' }}>
+              Soal:
             </div>
             <img 
               src={q.content} 
               alt={`Soal No. ${currentIndex + 1}`} 
-              style={{ maxWidth: '100%', maxHeight: '220px', borderRadius: '12px', border: '1px solid #CBD5E1', objectFit: 'contain', display: 'inline-block' }} 
+              style={{ maxWidth: '100%', maxHeight: '220px', borderRadius: '8px', border: '1px solid #E2E8F0', objectFit: 'contain', display: 'inline-block' }} 
+            />
+          </div>
+
+          {/* Master Reference Image for IST 7 (Jawaban) */}
+          <div style={{ background: '#F8FAFC', border: '1.5px solid #CBD5E1', borderRadius: '12px', padding: '16px', marginBottom: '24px', textAlign: 'center' }}>
+            <div style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', marginBottom: '10px', textAlign: 'left' }}>
+              Jawaban:
+            </div>
+            <img 
+              src={masterReferenceImg} 
+              alt="Jawaban Bentuk Ruang IST 7" 
+              style={{ maxWidth: '100%', maxHeight: '180px', borderRadius: '8px', objectFit: 'contain', border: '1px solid #E2E8F0', background: '#FFFFFF', display: 'inline-block' }} 
             />
           </div>
 
