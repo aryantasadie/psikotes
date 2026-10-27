@@ -26,86 +26,39 @@ export const authOptions: NextAuthOptions = {
           throw new Error('INVALID_CREDENTIALS');
         }
 
-        // 1. Cek apakah status akun nonaktif
-        if (user.status === 'inactive') {
-          throw new Error('ACCOUNT_INACTIVE');
-        }
-
-        // 2. Cek apakah akun terkunci permanen
-        if (user.isPermanentLocked) {
-          throw new Error('LOCKED_PERMANENT');
-        }
-
-        // 3. Cek apakah akun sedang dalam periode kunci sementara (1.5 menit / 90 detik)
-        if (user.lockedUntil) {
-          const now = Date.now();
-          const lockTime = new Date(user.lockedUntil).getTime();
-          if (lockTime > now) {
-            const remainingSec = Math.ceil((lockTime - now) / 1000);
-            throw new Error(`LOCKED_TEMP:${remainingSec}`);
-          } else {
-            // Waktu cooldown telah berakhir, bersihkan lockedUntil
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { lockedUntil: null }
-            });
-          }
-        }
-
-        // 4. Verifikasi kecocokan password
+        // 1. Verifikasi kecocokan password DULU (agar tidak membocorkan status akun jika password salah)
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
 
         if (!isPasswordValid) {
           const currentAttempts = user.failedAttempts || 0;
           const newFailedAttempts = currentAttempts + 1;
+          const updateData: any = { failedAttempts: newFailedAttempts };
 
-          // Siklus 1: Percobaan salah ke-5 -> Kunci sementara 1.5 menit (90 detik)
-          if (newFailedAttempts === 5) {
-            const lockedUntil = new Date(Date.now() + 90 * 1000);
-            await prisma.user.update({
-              where: { id: user.id },
-              data: {
-                failedAttempts: newFailedAttempts,
-                lockedUntil: lockedUntil
-              }
-            });
-            throw new Error('LOCKED_TEMP:90');
+          // Jika sudah salah 15x, akun terkunci permanen di database
+          if (newFailedAttempts >= 15) {
+            updateData.isPermanentLocked = true;
+            updateData.lockedUntil = null;
           }
 
-          // Siklus 1: Masih di bawah 5 kali salah -> Beritahu sisa kesempatan
-          if (newFailedAttempts < 5) {
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { failedAttempts: newFailedAttempts }
-            });
-            const remaining = 5 - newFailedAttempts;
-            throw new Error(`ATTEMPTS_REMAINING:${remaining}`);
-          }
+          await prisma.user.update({
+            where: { id: user.id },
+            data: updateData
+          });
 
-          // Siklus 2: Terjadi setelah kunci sementara berakhir (percobaan ke-6, 7, 8)
-          // Jika salah 3x lagi (total 8 kali salah) -> Kunci Permanen
-          if (newFailedAttempts >= 8) {
-            await prisma.user.update({
-              where: { id: user.id },
-              data: {
-                failedAttempts: newFailedAttempts,
-                lockedUntil: null,
-                isPermanentLocked: true
-              }
-            });
-            throw new Error('LOCKED_PERMANENT');
-          } else {
-            // Percobaan ke-6 atau ke-7: Peringatan kesempatan terakhir
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { failedAttempts: newFailedAttempts }
-            });
-            const remainingSecondCycle = 8 - newFailedAttempts;
-            throw new Error(`ATTEMPTS_REMAINING_FINAL:${remainingSecondCycle}`);
-          }
+          // PENTING: Selama password salah, jangan pernah bocorkan status akun terblokir! Selalu lempar INVALID_CREDENTIALS
+          throw new Error('INVALID_CREDENTIALS');
         }
 
-        // 5. Password Benar: Reset semua counter kegagalan dan status kunci
+        // 2. Password BENAR (pemilik sah): Baru cek status akun
+        if (user.status === 'inactive') {
+          throw new Error('ACCOUNT_INACTIVE');
+        }
+
+        if (user.isPermanentLocked) {
+          throw new Error('LOCKED_PERMANENT');
+        }
+
+        // 3. Password Benar dan Akun Aktif: Reset semua counter kegagalan
         if (user.failedAttempts > 0 || user.lockedUntil || user.isPermanentLocked) {
           await prisma.user.update({
             where: { id: user.id },

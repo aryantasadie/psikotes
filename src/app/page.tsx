@@ -16,62 +16,39 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [timeoutNotice, setTimeoutNotice] = useState(false);
   const [lockCountdown, setLockCountdown] = useState<number>(0);
-  const [isPermanentLocked, setIsPermanentLocked] = useState<boolean>(false);
-  const [checkMessage, setCheckMessage] = useState<string>('');
   const router = useRouter();
 
-  // Timer interval countdown untuk lockout sementara
-  useEffect(() => {
-    if (lockCountdown <= 0) return;
-
-    const interval = setInterval(() => {
-      setLockCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [lockCountdown]);
-
   const formatCountdown = (totalSeconds: number) => {
+    if (totalSeconds >= 3600) {
+      const h = Math.floor(totalSeconds / 3600);
+      const m = Math.floor((totalSeconds % 3600) / 60);
+      const s = totalSeconds % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  // Cek apakah akun sudah dibuka kunci oleh Admin
-  const handleCheckUnlock = async () => {
-    if (!username.trim()) return;
-    try {
-      const res = await fetch(`/api/auth/check-lock?username=${encodeURIComponent(username.trim())}`);
-      const data = await res.json();
-      if (!data.isLocked) {
-        setLockCountdown(0);
-        setIsPermanentLocked(false);
-        setError('');
-        setCheckMessage('Akun Anda sudah aktif kembali! Silakan masukkan kata sandi.');
-        setTimeout(() => setCheckMessage(''), 4000);
-      } else if (data.lockType === 'temporary') {
-        setLockCountdown(data.remainingSeconds || 0);
-        setIsPermanentLocked(false);
-        setCheckMessage(`Akun masih terkunci sementara: ${formatCountdown(data.remainingSeconds || 0)} tersisa.`);
-        setTimeout(() => setCheckMessage(''), 4000);
-      } else if (data.lockType === 'permanent') {
-        setIsPermanentLocked(true);
-        setLockCountdown(0);
-        setError('Akun Anda telah terkunci permanen. Silakan hubungi Superadmin.');
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
+  // Cek status lock perangkat saat halaman dimuat
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('hrp_login_device_lock');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.lockedUntil && parsed.lockedUntil > Date.now()) {
+            const remaining = Math.ceil((parsed.lockedUntil - Date.now()) / 1000);
+            setLockCountdown(remaining);
+            if (parsed.attempts >= 15) {
+              setError('Akses login dari perangkat ini telah diblokir selama 3 jam karena melebihi batas keamanan. Silakan hubungi Superadmin.');
+            } else {
+              setError(`Terlalu banyak percobaan masuk yang salah. Harap tunggu ${formatCountdown(remaining)} sebelum mencoba lagi.`);
+            }
+          }
+        }
+      } catch (e) {}
+
       const isTimeoutSession = sessionStorage.getItem('session_timeout_notice');
       const urlParams = new URLSearchParams(window.location.search);
       const isTimeoutQuery = urlParams.get('reason') === 'timeout';
@@ -83,8 +60,38 @@ export default function LoginPage() {
     }
   }, []);
 
+  // Timer interval countdown untuk lockout perangkat
+  useEffect(() => {
+    if (lockCountdown <= 0) return;
+
+    const interval = setInterval(() => {
+      setLockCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setError('');
+          return 0;
+        }
+        const updated = prev - 1;
+        try {
+          const raw = localStorage.getItem('hrp_login_device_lock');
+          const attempts = raw ? (JSON.parse(raw)?.attempts || 0) : 0;
+          if (attempts >= 15) {
+            setError(`Akses login dari perangkat ini telah diblokir (${formatCountdown(updated)}). Silakan hubungi Superadmin.`);
+          } else {
+            setError(`Terlalu banyak percobaan masuk yang salah. Harap tunggu ${formatCountdown(updated)} sebelum mencoba lagi.`);
+          }
+        } catch (e) {}
+        return updated;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [lockCountdown]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (lockCountdown > 0) return;
+
     setError('');
     setTimeoutNotice(false);
     setLoading(true);
@@ -107,33 +114,63 @@ export default function LoginPage() {
 
       if (res?.error) {
         setLoading(false);
-        // Exit fullscreen on failed login
         try {
           if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
         } catch {}
 
-        if (res.error === 'LOCKED_PERMANENT') {
-          setIsPermanentLocked(true);
-          setLockCountdown(0);
-          setError('Akun Anda telah terkunci secara permanen demi alasan keamanan karena terlalu banyak percobaan gagal. Silakan hubungi Superadmin untuk membuka akses.');
-        } else if (res.error.startsWith('LOCKED_TEMP:')) {
-          const seconds = parseInt(res.error.split(':')[1], 10) || 90;
-          setLockCountdown(seconds);
-          setIsPermanentLocked(false);
-          setError('');
-        } else if (res.error.startsWith('ATTEMPTS_REMAINING:')) {
-          const remaining = res.error.split(':')[1];
-          setError(`Username atau kata sandi salah. Sisa kesempatan: ${remaining} kali sebelum akun terkunci sementara.`);
-        } else if (res.error.startsWith('ATTEMPTS_REMAINING_FINAL:')) {
-          const remaining = res.error.split(':')[1];
-          setError(`Username atau kata sandi salah. Peringatan: Sisa kesempatan ${remaining} kali sebelum akun terkunci PERMANEN!`);
-        } else if (res.error === 'ACCOUNT_INACTIVE') {
+        if (res.error === 'ACCOUNT_INACTIVE') {
           setError('Akun Anda saat ini berstatus nonaktif. Silakan hubungi Superadmin.');
+        } else if (res.error === 'LOCKED_PERMANENT') {
+          setError('Akun Anda telah dinonaktifkan / terkunci secara permanen. Silakan hubungi Superadmin untuk membuka akses.');
         } else {
-          setError('Username atau password salah.');
+          // Kesalahan kredensial (username atau password salah)
+          let attempts = 0;
+          try {
+            const raw = localStorage.getItem('hrp_login_device_lock');
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              attempts = Number(parsed.attempts) || 0;
+            }
+          } catch (e) {}
+
+          const newAttempts = attempts + 1;
+          let cooldown = 0;
+
+          // Progressive Backoff: 5x -> 1m, 8x -> 1.5m, 11x -> 2m, 15x -> 3 jam
+          if (newAttempts >= 15) {
+            cooldown = 3 * 60 * 60; // 3 jam (10800 detik)
+          } else if (newAttempts >= 11) {
+            cooldown = 120; // 2 menit
+          } else if (newAttempts >= 8) {
+            cooldown = 90; // 1.5 menit
+          } else if (newAttempts >= 5) {
+            cooldown = 60; // 1 menit
+          }
+
+          try {
+            localStorage.setItem('hrp_login_device_lock', JSON.stringify({
+              attempts: newAttempts,
+              lockedUntil: cooldown > 0 ? Date.now() + cooldown * 1000 : 0
+            }));
+          } catch (e) {}
+
+          if (cooldown > 0) {
+            setLockCountdown(cooldown);
+            if (newAttempts >= 15) {
+              setError('Akses login dari perangkat ini telah diblokir selama 3 jam karena melebihi batas percobaan keamanan. Silakan hubungi Superadmin.');
+            } else {
+              setError(`Terlalu banyak percobaan masuk yang salah. Harap tunggu ${formatCountdown(cooldown)} sebelum mencoba lagi.`);
+            }
+          } else {
+            setError('Username atau kata sandi tidak valid.');
+          }
         }
       } else {
-        // Ambil session secara aman dengan getSession()
+        // Login berhasil: bersihkan device lock
+        try {
+          localStorage.removeItem('hrp_login_device_lock');
+        } catch (e) {}
+
         const sessionData = await getSession();
         const role = sessionData?.user ? (sessionData.user as any).role : undefined;
 
@@ -213,57 +250,6 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Alert Success / Unlocked Check Message */}
-          {checkMessage && (
-            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs p-3.5 rounded-xl text-center font-medium shadow-xs flex items-center justify-center gap-2">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
-              <span>{checkMessage}</span>
-            </div>
-          )}
-
-          {/* Alert Lockout Sementara dengan Countdown Timer */}
-          {lockCountdown > 0 && (
-            <div className="bg-amber-50 border border-amber-300 text-amber-900 p-4 rounded-xl text-center flex flex-col items-center gap-2.5 shadow-xs">
-              <div className="flex items-center gap-1.5 text-amber-800 font-bold text-xs uppercase tracking-wider">
-                <Clock className="w-4 h-4 text-amber-600 animate-pulse" />
-                <span>Akun Terkunci Sementara</span>
-              </div>
-              <div className="text-3xl font-black font-mono text-amber-600 tracking-wider">
-                {formatCountdown(lockCountdown)}
-              </div>
-              <p className="text-xs text-amber-700 leading-relaxed max-w-xs">
-                Terlalu banyak percobaan kata sandi salah. Silakan tunggu hingga waktu habis atau hubungi Superadmin.
-              </p>
-              <button
-                type="button"
-                onClick={handleCheckUnlock}
-                className="text-[11px] font-semibold text-teal-700 hover:text-teal-800 underline mt-0.5 cursor-pointer"
-              >
-                Sudah dibuka oleh Admin? Cek status sekarang
-              </button>
-            </div>
-          )}
-
-          {/* Alert Lockout Permanen */}
-          {isPermanentLocked && (
-            <div className="bg-rose-50 border border-rose-300 text-rose-900 p-4 rounded-xl text-center flex flex-col items-center gap-2 shadow-xs">
-              <div className="flex items-center gap-1.5 text-rose-800 font-bold text-xs uppercase tracking-wider">
-                <ShieldAlert className="w-4 h-4 text-rose-600" />
-                <span>Akun Terkunci Permanen</span>
-              </div>
-              <p className="text-xs text-rose-700 leading-relaxed">
-                Akun ini telah dinonaktifkan demi alasan keamanan karena percobaan salah berulang kali. Silakan hubungi <strong>Superadmin</strong> untuk membuka kunci akun Anda.
-              </p>
-              <button
-                type="button"
-                onClick={handleCheckUnlock}
-                className="text-[11px] font-semibold text-teal-700 hover:text-teal-800 underline mt-0.5 cursor-pointer"
-              >
-                Sudah dibuka oleh Admin? Cek status sekarang
-              </button>
-            </div>
-          )}
-
           {/* Alert Timeout Notice */}
           {timeoutNotice && (
             <div className="bg-amber-50 border border-amber-300 text-amber-800 text-xs p-3.5 rounded-xl text-center font-medium shadow-xs flex items-center justify-center gap-2">
@@ -273,8 +259,8 @@ export default function LoginPage() {
           )}
 
           {/* Alert Error */}
-          {error && !isPermanentLocked && lockCountdown <= 0 && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3.5 rounded-xl text-center font-medium shadow-xs">
+          {error && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3.5 rounded-xl text-center font-medium shadow-xs leading-relaxed">
               {error}
             </div>
           )}
@@ -288,12 +274,9 @@ export default function LoginPage() {
               <Input 
                 type="text" 
                 value={username}
-                onChange={e => {
-                  setUsername(e.target.value);
-                  if (isPermanentLocked) setIsPermanentLocked(false);
-                }}
+                onChange={e => setUsername(e.target.value)}
                 required
-                disabled={loading}
+                disabled={loading || lockCountdown > 0}
                 placeholder="Masukkan username atau ID pengguna..."
               />
             </div>
@@ -308,8 +291,8 @@ export default function LoginPage() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
-                  disabled={loading || lockCountdown > 0 || isPermanentLocked}
-                  placeholder={lockCountdown > 0 ? "Akun terkunci sementara..." : isPermanentLocked ? "Akun terkunci permanen..." : "Masukkan kata sandi..."}
+                  disabled={loading || lockCountdown > 0}
+                  placeholder={lockCountdown > 0 ? "Menunggu waktu jeda selesai..." : "Masukkan kata sandi..."}
                   className="pr-10"
                 />
                 <button
@@ -331,19 +314,14 @@ export default function LoginPage() {
             
             <Button 
               type="submit" 
-              disabled={loading || lockCountdown > 0 || isPermanentLocked}
+              disabled={loading || lockCountdown > 0}
               size="lg"
               className="w-full mt-2"
             >
               {lockCountdown > 0 ? (
                 <>
                   <Lock className="h-4 w-4" />
-                  <span>Terkunci Sementara ({formatCountdown(lockCountdown)})</span>
-                </>
-              ) : isPermanentLocked ? (
-                <>
-                  <ShieldAlert className="h-4 w-4" />
-                  <span>Akun Terkunci Permanen</span>
+                  <span>{lockCountdown >= 3600 ? `Akses Diblokir (${formatCountdown(lockCountdown)})` : `Tunggu (${formatCountdown(lockCountdown)})`}</span>
                 </>
               ) : (
                 <>
