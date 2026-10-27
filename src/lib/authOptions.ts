@@ -16,6 +16,51 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // Extract IP & User-Agent safely
+        let ipAddress: string | null = null;
+        let userAgent: string | null = null;
+
+        if (req?.headers) {
+          if (typeof (req.headers as any).get === 'function') {
+            const h = req.headers as any;
+            ipAddress = h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || null;
+            userAgent = h.get('user-agent') || null;
+          } else {
+            const h = req.headers as Record<string, any>;
+            const xf = h['x-forwarded-for'];
+            const xr = h['x-real-ip'];
+            const ua = h['user-agent'];
+            ipAddress = (Array.isArray(xf) ? xf[0] : typeof xf === 'string' ? xf.split(',')[0].trim() : (typeof xr === 'string' ? xr : null)) || null;
+            userAgent = (Array.isArray(ua) ? ua[0] : typeof ua === 'string' ? ua : null) || null;
+          }
+        }
+
+        const logActivity = async (data: {
+          userId?: number;
+          username: string;
+          name?: string | null;
+          role?: string | null;
+          status: 'SUCCESS' | 'FAILED';
+          reason: string;
+        }) => {
+          try {
+            await prisma.accountActivityLog.create({
+              data: {
+                userId: data.userId,
+                username: data.username,
+                name: data.name,
+                role: data.role,
+                status: data.status,
+                reason: data.reason,
+                ipAddress,
+                userAgent,
+              }
+            });
+          } catch (e) {
+            console.error('Failed to record AccountActivityLog:', e);
+          }
+        };
+
         const user = await prisma.user.findFirst({
           where: {
             username: { equals: credentials.username.trim(), mode: 'insensitive' }
@@ -23,6 +68,11 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user) {
+          await logActivity({
+            username: credentials.username.trim(),
+            status: 'FAILED',
+            reason: 'USER_NOT_FOUND',
+          });
           throw new Error('INVALID_CREDENTIALS');
         }
 
@@ -45,16 +95,41 @@ export const authOptions: NextAuthOptions = {
             data: updateData
           });
 
+          await logActivity({
+            userId: user.id,
+            username: user.username,
+            name: user.name,
+            role: user.role,
+            status: 'FAILED',
+            reason: 'WRONG_PASSWORD',
+          });
+
           // PENTING: Selama password salah, jangan pernah bocorkan status akun terblokir! Selalu lempar INVALID_CREDENTIALS
           throw new Error('INVALID_CREDENTIALS');
         }
 
         // 2. Password BENAR (pemilik sah): Baru cek status akun
         if (user.status === 'inactive') {
+          await logActivity({
+            userId: user.id,
+            username: user.username,
+            name: user.name,
+            role: user.role,
+            status: 'FAILED',
+            reason: 'ACCOUNT_INACTIVE',
+          });
           throw new Error('ACCOUNT_INACTIVE');
         }
 
         if (user.isPermanentLocked) {
+          await logActivity({
+            userId: user.id,
+            username: user.username,
+            name: user.name,
+            role: user.role,
+            status: 'FAILED',
+            reason: 'ACCOUNT_LOCKED',
+          });
           throw new Error('LOCKED_PERMANENT');
         }
 
@@ -69,6 +144,16 @@ export const authOptions: NextAuthOptions = {
             }
           });
         }
+
+        // Catat keberhasilan login
+        await logActivity({
+          userId: user.id,
+          username: user.username,
+          name: user.name,
+          role: user.role,
+          status: 'SUCCESS',
+          reason: 'LOGIN_SUCCESS',
+        });
 
         return {
           id: user.id.toString(),

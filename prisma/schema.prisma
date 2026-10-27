@@ -183,3 +183,23 @@ model PsychographPreset {
   jobPositions JobPosition[]
   tests        Test[]
 }
+
+model AccountActivityLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  username  String
+  name      String?
+  role      String?
+  status    String   // "SUCCESS" | "FAILED"
+  reason    String?  // "LOGIN_SUCCESS", "WRONG_PASSWORD", "USER_NOT_FOUND", "ACCOUNT_LOCKED", "ACCOUNT_INACTIVE"
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([username])
+  @@index([status])
+}
+
+
+

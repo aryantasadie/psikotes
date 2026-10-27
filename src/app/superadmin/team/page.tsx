@@ -491,7 +491,7 @@ export default function TeamManagementPage() {
                       <div className="flex flex-col gap-0.5">
                         <span className="text-sm font-bold text-slate-900">{member.name}</span>
                         <span className="text-xs text-slate-500">
-                          {member.license || (member.role === 'superadmin' ? 'Super Administrator / System Architect' : 'Tester Operasional')}
+                          {member.license || (member.role === 'superadmin' ? 'Super Administrator / System Architect' : member.role === 'psikolog' ? 'Psikolog Assessor' : 'Tester Operasional')}
                         </span>
                       </div>
                     </TableCell>

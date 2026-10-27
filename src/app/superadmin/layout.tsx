@@ -18,6 +18,7 @@ import {
   Menu,
   ChevronRight,
   Bell,
+  History,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +52,7 @@ const SECTIONS = [
     items: [
       { label: 'Klien Perusahaan',  path: '/superadmin/clients', icon: Building2 },
       { label: 'Manajemen Tim',     path: '/superadmin/team',    icon: Users },
+      { label: 'Log Aktivitas Akun', path: '/superadmin/activity-logs', icon: History },
     ],
   },
 ];
@@ -65,6 +67,7 @@ const PAGE_META: Record<string, { title: string; crumb: string }> = {
   '/superadmin/proctor':       { title: 'Log Pengawasan',              crumb: 'Log Pengawasan' },
   '/superadmin/clients':       { title: 'Klien Perusahaan',            crumb: 'Klien' },
   '/superadmin/team':          { title: 'Manajemen Tim',               crumb: 'Tim' },
+  '/superadmin/activity-logs': { title: 'Log Aktivitas Akun & Autentikasi', crumb: 'Log Aktivitas' },
   '/superadmin/participants':  { title: 'Daftar Peserta Ujian',        crumb: 'Peserta Ujian' },
 };
 

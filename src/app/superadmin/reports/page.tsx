@@ -53,6 +53,7 @@ interface BatchSessionGroup {
 export default function ReportsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const userRole = (session?.user as any)?.role;
   const [participants, setParticipants] = useState<any[]>([]);
   const [assignedTests, setAssignedTests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -268,7 +269,9 @@ export default function ReportsPage() {
               ) : filteredBatches.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-10 text-slate-400 text-sm">
-                    Belum ada batch hasil ujian yang ditemukan.
+                    {userRole === 'superadmin' 
+                      ? 'Belum ada batch hasil ujian yang ditemukan.' 
+                      : 'Belum ada batch ujian yang ditugaskan kepada akun Anda. Silakan hubungi Superadmin.'}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -350,16 +353,18 @@ export default function ReportsPage() {
                             <span>Lihat Akun</span>
                           </Link>
                         </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDeleteBatch(b)}
-                          disabled={deletingId === b.id}
-                          className="h-8 px-2.5 text-xs gap-1"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>{deletingId === b.id ? 'Menghapus…' : 'Hapus'}</span>
-                        </Button>
+                        {userRole === 'superadmin' && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteBatch(b)}
+                            disabled={deletingId === b.id}
+                            className="h-8 px-2.5 text-xs gap-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>{deletingId === b.id ? 'Menghapus…' : 'Hapus'}</span>
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

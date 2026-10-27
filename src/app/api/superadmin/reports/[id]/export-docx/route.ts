@@ -138,7 +138,11 @@ export async function GET(
 
     // Role check for assigned batches if role is psikolog
     if (userRole === 'psikolog') {
-      const assignedTestIdsStr = (session.user as any).assignedTestIds;
+      const dbUser = await prisma.user.findUnique({
+        where: { id: parseInt((session.user as any).id, 10) },
+        select: { assignedTestIds: true }
+      });
+      const assignedTestIdsStr = dbUser?.assignedTestIds;
       if (!assignedTestIdsStr) {
         return NextResponse.json({ error: 'Akses ditolak: Anda tidak ditugaskan ke batch ini.' }, { status: 403 });
       }

@@ -99,17 +99,22 @@ export async function GET(req: Request) {
         },
         orderBy: { id: 'desc' }
       }),
-      assignedTests.length > 0 ? Promise.resolve(assignedTests) : prisma.test.findMany({
-        select: {
-          id: true,
-          title: true,
-          sequence: true,
-          startDate: true,
-          jobPosition: { select: { id: true, name: true } },
-          client: { select: { id: true, name: true, username: true, email: true, role: true } }
-        },
-        orderBy: { id: 'desc' }
-      })
+      assignedTests.length > 0
+        ? Promise.resolve(assignedTests)
+        : (userRole === 'superadmin'
+            ? prisma.test.findMany({
+                select: {
+                  id: true,
+                  title: true,
+                  sequence: true,
+                  startDate: true,
+                  jobPosition: { select: { id: true, name: true } },
+                  client: { select: { id: true, name: true, username: true, email: true, role: true } }
+                },
+                orderBy: { id: 'desc' }
+              })
+            : Promise.resolve([])
+          )
     ]);
 
     const testMap = new Map<number, any>();

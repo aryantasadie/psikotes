@@ -68,7 +68,11 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
     // Restrict tester and psikolog to their assigned batches
     if (userRole === 'tester' || userRole === 'psikolog') {
-      const assignedTestIdsStr = (session.user as any).assignedTestIds;
+      const dbUser = await prisma.user.findUnique({
+        where: { id: parseInt((session.user as any).id, 10) },
+        select: { assignedTestIds: true }
+      });
+      const assignedTestIdsStr = dbUser?.assignedTestIds;
       if (!assignedTestIdsStr) {
         return NextResponse.json({ error: 'Akses ditolak: Anda tidak ditugaskan ke batch ini.' }, { status: 403 });
       }
@@ -111,7 +115,11 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
       if (!participant) {
         return NextResponse.json({ error: 'Participant not found' }, { status: 404 });
       }
-      const assignedTestIdsStr = (session.user as any).assignedTestIds;
+      const dbUser = await prisma.user.findUnique({
+        where: { id: parseInt((session.user as any).id, 10) },
+        select: { assignedTestIds: true }
+      });
+      const assignedTestIdsStr = dbUser?.assignedTestIds;
       if (!assignedTestIdsStr) {
         return NextResponse.json({ error: 'Forbidden: Anda tidak ditugaskan ke batch ini.' }, { status: 403 });
       }
