@@ -22,6 +22,9 @@ export async function GET() {
         phone: true,
         role: true,
         status: true,
+        testQuotas: true,
+        usedQuotas: true,
+        logoUrl: true,
         createdAt: true,
         _count: {
           select: { participants: true }
@@ -62,7 +65,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    let { name, username, email, phone, password, status } = body;
+    let { name, username, email, phone, password, status, testQuotas, logoUrl } = body;
 
     if (!name || !username || !password) {
       return NextResponse.json({ error: 'Nama Perusahaan, Username, dan Password wajib diisi' }, { status: 400 });
@@ -83,7 +86,10 @@ export async function POST(req: Request) {
         phone: phone || null,
         password: hashedPassword,
         role: 'client',
-        status: status || 'active'
+        status: status || 'active',
+        testQuotas: testQuotas ? (typeof testQuotas === 'string' ? testQuotas : JSON.stringify(testQuotas)) : null,
+        usedQuotas: JSON.stringify({}),
+        logoUrl: logoUrl || null
       },
       select: {
         id: true,
@@ -93,6 +99,9 @@ export async function POST(req: Request) {
         phone: true,
         role: true,
         status: true,
+        testQuotas: true,
+        usedQuotas: true,
+        logoUrl: true,
         createdAt: true
       }
     });
@@ -113,7 +122,7 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json();
-    let { id, name, username, email, phone, password, status } = body;
+    let { id, name, username, email, phone, password, status, testQuotas, logoUrl } = body;
 
     if (!id || !name || !username) {
       return NextResponse.json({ error: 'ID, Nama Perusahaan, dan Username wajib diisi' }, { status: 400 });
@@ -132,6 +141,14 @@ export async function PUT(req: Request) {
       status: status || 'active'
     };
 
+    if (testQuotas !== undefined) {
+      updateData.testQuotas = typeof testQuotas === 'string' ? testQuotas : JSON.stringify(testQuotas);
+    }
+
+    if (logoUrl !== undefined) {
+      updateData.logoUrl = logoUrl;
+    }
+
     if (password && password.trim() !== '') {
       updateData.password = await bcrypt.hash(password, 10);
     }
@@ -147,6 +164,9 @@ export async function PUT(req: Request) {
         phone: true,
         role: true,
         status: true,
+        testQuotas: true,
+        usedQuotas: true,
+        logoUrl: true,
         createdAt: true
       }
     });

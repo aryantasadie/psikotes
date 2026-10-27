@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
+import { isParticipantCompleted, parseSequence } from '@/lib/testCompletion';
 
 // GET: Fetch all created Test Batches with participants & accounts
 export async function GET() {
@@ -38,35 +39,66 @@ export async function GET() {
       }
     }
 
-    const batches = await prisma.test.findMany({
-      where: whereClause,
-      include: {
-        jobPosition: {
-          select: { id: true, name: true }
+    const [batches, testers] = await Promise.all([
+      prisma.test.findMany({
+        where: {
+          ...whereClause,
+          participants: {
+            some: {}
+          }
         },
-        client: {
-          select: { id: true, name: true, username: true }
-        },
-        participants: {
-          include: {
-            user: {
-              select: { id: true, name: true, username: true, password: true }
-            }
+        select: {
+          id: true,
+          title: true,
+          startDate: true,
+          jobPositionId: true,
+          clientId: true,
+          sequence: true,
+          pausedTests: true,
+          isPaused: true,
+          disableMedia: true,
+          pauseMessage: true,
+          jobPosition: {
+            select: { id: true, name: true }
           },
-          orderBy: { id: 'asc' }
-        }
-      },
-      orderBy: { id: 'desc' }
-    });
-
-    // Also get tester assignments for each batch
-    const testers = await prisma.user.findMany({
-      where: {
-        role: { in: ['tester', 'psikolog'] },
-        assignedTestIds: { not: null }
-      },
-      select: { id: true, name: true, role: true, assignedTestIds: true }
-    });
+          client: {
+            select: { id: true, name: true, username: true }
+          },
+          participants: {
+            select: {
+              id: true,
+              userId: true,
+              status: true,
+              isPaused: true,
+              currentTest: true,
+              unpausedTests: true,
+              plainPassword: true,
+              user: {
+                select: { id: true, name: true, username: true }
+              },
+              psychoResults: {
+                select: { id: true, status: true }
+              },
+              rawResults: {
+                select: { testType: true }
+              },
+              answers: {
+                select: { question: { select: { testType: true } } }
+              }
+            },
+            orderBy: { id: 'asc' }
+          }
+        },
+        orderBy: { id: 'desc' }
+      }),
+      prisma.user.findMany({
+        where: {
+          role: { in: ['tester', 'psikolog'] },
+          assignedTestIds: { not: null }
+        },
+        select: { id: true, name: true, role: true, assignedTestIds: true }
+      })
+    ]);
 
     const testerMap: Record<number, { id: number; name: string }[]> = {};
     testers.forEach((t) => {
@@ -83,12 +115,11 @@ export async function GET() {
 
     const formattedBatches = batches.map((b) => {
       const totalCount = b.participants.length;
-      const completedCount = b.participants.filter((p) => p.status === 'completed').length;
+      const parsedSequence = parseSequence(b.sequence);
+      const completedCount = b.participants.filter((p: any) => isParticipantCompleted(p, parsedSequence)).length;
+      const completedReportsCount = b.participants.filter((p) => p.psychoResults && ['REVIEWED', 'RELEASED'].includes(p.psychoResults.status)).length;
       const assignedTesterObjs = testerMap[b.id] || [];
       const assignedTesters = assignedTesterObjs.map(t => t.name);
-
-      let parsedSequence: string[] = [];
-      try { parsedSequence = b.sequence ? JSON.parse(b.sequence) : []; } catch (e) {}
 
       let parsedPausedTests: string[] = [];
       try {
@@ -110,6 +141,7 @@ export async function GET() {
         assignedTesterId: assignedTesterObjs.length > 0 ? assignedTesterObjs[0].id : null,
         totalParticipants: totalCount,
         completedParticipants: completedCount,
+        completedReports: completedReportsCount,
         sequence: parsedSequence,
         pausedTests: parsedPausedTests,
         isPaused: Boolean(b.isPaused),

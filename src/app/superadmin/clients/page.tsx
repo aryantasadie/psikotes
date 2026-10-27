@@ -1,6 +1,59 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { 
+  Building2, 
+  Search, 
+  Plus, 
+  Pencil, 
+  Trash2, 
+  CheckCircle2, 
+  XCircle, 
+  Layers, 
+  Mail, 
+  Phone, 
+  Loader2,
+  Power,
+  Coins
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle, 
+  CardDescription 
+} from '@/components/ui/card';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+
+const AVAILABLE_TESTS = [
+  'Kraepelin',
+  'WPT',
+  'PAPI KOSTICK',
+  'DISC',
+  'CFIT',
+  'IST',
+  'TIKI',
+  'MSDT',
+  'Wartegg',
+  'Tes Grafis',
+];
 
 interface ClientCompany {
   id: number;
@@ -9,6 +62,9 @@ interface ClientCompany {
   email?: string | null;
   phone?: string | null;
   status: string;
+  testQuotas?: string | null;
+  usedQuotas?: string | null;
+  logoUrl?: string | null;
   totalBatches?: number;
   createdAt: string;
 }
@@ -30,6 +86,7 @@ export default function ClientsManagementPage() {
     phone: '',
     password: '',
     status: 'active',
+    testQuotas: {} as Record<string, number>,
   });
 
   const [formError, setFormError] = useState<string>('');
@@ -63,6 +120,10 @@ export default function ClientsManagementPage() {
       phone: '',
       password: '',
       status: 'active',
+      testQuotas: {
+        Kraepelin: 50,
+        WPT: 50,
+      },
     });
     setFormError('');
     setIsModalOpen(true);
@@ -70,16 +131,35 @@ export default function ClientsManagementPage() {
 
   const handleOpenEditModal = (client: ClientCompany) => {
     setEditingClient(client);
+    let parsedQuotas: Record<string, number> = {};
+    if (client.testQuotas) {
+      try {
+        parsedQuotas = JSON.parse(client.testQuotas);
+      } catch {}
+    }
+
     setFormData({
       name: client.name || '',
       username: client.username || '',
       email: client.email || '',
       phone: client.phone || '',
-      password: '', // Blank unless changed
+      password: '',
       status: client.status || 'active',
+      testQuotas: parsedQuotas,
     });
     setFormError('');
     setIsModalOpen(true);
+  };
+
+  const handleQuotaChange = (testName: string, val: string) => {
+    const num = parseInt(val, 10);
+    setFormData((prev) => ({
+      ...prev,
+      testQuotas: {
+        ...prev.testQuotas,
+        [testName]: isNaN(num) || num < 0 ? 0 : num,
+      },
+    }));
   };
 
   const handleSubmitForm = async (e: React.FormEvent) => {
@@ -117,7 +197,7 @@ export default function ClientsManagementPage() {
       } else {
         setFormError(data.error || 'Terjadi kesalahan saat menyimpan data klien.');
       }
-    } catch (e: any) {
+    } catch {
       setFormError('Terjadi kesalahan koneksi server.');
     } finally {
       setSubmitting(false);
@@ -160,13 +240,43 @@ export default function ClientsManagementPage() {
     }
   };
 
-  // Filtered clients
+  const renderQuotasBadge = (client: ClientCompany) => {
+    if (!client.testQuotas) {
+      return <span className="text-xs text-slate-400 italic">Belum diset kuota</span>;
+    }
+    try {
+      const quotas: Record<string, number> = JSON.parse(client.testQuotas);
+      const used: Record<string, number> = client.usedQuotas ? JSON.parse(client.usedQuotas) : {};
+      const entries = Object.entries(quotas).filter(([_, q]) => q > 0);
+      if (entries.length === 0) {
+        return <span className="text-xs text-slate-400 italic">0 Kuota</span>;
+      }
+      return (
+        <div className="flex flex-wrap gap-1">
+          {entries.map(([test, quota]) => {
+            const u = used[test] || 0;
+            const remaining = Math.max(0, quota - u);
+            return (
+              <Badge key={test} variant="outline" className="text-xs bg-teal-50 text-teal-800 border-teal-200 gap-1 font-semibold">
+                <Coins className="w-3 h-3 text-teal-600" />
+                <span>{test}: {remaining}/{quota}</span>
+              </Badge>
+            );
+          })}
+        </div>
+      );
+    } catch {
+      return <span className="text-xs text-slate-400">-</span>;
+    }
+  };
+
   const filteredClients = clients.filter((c) => {
+    const q = search.toLowerCase();
     return (
-      (c.name || '').toLowerCase().includes(search.toLowerCase()) ||
-      (c.username || '').toLowerCase().includes(search.toLowerCase()) ||
-      (c.email || '').toLowerCase().includes(search.toLowerCase()) ||
-      (c.phone || '').toLowerCase().includes(search.toLowerCase())
+      (c.name || '').toLowerCase().includes(q) ||
+      (c.username || '').toLowerCase().includes(q) ||
+      (c.email || '').toLowerCase().includes(q) ||
+      (c.phone || '').toLowerCase().includes(q)
     );
   });
 
@@ -174,446 +284,363 @@ export default function ClientsManagementPage() {
   const activeClients = clients.filter((c) => c.status === 'active').length;
   const totalBatchesCount = clients.reduce((acc, c) => acc + (c.totalBatches || 0), 0);
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '11px 14px',
-    borderRadius: '8px',
-    border: '1.5px solid #CBD5E1',
-    fontSize: '14px',
-    outline: 'none',
-    backgroundColor: '#FFFFFF',
-    color: '#0F172A',
-    fontWeight: 500,
-    boxSizing: 'border-box',
-  };
-
-  const selectStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '11px 14px',
-    borderRadius: '8px',
-    border: '1.5px solid #CBD5E1',
-    fontSize: '14px',
-    backgroundColor: '#FFFFFF',
-    color: '#0F172A',
-    fontWeight: 600,
-    outline: 'none',
-    cursor: 'pointer',
-    boxSizing: 'border-box',
-  };
-
   return (
-    <div style={{ padding: '1.5rem', background: '#F8FAFC', minHeight: '100vh', fontFamily: 'Inter, sans-serif' }}>
-      
-      {/* HEADER TITLE & BUTTON */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', margin: 0, marginBottom: '0.25rem' }}>
+    <div className="flex flex-col gap-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl font-bold tracking-tight text-slate-900">
             Daftar Klien Perusahaan (B2B HRD Portal)
           </h2>
-          <p style={{ color: '#64748B', fontSize: '0.9rem', margin: 0 }}>
-            Kelola akun portal rekrutmen perusahaan mitra yang dapat mengakses laporan kandidat secara mandiri.
+          <p className="text-sm text-slate-500">
+            Kelola akun portal mitra, atur alokasi kuota per alat tes, dan pantau penggunaan asesmen.
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAddModal}
-          style={{
-            background: '#0D9488',
-            color: 'white',
-            border: 'none',
-            padding: '10px 20px',
-            borderRadius: '8px',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: '0 2px 4px rgba(13, 148, 136, 0.2)',
-          }}
-        >
-          <span style={{ fontSize: '18px', fontWeight: 'bold' }}>+</span> Tambah Klien Perusahaan
-        </button>
+        <Button onClick={handleOpenAddModal} className="gap-2 self-start sm:self-auto">
+          <Plus className="w-4 h-4" />
+          <span>Tambah Klien Perusahaan</span>
+        </Button>
       </div>
 
-      {/* METRIC CARDS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        
-        {/* TOTAL KLIEN */}
-        <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem' }}>
-          <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-            TOTAL PERUSAHAAN MITRA
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0F172A' }}>
-            {totalClients} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#64748B' }}>Perusahaan</span>
-          </div>
-        </div>
+      {/* KPI Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription className="text-xs uppercase font-bold tracking-wider text-slate-500">
+              Total Perusahaan Mitra
+            </CardDescription>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-slate-900">{totalClients}</span>
+              <span className="text-sm font-medium text-slate-500">Perusahaan</span>
+            </div>
+          </CardHeader>
+        </Card>
 
-        {/* KLIEN AKTIF */}
-        <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '12px', padding: '1.25rem' }}>
-          <div style={{ fontSize: '11px', fontWeight: 800, color: '#15803D', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-            AKUN KLIEN AKTIF
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#16A34A' }}>
-            {activeClients} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#15803D' }}>Aktif</span>
-          </div>
-        </div>
+        <Card className="bg-emerald-50/50 border-emerald-200">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-xs uppercase font-bold tracking-wider text-emerald-700">
+              Akun Klien Aktif
+            </CardDescription>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-emerald-600">{activeClients}</span>
+              <span className="text-sm font-medium text-emerald-700">Aktif</span>
+            </div>
+          </CardHeader>
+        </Card>
 
-        {/* TOTAL BATCH */}
-        <div style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '12px', padding: '1.25rem' }}>
-          <div style={{ fontSize: '11px', fontWeight: 800, color: '#0369A1', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-            TOTAL BATCH KLIEN
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0284C7' }}>
-            {totalBatchesCount} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#0369A1' }}>Sesi Ujian</span>
-          </div>
-        </div>
-
+        <Card className="bg-sky-50/50 border-sky-200">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-xs uppercase font-bold tracking-wider text-sky-700">
+              Total Batch Klien
+            </CardDescription>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-sky-600">{totalBatchesCount}</span>
+              <span className="text-sm font-medium text-sky-700">Sesi Ujian</span>
+            </div>
+          </CardHeader>
+        </Card>
       </div>
 
-      {/* MAIN CONTAINER */}
-      <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '1.5rem' }}>
-        
-        {/* SEARCH BAR */}
-        <div style={{ marginBottom: '1.25rem' }}>
-          <div style={{ position: 'relative', width: '360px', maxWidth: '100%' }}>
-            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', fontSize: '14px' }}>🔍</span>
-            <input
-              type="text"
-              placeholder="Cari nama perusahaan, username, email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '9px 12px 9px 36px',
-                borderRadius: '8px',
-                border: '1.5px solid #CBD5E1',
-                fontSize: '14px',
-                outline: 'none',
-                backgroundColor: '#FFFFFF',
-                color: '#0F172A',
-              }}
-            />
-          </div>
-        </div>
-
-        {/* TABLE */}
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
-                <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase' }}>
-                  NAMA PERUSAHAAN KLIEN
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase' }}>
-                  USERNAME LOGIN
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase' }}>
-                  EMAIL & KONTAK
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase' }}>
-                  TOTAL BATCH
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase' }}>
-                  STATUS AKUN
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', textAlign: 'right' }}>
-                  AKSI (CRUD)
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#64748B' }}>
-                    Memuat data klien perusahaan...
-                  </td>
-                </tr>
-              ) : filteredClients.length === 0 ? (
-                <tr>
-                  <td colSpan={6} style={{ padding: '32px', textAlign: 'center', color: '#64748B' }}>
-                    Belum ada data perusahaan klien yang sesuai.
-                  </td>
-                </tr>
-              ) : (
-                filteredClients.map((client) => (
-                  <tr key={client.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                    
-                    {/* NAMA PERUSAHAAN */}
-                    <td style={{ padding: '16px' }}>
-                      <div style={{ fontWeight: 800, color: '#0F172A', fontSize: '14px' }}>
-                        🏢 {client.name}
-                      </div>
-                    </td>
-
-                    {/* USERNAME LOGIN */}
-                    <td style={{ padding: '16px' }}>
-                      <code style={{ background: '#F1F5F9', padding: '4px 8px', borderRadius: '6px', fontSize: '13px', color: '#0F172A', fontWeight: 700 }}>
-                        {client.username}
-                      </code>
-                    </td>
-
-                    {/* EMAIL & KONTAK */}
-                    <td style={{ padding: '16px' }}>
-                      <div style={{ fontSize: '13px', color: '#334155', fontWeight: 500 }}>
-                        {client.email || `${client.username}@klien.id`}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>
-                        {client.phone || '08123456789'}
-                      </div>
-                    </td>
-
-                    {/* TOTAL BATCH */}
-                    <td style={{ padding: '16px' }}>
-                      <span style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 700 }}>
-                        {client.totalBatches || 0} Sesi Batch
-                      </span>
-                    </td>
-
-                    {/* STATUS AKUN */}
-                    <td style={{ padding: '16px' }}>
-                      {client.status === 'inactive' ? (
-                        <span style={{ background: '#F1F5F9', color: '#64748B', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 700 }}>
-                          • Nonaktif
-                        </span>
-                      ) : (
-                        <span style={{ background: '#DCFCE7', color: '#166534', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 700 }}>
-                          • Aktif
-                        </span>
-                      )}
-                    </td>
-
-                    {/* AKSI */}
-                    <td style={{ padding: '16px', textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '6px' }}>
-                        
-                        {/* Edit Button */}
-                        <button
-                          onClick={() => handleOpenEditModal(client)}
-                          style={{
-                            background: '#F1F5F9',
-                            color: '#334155',
-                            border: '1px solid #CBD5E1',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Edit
-                        </button>
-
-                        {/* Toggle Status Button */}
-                        <button
-                          onClick={() => handleToggleStatus(client)}
-                          style={{
-                            background: '#F1F5F9',
-                            color: client.status === 'active' ? '#D97706' : '#166534',
-                            border: '1px solid #CBD5E1',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {client.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
-                        </button>
-
-                        {/* Delete Button */}
-                        <button
-                          onClick={() => handleDeleteClient(client)}
-                          style={{
-                            background: '#FEF2F2',
-                            color: '#DC2626',
-                            border: '1px solid #FCA5A5',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Hapus
-                        </button>
-                      </div>
-                    </td>
-
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-      </div>
-
-      {/* MODAL DIALOG (ADD / EDIT KLIEN) */}
-      {isModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(15, 23, 42, 0.6)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 9999,
-            padding: '1rem',
-          }}
-        >
-          <div
-            style={{
-              background: '#FFFFFF',
-              borderRadius: '16px',
-              width: '100%',
-              maxWidth: '500px',
-              padding: '1.75rem',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
-              position: 'relative',
-              boxSizing: 'border-box',
-            }}
-          >
-            {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
-                {editingClient ? 'Edit Klien Perusahaan' : 'Tambah Klien Perusahaan'}
-              </h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                style={{ background: 'none', border: 'none', fontSize: '1.25rem', color: '#64748B', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
+      {/* Main Table Card */}
+      <Card>
+        <CardHeader className="border-b border-slate-100 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <CardTitle className="text-base font-bold text-slate-900">
+                Daftar Perusahaan Mitra & Alokasi Kuota
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500">
+                Data akses portal HRD, kuota tes aktif, dan ringkasan batch asesmen
+              </CardDescription>
             </div>
 
-            {formError && (
-              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', padding: '10px', borderRadius: '8px', fontSize: '13px', marginBottom: '1rem' }}>
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmitForm}>
-              
-              {/* Nama Perusahaan */}
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Nama Perusahaan / Instansi Klien *
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: PT Bank Mandiri (Persero) Tbk"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  style={inputStyle}
-                  required
-                />
-              </div>
-
-              {/* Username Login */}
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Username Login Portal Klien *
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: hrd_mandiri"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  style={inputStyle}
-                  required
-                />
-              </div>
-
-              {/* Email & Telepon */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                    Email HRD / Kontak
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="hrd@mandiri.co.id"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    style={inputStyle}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                    No. Telepon / WhatsApp
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="08123456789"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-
-              {/* Status & Password */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                    Status Akun
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    style={selectStyle}
-                  >
-                    <option value="active" style={{ color: '#0F172A', background: '#FFFFFF' }}>Aktif</option>
-                    <option value="inactive" style={{ color: '#0F172A', background: '#FFFFFF' }}>Nonaktif</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                    Password Akun
-                  </label>
-                  <input
-                    type="password"
-                    placeholder={editingClient ? 'Kosongkan jika tetap' : 'Password login'}
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    style={inputStyle}
-                  />
-                </div>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={submitting}
-                style={{
-                  width: '100%',
-                  background: '#0D9488',
-                  color: 'white',
-                  border: 'none',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  opacity: submitting ? 0.7 : 1,
-                  boxShadow: '0 2px 4px rgba(13, 148, 136, 0.2)',
-                }}
-              >
-                {submitting ? 'Menyimpan...' : 'Simpan Data Klien Perusahaan'}
-              </button>
-
-            </form>
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="Cari perusahaan, username, email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9 h-9 text-xs"
+              />
+            </div>
           </div>
-        </div>
-      )}
+        </CardHeader>
 
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Nama Perusahaan Klien</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Username Login</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Email & Kontak</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Alokasi Kuota Tes (Sisa/Total)</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Total Batch</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Status</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500 text-right">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-10 text-slate-400 text-sm">
+                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600" />
+                    Memuat data klien perusahaan...
+                  </TableCell>
+                </TableRow>
+              ) : filteredClients.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-10 text-slate-400 text-sm">
+                    Belum ada data perusahaan klien yang sesuai.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredClients.map((client) => (
+                  <TableRow key={client.id} className="hover:bg-slate-50/70 transition-colors">
+                    {/* Nama Perusahaan */}
+                    <TableCell className="font-semibold text-slate-900">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700 shrink-0">
+                          <Building2 className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm font-bold text-slate-900">{client.name}</span>
+                      </div>
+                    </TableCell>
+
+                    {/* Username */}
+                    <TableCell>
+                      <code className="bg-slate-100 text-slate-800 px-2 py-0.5 rounded text-xs font-mono font-bold">
+                        {client.username}
+                      </code>
+                    </TableCell>
+
+                    {/* Email & Kontak */}
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-700">
+                          <Mail className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{client.email || `${client.username}@klien.id`}</span>
+                        </div>
+                        {client.phone && (
+                          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                            <Phone className="w-3.5 h-3.5" />
+                            <span>{client.phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+
+                    {/* Kuota Tes */}
+                    <TableCell className="max-w-xs">
+                      {renderQuotasBadge(client)}
+                    </TableCell>
+
+                    {/* Total Batch */}
+                    <TableCell>
+                      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 gap-1 font-semibold text-xs">
+                        <Layers className="w-3 h-3" />
+                        <span>{client.totalBatches || 0} Sesi</span>
+                      </Badge>
+                    </TableCell>
+
+                    {/* Status Akun */}
+                    <TableCell>
+                      {client.status === 'active' ? (
+                        <Badge variant="success" className="gap-1 font-semibold text-xs">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Aktif</span>
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="gap-1 font-semibold text-xs">
+                          <XCircle className="w-3 h-3" />
+                          <span>Nonaktif</span>
+                        </Badge>
+                      )}
+                    </TableCell>
+
+                    {/* Aksi */}
+                    <TableCell className="text-right">
+                      <div className="inline-flex items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenEditModal(client)}
+                          className="h-8 px-2.5 text-xs gap-1 text-slate-700"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>Edit & Kuota</span>
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleStatus(client)}
+                          className={`h-8 px-2.5 text-xs gap-1 ${
+                            client.status === 'active'
+                              ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50'
+                              : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'
+                          }`}
+                        >
+                          <Power className="w-3.5 h-3.5" />
+                          <span>{client.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}</span>
+                        </Button>
+
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteClient(client)}
+                          className="h-8 px-2 text-xs"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Modal Dialog (Add / Edit Client & Quotas) */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900">
+              {editingClient ? 'Edit Klien Perusahaan & Kuota' : 'Tambah Klien Perusahaan Baru'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {formError && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-lg font-medium">
+              {formError}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmitForm} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-700">
+                Nama Perusahaan / Instansi Klien <span className="text-rose-500">*</span>
+              </label>
+              <Input
+                type="text"
+                placeholder="Contoh: PT Bank Mandiri (Persero) Tbk"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-700">
+                Username Login Portal Klien <span className="text-rose-500">*</span>
+              </label>
+              <Input
+                type="text"
+                placeholder="Contoh: hrd_mandiri"
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700">Email HRD</label>
+                <Input
+                  type="email"
+                  placeholder="hrd@mandiri.co.id"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700">No. WhatsApp</label>
+                <Input
+                  type="text"
+                  placeholder="08123456789"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700">Status Akun</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm transition-colors focus:border-teal-500 focus:outline-none"
+                >
+                  <option value="active">Aktif</option>
+                  <option value="inactive">Nonaktif</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700">Password Akun</label>
+                <Input
+                  type="password"
+                  placeholder={editingClient ? 'Kosongkan jika tetap' : 'Password login'}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Alokasi Kuota Per Alat Tes */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Coins className="w-4 h-4 text-teal-600" />
+                  <span>Alokasi Kuota Pengerjaan Per Alat Tes</span>
+                </span>
+                <span className="text-[11px] text-slate-400">Isi jumlah kuota yang diberikan</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                {AVAILABLE_TESTS.map((testName) => (
+                  <div key={testName} className="flex flex-col gap-1 bg-white p-2 rounded-md border border-slate-200">
+                    <span className="text-[11px] font-semibold text-slate-700 truncate">{testName}</span>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={formData.testQuotas[testName] ?? ''}
+                      onChange={(e) => handleQuotaChange(testName, e.target.value)}
+                      className="h-7 text-xs px-2"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsModalOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={submitting}
+                className="gap-2"
+              >
+                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                <span>{submitting ? 'Menyimpan...' : 'Simpan Klien & Kuota'}</span>
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

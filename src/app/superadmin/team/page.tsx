@@ -1,6 +1,45 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { 
+  UserPlus, 
+  Search, 
+  Pencil, 
+  Trash2, 
+  Power, 
+  ShieldCheck, 
+  Award, 
+  Users, 
+  Layers, 
+  CheckCircle2, 
+  XCircle, 
+  Loader2 
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 interface TestBatch {
   id: number;
@@ -87,15 +126,15 @@ export default function TeamManagementPage() {
     if (member.assignedTestIds) {
       try {
         parsedAssigned = JSON.parse(member.assignedTestIds);
-      } catch (e) {}
+      } catch {}
     }
 
     setFormData({
       name: member.name || '',
-      role: member.role || 'admin',
+      role: member.role || 'tester',
       status: member.status || 'active',
       license: member.license || '',
-      password: '', // Blank unless changed
+      password: '',
       assignedTestIds: parsedAssigned,
     });
     setFormError('');
@@ -147,7 +186,7 @@ export default function TeamManagementPage() {
       } else {
         setFormError(data.error || 'Terjadi kesalahan saat menyimpan data.');
       }
-    } catch (e: any) {
+    } catch {
       setFormError('Terjadi kesalahan koneksi server.');
     } finally {
       setSubmitting(false);
@@ -191,7 +230,6 @@ export default function TeamManagementPage() {
     }
   };
 
-  // Filtered members
   const filteredTeam = team.filter((m) => {
     const matchesSearch =
       (m.name || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -210,7 +248,6 @@ export default function TeamManagementPage() {
     return matchesSearch && matchesRole;
   });
 
-  // Metrics
   const totalPersonnel = team.length;
   const psikologCount = team.filter((m) => m.role === 'psikolog').length;
   const testerCount = team.filter((m) => m.role === 'tester').length;
@@ -219,573 +256,443 @@ export default function TeamManagementPage() {
   const getRoleBadge = (role: string) => {
     if (role === 'superadmin') {
       return (
-        <span style={{ background: '#E6F4EA', color: '#137333', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 700, display: 'inline-block' }}>
-          Super Administrator
-        </span>
+        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 font-bold text-xs gap-1">
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>Super Admin</span>
+        </Badge>
       );
     }
     if (role === 'psikolog') {
       return (
-        <span style={{ background: '#F3E8FF', color: '#6B21A8', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 700, display: 'inline-block' }}>
-          Psikolog Assessor
-        </span>
+        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 font-bold text-xs gap-1">
+          <Award className="w-3.5 h-3.5" />
+          <span>Psikolog Assessor</span>
+        </Badge>
       );
     }
     return (
-      <span style={{ background: '#E0F2FE', color: '#0369A1', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 700, display: 'inline-block' }}>
-        Tester
-      </span>
+      <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 font-bold text-xs gap-1">
+        <Users className="w-3.5 h-3.5" />
+        <span>Tester</span>
+      </Badge>
     );
   };
 
   const renderAssignedBatches = (member: TeamMember) => {
     if (member.role === 'superadmin') {
-      return <span style={{ color: '#047857', fontWeight: 600, fontSize: '12px' }}>🌐 Semua Batch (Akses Penuh)</span>;
+      return (
+        <span className="text-emerald-700 font-semibold text-xs inline-flex items-center gap-1">
+          🌐 Akses Semua Sesi
+        </span>
+      );
     }
     if (!member.assignedTestIds) {
-      return <span style={{ color: '#94A3B8', fontSize: '12px', fontStyle: 'italic' }}>Belum ditugaskan ke Batch</span>;
+      return <span className="text-slate-400 text-xs italic">Belum ditugaskan ke Batch</span>;
     }
 
     try {
       const ids: number[] = JSON.parse(member.assignedTestIds);
       if (!Array.isArray(ids) || ids.length === 0) {
-        return <span style={{ color: '#94A3B8', fontSize: '12px', fontStyle: 'italic' }}>Belum ditugaskan ke Batch</span>;
+        return <span className="text-slate-400 text-xs italic">Belum ditugaskan ke Batch</span>;
       }
 
       const assigned = availableTests.filter((t) => ids.includes(t.id));
-
       if (assigned.length === 0) {
-        return <span style={{ color: '#64748B', fontSize: '12px' }}>Batch #{ids.join(', #')}</span>;
+        return <span className="text-slate-500 text-xs">Batch #{ids.join(', #')}</span>;
       }
 
       return (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
+        <div className="flex flex-wrap gap-1">
           {assigned.map((t, idx) => (
-            <span key={idx} style={{ background: '#F1F5F9', color: '#334155', padding: '2px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, border: '1px solid #E2E8F0' }}>
-              📌 {t.title} <span style={{ color: '#64748B', fontWeight: 500 }}>(ID: {t.id})</span>
+            <span
+              key={idx}
+              className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded text-xs font-medium"
+            >
+              <Layers className="w-3 h-3 text-slate-400" />
+              <span>{t.title}</span>
             </span>
           ))}
         </div>
       );
-    } catch (e) {
-      return <span style={{ color: '#94A3B8', fontSize: '12px' }}>{member.assignedTestIds}</span>;
+    } catch {
+      return <span className="text-slate-400 text-xs">{member.assignedTestIds}</span>;
     }
   };
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '11px 14px',
-    borderRadius: '8px',
-    border: '1.5px solid #CBD5E1',
-    fontSize: '14px',
-    outline: 'none',
-    backgroundColor: '#FFFFFF',
-    color: '#0F172A',
-    fontWeight: 500,
-    boxSizing: 'border-box',
-  };
-
-  const selectStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '11px 14px',
-    borderRadius: '8px',
-    border: '1.5px solid #CBD5E1',
-    fontSize: '14px',
-    backgroundColor: '#FFFFFF',
-    color: '#0F172A',
-    fontWeight: 600,
-    outline: 'none',
-    cursor: 'pointer',
-    boxSizing: 'border-box',
-  };
-
   return (
-    <div style={{ padding: '1.5rem', background: '#F8FAFC', minHeight: '100vh', fontFamily: 'Inter, sans-serif' }}>
-      
-      {/* HEADER TITLE & BUTTON */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', margin: 0, marginBottom: '0.25rem' }}>
+    <div className="flex flex-col gap-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl font-bold tracking-tight text-slate-900">
             Pengelolaan Tim Psikotes & Penugasan Batch
           </h2>
-          <p style={{ color: '#64748B', fontSize: '0.9rem', margin: 0 }}>
+          <p className="text-sm text-slate-500">
             Kelola akun personel tim, hak akses peran, serta penugasan Batch / Sesi Ujian untuk Tester.
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAddModal}
-          style={{
-            background: '#0D9488',
-            color: 'white',
-            border: 'none',
-            padding: '10px 20px',
-            borderRadius: '8px',
-            fontWeight: 700,
-            fontSize: '14px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: '0 2px 4px rgba(13, 148, 136, 0.2)',
-            transition: 'all 0.2s ease',
-          }}
-        >
-          <span style={{ fontSize: '18px', fontWeight: 'bold' }}>+</span> Tambah Anggota Tim
-        </button>
+        <Button onClick={handleOpenAddModal} className="gap-2 self-start sm:self-auto">
+          <UserPlus className="w-4 h-4" />
+          <span>Tambah Anggota Tim</span>
+        </Button>
       </div>
 
-      {/* METRIC CARDS */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        
-        {/* TOTAL TIM */}
-        <div style={{ background: 'white', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '1.25rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748B', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-            TOTAL TIM
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0F172A' }}>
-            {totalPersonnel} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#475569' }}>Personel</span>
-          </div>
-        </div>
+      {/* KPI Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription className="text-xs uppercase font-bold tracking-wider text-slate-500">
+              Total Tim
+            </CardDescription>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-slate-900">{totalPersonnel}</span>
+              <span className="text-sm font-medium text-slate-500">Personel</span>
+            </div>
+          </CardHeader>
+        </Card>
 
-        {/* PSIKOLOG ASSESSOR */}
-        <div style={{ background: '#FAF5FF', border: '1px solid #E9D5FF', borderRadius: '12px', padding: '1.25rem' }}>
-          <div style={{ fontSize: '11px', fontWeight: 800, color: '#7E22CE', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-            PSIKOLOG ASSESSOR
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#6B21A8' }}>
-            {psikologCount} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#7E22CE' }}>Personel</span>
-          </div>
-        </div>
+        <Card className="bg-purple-50/50 border-purple-200">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-xs uppercase font-bold tracking-wider text-purple-700">
+              Psikolog Assessor
+            </CardDescription>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-purple-700">{psikologCount}</span>
+              <span className="text-sm font-medium text-purple-600">Personel</span>
+            </div>
+          </CardHeader>
+        </Card>
 
-        {/* TESTER */}
-        <div style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '12px', padding: '1.25rem' }}>
-          <div style={{ fontSize: '11px', fontWeight: 800, color: '#0369A1', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-            TESTER
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0284C7' }}>
-            {testerCount} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#0369A1' }}>Personel</span>
-          </div>
-        </div>
+        <Card className="bg-sky-50/50 border-sky-200">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-xs uppercase font-bold tracking-wider text-sky-700">
+              Tester Operasional
+            </CardDescription>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-sky-600">{testerCount}</span>
+              <span className="text-sm font-medium text-sky-700">Personel</span>
+            </div>
+          </CardHeader>
+        </Card>
 
-        {/* SUPER ADMINISTRATOR */}
-        <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '12px', padding: '1.25rem' }}>
-          <div style={{ fontSize: '11px', fontWeight: 800, color: '#15803D', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '0.5rem' }}>
-            SUPER ADMINISTRATOR
-          </div>
-          <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#16A34A' }}>
-            {superAdminCount} <span style={{ fontSize: '1rem', fontWeight: 600, color: '#15803D' }}>Personel</span>
-          </div>
-        </div>
-
+        <Card className="bg-emerald-50/50 border-emerald-200">
+          <CardHeader className="pb-2">
+            <CardDescription className="text-xs uppercase font-bold tracking-wider text-emerald-700">
+              Super Admin
+            </CardDescription>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-extrabold text-emerald-600">{superAdminCount}</span>
+              <span className="text-sm font-medium text-emerald-700">Personel</span>
+            </div>
+          </CardHeader>
+        </Card>
       </div>
 
-      {/* MAIN CONTAINER */}
-      <div style={{ background: 'white', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '1.5rem', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-        
-        {/* SEARCH & ROLE FILTER BAR */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
-          
-          {/* Search Box */}
-          <div style={{ position: 'relative', width: '320px', maxWidth: '100%' }}>
-            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8', fontSize: '14px' }}>🔍</span>
-            <input
-              type="text"
-              placeholder="Cari nama, SIPP..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '9px 12px 9px 36px',
-                borderRadius: '8px',
-                border: '1.5px solid #CBD5E1',
-                fontSize: '14px',
-                outline: 'none',
-                backgroundColor: '#FFFFFF',
-                color: '#0F172A',
-              }}
-            />
-          </div>
-
-          {/* Role Filter */}
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            style={{
-              padding: '9px 14px',
-              borderRadius: '8px',
-              border: '1.5px solid #CBD5E1',
-              fontSize: '14px',
-              backgroundColor: '#FFFFFF',
-              color: '#0F172A',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
-            <option value="ALL" style={{ color: '#0F172A', background: '#FFFFFF' }}>Semua Peran (Role)</option>
-            <option value="superadmin" style={{ color: '#0F172A', background: '#FFFFFF' }}>Super Administrator</option>
-            <option value="psikolog" style={{ color: '#0F172A', background: '#FFFFFF' }}>Psikolog Assessor</option>
-            <option value="tester" style={{ color: '#0F172A', background: '#FFFFFF' }}>Tester</option>
-          </select>
-        </div>
-
-        {/* TABLE */}
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
-                <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  NAMA PERSONEL & LISENSI
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  PERAN / ROLE
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  PENUGASAN BATCH (SESI)
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  STATUS AKUN
-                </th>
-                <th style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right' }}>
-                  AKSI (CRUD)
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: '#64748B' }}>
-                    Memuat data tim...
-                  </td>
-                </tr>
-              ) : filteredTeam.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: '#64748B' }}>
-                    Tidak ada anggota tim yang sesuai dengan kriteria.
-                  </td>
-                </tr>
-              ) : (
-                filteredTeam.map((member) => (
-                  <tr key={member.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                    
-                    {/* NAMA & LISENSI */}
-                    <td style={{ padding: '16px' }}>
-                      <div style={{ fontWeight: 700, color: '#0F172A', fontSize: '14px' }}>
-                        {member.name}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
-                        {member.license || (member.role === 'superadmin' ? 'Super Administrator / System Architect' : 'Admin Tester Operasional')}
-                      </div>
-                    </td>
-
-                    {/* PERAN / ROLE */}
-                    <td style={{ padding: '16px' }}>
-                      {getRoleBadge(member.role)}
-                    </td>
-
-                    {/* PENUGASAN BATCH */}
-                    <td style={{ padding: '16px' }}>
-                      {renderAssignedBatches(member)}
-                    </td>
-
-                    {/* STATUS AKUN */}
-                    <td style={{ padding: '16px' }}>
-                      {member.status === 'inactive' ? (
-                        <span style={{ background: '#F1F5F9', color: '#64748B', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 700 }}>
-                          • Nonaktif
-                        </span>
-                      ) : (
-                        <span style={{ background: '#DCFCE7', color: '#166534', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 700 }}>
-                          • Aktif
-                        </span>
-                      )}
-                    </td>
-
-                    {/* AKSI */}
-                    <td style={{ padding: '16px', textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '6px' }}>
-                        
-                        {/* Edit Button */}
-                        <button
-                          onClick={() => handleOpenEditModal(member)}
-                          style={{
-                            background: '#F1F5F9',
-                            color: '#334155',
-                            border: '1px solid #CBD5E1',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Edit
-                        </button>
-
-                        {/* Toggle Status Button */}
-                        <button
-                          onClick={() => handleToggleStatus(member)}
-                          style={{
-                            background: '#F1F5F9',
-                            color: member.status === 'active' ? '#D97706' : '#166534',
-                            border: '1px solid #CBD5E1',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {member.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}
-                        </button>
-
-                        {/* Delete Button */}
-                        <button
-                          onClick={() => handleDeleteMember(member)}
-                          style={{
-                            background: '#FEF2F2',
-                            color: '#DC2626',
-                            border: '1px solid #FCA5A5',
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Hapus
-                        </button>
-                      </div>
-                    </td>
-
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-      </div>
-
-      {/* MODAL DIALOG (ADD / EDIT) */}
-      {isModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(15, 23, 42, 0.6)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 9999,
-            padding: '1rem',
-          }}
-        >
-          <div
-            style={{
-              background: '#FFFFFF',
-              borderRadius: '16px',
-              width: '100%',
-              maxWidth: '560px',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              padding: '1.75rem',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.15)',
-              position: 'relative',
-              boxSizing: 'border-box',
-            }}
-          >
-            {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#0F172A' }}>
-                {editingMember ? 'Edit Anggota Tim Psikotes' : 'Tambah Anggota Tim Psikotes'}
-              </h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                style={{ background: 'none', border: 'none', fontSize: '1.25rem', color: '#64748B', cursor: 'pointer' }}
-              >
-                ✕
-              </button>
+      {/* Main Table Card */}
+      <Card>
+        <CardHeader className="border-b border-slate-100 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <CardTitle className="text-base font-bold text-slate-900">
+                Daftar Personel Tim Psikotes
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500">
+                Hak akses dan alokasi sesi ujian psikotes berbasis peran
+              </CardDescription>
             </div>
 
-            {formError && (
-              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#B91C1C', padding: '10px', borderRadius: '8px', fontSize: '13px', marginBottom: '1rem' }}>
-                {formError}
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  type="text"
+                  placeholder="Cari nama, SIPP..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 h-9 text-xs"
+                />
+              </div>
+
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm font-semibold text-slate-700 focus:outline-none focus:border-teal-500"
+              >
+                <option value="ALL">Semua Peran</option>
+                <option value="superadmin">Super Admin</option>
+                <option value="psikolog">Psikolog Assessor</option>
+                <option value="tester">Tester</option>
+              </select>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Nama Personel & Lisensi</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Peran / Role</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Penugasan Batch</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Status Akun</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500 text-right">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10 text-slate-400 text-sm">
+                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600" />
+                    Memuat data tim...
+                  </TableCell>
+                </TableRow>
+              ) : filteredTeam.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10 text-slate-400 text-sm">
+                    Tidak ada anggota tim yang sesuai dengan kriteria.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredTeam.map((member) => (
+                  <TableRow key={member.id} className="hover:bg-slate-50/70 transition-colors">
+                    {/* Nama & Lisensi */}
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-bold text-slate-900">{member.name}</span>
+                        <span className="text-xs text-slate-500">
+                          {member.license || (member.role === 'superadmin' ? 'Super Administrator / System Architect' : 'Tester Operasional')}
+                        </span>
+                      </div>
+                    </TableCell>
+
+                    {/* Role */}
+                    <TableCell>
+                      {getRoleBadge(member.role)}
+                    </TableCell>
+
+                    {/* Penugasan */}
+                    <TableCell className="max-w-xs">
+                      {renderAssignedBatches(member)}
+                    </TableCell>
+
+                    {/* Status */}
+                    <TableCell>
+                      {member.status === 'active' ? (
+                        <Badge variant="success" className="gap-1 font-semibold text-xs">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>Aktif</span>
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="gap-1 font-semibold text-xs">
+                          <XCircle className="w-3 h-3" />
+                          <span>Nonaktif</span>
+                        </Badge>
+                      )}
+                    </TableCell>
+
+                    {/* Aksi */}
+                    <TableCell className="text-right">
+                      <div className="inline-flex items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenEditModal(member)}
+                          className="h-8 px-2.5 text-xs gap-1 text-slate-700"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleStatus(member)}
+                          className={`h-8 px-2.5 text-xs gap-1 ${
+                            member.status === 'active'
+                              ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50'
+                              : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'
+                          }`}
+                        >
+                          <Power className="w-3.5 h-3.5" />
+                          <span>{member.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}</span>
+                        </Button>
+
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteMember(member)}
+                          className="h-8 px-2 text-xs"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Modal Dialog (Add / Edit Team Member) */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900">
+              {editingMember ? 'Edit Anggota Tim Psikotes' : 'Tambah Anggota Tim Psikotes'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {formError && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-lg font-medium">
+              {formError}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmitForm} autoComplete="off" className="flex flex-col gap-4">
+            <input type="text" name="prevent_autofill_username" className="hidden" tabIndex={-1} autoComplete="off" />
+            <input type="password" name="prevent_autofill_password" className="hidden" tabIndex={-1} autoComplete="new-password" />
+
+            {/* Nama Lengkap */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-700">
+                Nama Lengkap <span className="text-rose-500">*</span>
+              </label>
+              <Input
+                type="text"
+                placeholder="Contoh: Dra. Ani Suryani, M.Psi"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                autoComplete="off"
+              />
+            </div>
+
+            {/* Role & Status */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700">Peran / Hak Akses</label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                >
+                  <option value="tester">Tester</option>
+                  <option value="psikolog">Psikolog Assessor</option>
+                  <option value="superadmin">Super Administrator</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700">Status Akun</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                >
+                  <option value="active">Aktif</option>
+                  <option value="inactive">Nonaktif</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Batch Assignments */}
+            {formData.role !== 'superadmin' && (
+              <div className="flex flex-col gap-2 p-3 rounded-lg border border-slate-200 bg-slate-50/60">
+                <label className="text-xs font-bold text-slate-800">
+                  🎯 Penugasan Batch (Sesi Ujian)
+                </label>
+                <p className="text-xs text-slate-500">
+                  Pilih Batch / Sesi Ujian mana saja yang dapat diakses oleh {formData.role === 'psikolog' ? 'Psikolog' : 'Tester'} ini.
+                </p>
+
+                {availableTests.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">
+                    Belum ada Batch / Sesi Ujian yang dibuat di menu Penjadwalan.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
+                    {availableTests.map((t) => {
+                      const isChecked = formData.assignedTestIds.includes(t.id);
+                      return (
+                        <label
+                          key={t.id}
+                          className={`flex items-center gap-2.5 p-2 rounded-md border text-xs cursor-pointer transition-colors ${
+                            isChecked 
+                              ? 'bg-teal-50/80 border-teal-200 text-teal-900 font-semibold' 
+                              : 'bg-white border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleBatchCheck(t.id)}
+                            className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                          />
+                          <div className="flex flex-col gap-0.5">
+                            <span>{t.title} <span className="text-slate-400 font-normal">(ID: {t.id})</span></span>
+                            {t.jobPosition?.name && (
+                              <span className="text-[11px] text-slate-500">Jabatan: {t.jobPosition.name}</span>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
-            <form onSubmit={handleSubmitForm} autoComplete="off">
-              {/* Dummy hidden inputs to prevent browser autofill on real form inputs */}
-              <input type="text" name="prevent_autofill_username" style={{ display: 'none' }} tabIndex={-1} autoComplete="off" />
-              <input type="password" name="prevent_autofill_password" style={{ display: 'none' }} tabIndex={-1} autoComplete="new-password" />
+            {/* Lisensi SIPP */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-700">
+                Lisensi SIPP / Spesialisasi / Catatan
+              </label>
+              <Input
+                type="text"
+                placeholder="Contoh: 554-12/SIPP-HIPSI/2022 (Klinis & Industri)"
+                value={formData.license}
+                onChange={(e) => setFormData({ ...formData, license: e.target.value })}
+              />
+            </div>
 
-              {/* Nama Lengkap */}
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Nama Lengkap
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: Dra. Ani Suryani, M.Psi"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  style={inputStyle}
-                  required
-                  autoComplete="off"
-                  name="team_member_fullname"
-                />
-              </div>
+            {/* Password */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-700">
+                Password Akun
+              </label>
+              <Input
+                type="password"
+                placeholder={editingMember ? 'Kosongkan jika tidak diubah' : 'Masukkan password baru'}
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              />
+            </div>
 
-              {/* Role & Status */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                    Peran / Hak Akses (Role)
-                  </label>
-                  <select
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    style={selectStyle}
-                  >
-                    <option value="tester" style={{ color: '#0F172A', background: '#FFFFFF' }}>Tester</option>
-                    <option value="psikolog" style={{ color: '#0F172A', background: '#FFFFFF' }}>Psikolog Assessor</option>
-                    <option value="superadmin" style={{ color: '#0F172A', background: '#FFFFFF' }}>Super Administrator</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                    Status Akun
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    style={selectStyle}
-                  >
-                    <option value="active" style={{ color: '#0F172A', background: '#FFFFFF' }}>Aktif</option>
-                    <option value="inactive" style={{ color: '#0F172A', background: '#FFFFFF' }}>Nonaktif</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* PENUGASAN BATCH (SESI UJIAN) */}
-              {formData.role !== 'superadmin' && (
-                <div style={{ marginBottom: '1.25rem', background: '#F8FAFC', padding: '1rem', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 800, color: '#0F172A', marginBottom: '4px' }}>
-                    🎯 Penugasan Batch (Sesi Ujian)
-                  </label>
-                  <p style={{ fontSize: '12px', color: '#64748B', margin: '0 0 10px 0' }}>
-                    Pilih Batch / Sesi Ujian mana saja yang dapat diakses dan dilihat oleh {formData.role === 'psikolog' ? 'Psikolog' : 'Tester'} ini.
-                  </p>
-
-                  {availableTests.length === 0 ? (
-                    <div style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic' }}>
-                      Belum ada Batch / Sesi Ujian yang dibuat di menu Penjadwalan.
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '160px', overflowY: 'auto', paddingRight: '4px' }}>
-                      {availableTests.map((t) => {
-                        const isChecked = formData.assignedTestIds.includes(t.id);
-                        return (
-                          <label
-                            key={t.id}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '10px',
-                              padding: '8px 12px',
-                              background: isChecked ? '#EFF6FF' : '#FFFFFF',
-                              border: isChecked ? '1.5px solid #3B82F6' : '1px solid #CBD5E1',
-                              borderRadius: '8px',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              fontWeight: isChecked ? 700 : 500,
-                              color: isChecked ? '#1E40AF' : '#334155',
-                              transition: 'all 0.15s ease',
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => handleToggleBatchCheck(t.id)}
-                              style={{ width: '16px', height: '16px', accentColor: '#0D9488', cursor: 'pointer' }}
-                            />
-                            <div style={{ flex: 1 }}>
-                              <div>{t.title} <span style={{ color: '#64748B', fontWeight: 500, fontSize: '11px' }}>(ID: {t.id})</span></div>
-                              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 400, marginTop: '2px' }}>
-                                {t.jobPosition?.name && `Jabatan: ${t.jobPosition.name}`}
-                                {t.startDate && ` | Mulai: ${new Date(t.startDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}`}
-                              </div>
-                            </div>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Lisensi SIPP */}
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Lisensi SIPP / Spesialisasi / Catatan
-                </label>
-                <input
-                  type="text"
-                  placeholder="Contoh: 554-12/SIPP-HIPSI/2022 (Klinis & Industri)"
-                  value={formData.license}
-                  onChange={(e) => setFormData({ ...formData, license: e.target.value })}
-                  style={inputStyle}
-                  autoComplete="off"
-                  name="team_member_license"
-                />
-              </div>
-
-              {/* Password */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '6px' }}>
-                  Password Akun
-                </label>
-                <input
-                  type="password"
-                  placeholder={editingMember ? 'Kosongkan jika tidak diubah' : 'Masukkan password baru'}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  style={inputStyle}
-                  autoComplete="new-password"
-                  name="team_member_password"
-                />
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={submitting}
-                style={{
-                  width: '100%',
-                  background: '#0D9488',
-                  color: 'white',
-                  border: 'none',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  opacity: submitting ? 0.7 : 1,
-                  boxShadow: '0 2px 4px rgba(13, 148, 136, 0.2)',
-                }}
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsModalOpen(false)}
               >
-                {submitting ? 'Menyimpan...' : 'Simpan Data Personel Tim'}
-              </button>
-
-            </form>
-          </div>
-        </div>
-      )}
-
+                Batal
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={submitting}
+                className="gap-2"
+              >
+                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                <span>{submitting ? 'Menyimpan...' : 'Simpan Personel'}</span>
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

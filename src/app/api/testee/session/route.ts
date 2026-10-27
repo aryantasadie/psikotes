@@ -12,8 +12,9 @@ export async function GET() {
 
   const userId = parseInt((session.user as any).id);
 
+  // Find most recent participant record for this user
   const participant = await prisma.testParticipant.findFirst({
-    where: { userId, status: { not: 'completed' } },
+    where: { userId },
     include: { 
       test: true,
       rawResults: { select: { testType: true } },
@@ -26,6 +27,27 @@ export async function GET() {
     return NextResponse.json({ sequence: [], completedTests: [] });
   }
 
+  let sequence: string[] = [];
+  try {
+    sequence = JSON.parse(participant.test?.sequence || '[]');
+  } catch (e) {
+    sequence = [];
+  }
+
+  // If already completed
+  if (participant.status === 'completed') {
+    return NextResponse.json({
+      participantId: participant.id,
+      sequence,
+      completedTests: sequence,
+      nextTest: null,
+      isAllCompleted: true,
+      isPaused: false,
+      isStopped: false,
+      message: 'Semua ujian telah selesai dikerjakan.'
+    });
+  }
+
   if (participant.status === 'stopped') {
     return NextResponse.json({
       isStopped: true,
@@ -34,13 +56,6 @@ export async function GET() {
       completedTests: [],
       message: 'Ujian Anda telah dihentikan oleh pengawas.'
     });
-  }
-
-  let sequence: string[] = [];
-  try {
-    sequence = JSON.parse(participant.test?.sequence || '[]');
-  } catch (e) {
-    sequence = [];
   }
 
   const completedTypesInDb = new Set<string>();
@@ -71,6 +86,17 @@ export async function GET() {
   const nextTestIndex = sequence.findIndex(t => !completedTests.includes(t));
   const isAllCompleted = sequence.length > 0 && nextTestIndex === -1;
   const nextTest = isAllCompleted || sequence.length === 0 ? null : sequence[nextTestIndex];
+
+  // Auto mark completed in DB if all finished
+  if (isAllCompleted && participant.status !== 'completed') {
+    await prisma.testParticipant.update({
+      where: { id: participant.id },
+      data: {
+        status: 'completed',
+        endTime: new Date()
+      }
+    }).catch(() => {});
+  }
 
   // Pause / Breakpoint check
   const isDirectlyPaused = Boolean(participant.isPaused) || Boolean(participant.test?.isPaused);
@@ -187,7 +213,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Nama wajib diisi' }, { status: 400 });
     }
 
-    // Update user's name in the database
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { name: sanitizedName }

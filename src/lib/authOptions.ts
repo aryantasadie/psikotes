@@ -49,13 +49,17 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.assignedTestIds = (user as any).assignedTestIds;
       } else if (token.id) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: Number(token.id) },
-          select: { assignedTestIds: true, role: true }
-        });
-        if (dbUser) {
-          token.assignedTestIds = dbUser.assignedTestIds;
-          token.role = dbUser.role;
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: Number(token.id) },
+            select: { assignedTestIds: true, role: true }
+          });
+          if (dbUser) {
+            token.assignedTestIds = dbUser.assignedTestIds;
+            token.role = dbUser.role;
+          }
+        } catch (err) {
+          console.warn('Retaining cached token');
         }
       }
       return token;

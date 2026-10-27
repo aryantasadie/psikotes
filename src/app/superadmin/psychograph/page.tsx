@@ -2,6 +2,35 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { 
+  Plus, 
+  Search, 
+  Pencil, 
+  Trash2, 
+  Layers, 
+  Building2, 
+  Calendar, 
+  Sliders, 
+  Loader2 
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table';
 
 export default function PsychographPresetList() {
   const [presets, setPresets] = useState<any[]>([]);
@@ -39,86 +68,84 @@ export default function PsychographPresetList() {
   });
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-[16px] font-bold text-slate-900">Daftar Kompetensi & Alat Tes</h2>
-          <p className="text-[12px] text-slate-400 mt-0.5">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl font-bold tracking-tight text-slate-900">
+            Daftar Kompetensi & Alat Tes
+          </h2>
+          <p className="text-sm text-slate-500">
             Kelola template aspek penilaian kompetensi, instrumen alat tes, dan psikogram
           </p>
         </div>
-        <Link
-          href="/superadmin/psychograph/builder"
-          className="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white text-[12px] font-bold px-4 py-2.5 rounded-xl transition-colors shadow-sm self-start sm:self-auto"
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Buat Template Kompetensi
-        </Link>
+
+        <Button asChild className="gap-2 self-start sm:self-auto">
+          <Link href="/superadmin/psychograph/builder">
+            <Plus className="w-4 h-4" />
+            <span>Buat Template Kompetensi</span>
+          </Link>
+        </Button>
       </div>
 
-      {/* Main Standard Table Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
-        {/* Table Search & Title Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-          <div>
-            <h3 className="text-[14px] font-bold text-slate-900">Tabel Kompetensi & Alat Tes</h3>
-            <p className="text-[12px] text-slate-400 mt-0.5">
-              Daftar seluruh baterai instrumen tes dan aspek penilaian per profil
-            </p>
-          </div>
+      {/* Main Table Card */}
+      <Card>
+        <CardHeader className="border-b border-slate-100 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <CardTitle className="text-base font-bold text-slate-900">
+                Tabel Kompetensi & Alat Tes
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500">
+                Daftar seluruh baterai instrumen tes dan aspek penilaian per profil
+              </CardDescription>
+            </div>
 
-          <div className="w-full sm:w-72">
-            <input
-              type="text"
-              placeholder="Cari kompetensi, alat tes, perusahaan…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full px-3.5 py-2 border border-slate-200 rounded-xl text-[12px] text-slate-900 focus:outline-none focus:border-teal-400 placeholder-slate-400 bg-white"
-            />
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="Cari kompetensi, alat tes, perusahaan…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-9 h-9 text-xs"
+              />
+            </div>
           </div>
-        </div>
+        </CardHeader>
 
-        {/* Standardized Table */}
-        <div className="overflow-x-auto border border-slate-200 rounded-xl">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Profil Kompetensi & Alat Tes</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Untuk Perusahaan Mana</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Dibuat Kapan</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Aspek Penilaian</th>
-                <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50">
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Profil Kompetensi & Alat Tes</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Perusahaan Mitra</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Dibuat Kapan</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Total Aspek Penilaian</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500 text-right">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-slate-400 text-[12px]">
-                    <div className="w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                    Memuat data kompetensi & alat tes…
-                  </td>
-                </tr>
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10 text-slate-400 text-sm">
+                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600" />
+                    Memuat data kompetensi…
+                  </TableCell>
+                </TableRow>
               ) : filteredPresets.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-slate-400 text-[12px]">
-                    {search ? 'Tidak ada data yang sesuai dengan pencarian.' : 'Belum ada template kompetensi & alat tes yang dibuat.'}
-                  </td>
-                </tr>
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10 text-slate-400 text-sm">
+                    {search ? 'Tidak ada data yang sesuai dengan pencarian.' : 'Belum ada template kompetensi yang dibuat.'}
+                  </TableCell>
+                </TableRow>
               ) : (
                 filteredPresets.map(preset => {
-                  let mapping: any[] = [];
+                  let aspectCount = 0;
                   try {
-                    mapping = JSON.parse(preset.mapping || '[]');
+                    const parsed = JSON.parse(preset.aspects || '[]');
+                    aspectCount = Array.isArray(parsed) ? parsed.length : 0;
                   } catch {}
-
-                  const totalAspects = mapping.reduce(
-                    (acc: number, cat: any) =>
-                      acc + (cat.aspects || []).filter((a: any) => a.checked !== false).length,
-                    0
-                  );
 
                   const clientNames = Array.from(
                     new Set(
@@ -127,7 +154,7 @@ export default function PsychographPresetList() {
                         .filter(Boolean)
                     )
                   );
-                  const displayCompany = clientNames.length > 0 ? clientNames.join(', ') : 'Standar Umum / Multi Klien';
+                  const displayClient = clientNames.length > 0 ? clientNames.join(', ') : 'Umum / Semua Klien';
 
                   const dateStr = preset.createdAt
                     ? new Date(preset.createdAt).toLocaleDateString('id-ID', {
@@ -138,64 +165,74 @@ export default function PsychographPresetList() {
                     : '—';
 
                   return (
-                    <tr key={preset.id} className="hover:bg-slate-50 transition-colors">
-                      {/* 1. Nama profil / template */}
-                      <td className="px-4 py-3.5">
-                        <p className="text-[13px] font-bold text-slate-900">{preset.name}</p>
-                        {preset.jobPositions && preset.jobPositions.length > 0 && (
-                          <p className="text-[11px] text-slate-400 mt-0.5">
-                            Digunakan di: {preset.jobPositions.map((jp: any) => jp.name).join(', ')}
-                          </p>
-                        )}
-                      </td>
+                    <TableRow key={preset.id} className="hover:bg-slate-50/70 transition-colors">
+                      {/* 1. Profil */}
+                      <TableCell>
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700 shrink-0">
+                            <Sliders className="w-4 h-4" />
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-sm font-bold text-slate-900">{preset.name}</span>
+                            {preset.description && (
+                              <span className="text-xs text-slate-400 line-clamp-1">{preset.description}</span>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
 
-                      {/* 2. Untuk perusahaan mana */}
-                      <td className="px-4 py-3.5">
-                        <span className="text-[11px] font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-md inline-block">
-                          {displayCompany}
-                        </span>
-                      </td>
+                      {/* 2. Perusahaan */}
+                      <TableCell>
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
+                          <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{displayClient}</span>
+                        </div>
+                      </TableCell>
 
                       {/* 3. Dibuat kapan */}
-                      <td className="px-4 py-3.5 text-[12px] text-slate-500">
-                        {dateStr}
-                      </td>
+                      <TableCell className="text-xs text-slate-500">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{dateStr}</span>
+                        </div>
+                      </TableCell>
 
-                      {/* 4. Total aspek nya berapa */}
-                      <td className="px-4 py-3.5">
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 rounded-full">
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          {totalAspects} Aspek Penilaian
-                        </span>
-                      </td>
+                      {/* 4. Total Aspek */}
+                      <TableCell>
+                        <Badge variant="outline" className="w-fit text-xs bg-teal-50 text-teal-700 border-teal-200 gap-1 font-semibold">
+                          <Layers className="w-3 h-3" />
+                          <span>{aspectCount} Aspek Penilaian</span>
+                        </Badge>
+                      </TableCell>
 
                       {/* 5. Aksi */}
-                      <td className="px-4 py-3.5 text-right">
+                      <TableCell className="text-right">
                         <div className="inline-flex items-center gap-1.5">
-                          <Link
-                            href={`/superadmin/psychograph/builder?id=${preset.id}`}
-                            className="text-[11px] font-semibold border border-slate-200 text-slate-700 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors"
-                          >
-                            Edit Template
-                          </Link>
-                          <button
+                          <Button asChild variant="outline" size="sm" className="h-8 px-2.5 text-xs gap-1">
+                            <Link href={`/superadmin/psychograph/builder?id=${preset.id}`}>
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span>Edit Template</span>
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
                             onClick={() => handleDelete(preset.id)}
-                            className="text-[11px] font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                            className="h-8 px-2.5 text-xs gap-1"
                           >
-                            Hapus
-                          </button>
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Hapus</span>
+                          </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

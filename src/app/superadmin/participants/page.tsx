@@ -2,6 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import {
+  FolderKanban,
+  Users,
+  CheckCircle2,
+  Clock,
+  ClipboardList,
+  ArrowLeft,
+  Search,
+} from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface Participant {
   id: number;
@@ -98,13 +119,17 @@ export default function ParticipantsPage() {
     const title = test.title || 'Sesi Tanpa Judul';
     const startDate = test.startDate;
     const clientName = test.client?.name || 'Umum / Internal';
-    const jobPositionName = test.jobPosition?.name || title.split('-')[0]?.trim() || 'General';
+    const jobPositionName = test.jobPosition?.name || '-';
 
-    let testToolsArr = [];
+    let batteryTestStr = '-';
     if (test.sequence) {
-      try { testToolsArr = JSON.parse(test.sequence); } catch(e){}
+      try {
+        const parsed = JSON.parse(test.sequence);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          batteryTestStr = parsed.join(' + ');
+        }
+      } catch (e) {}
     }
-    const batteryTestStr = testToolsArr.length > 0 ? testToolsArr.join(' + ') : 'coba';
 
     batchesMap.set(testId, {
       id: testId,
@@ -114,28 +139,32 @@ export default function ParticipantsPage() {
       clientName,
       jobPositionName,
       totalParticipants: 0,
-      completedParticipants: 0
+      completedParticipants: 0,
     });
   });
 
-  // Count participants for each batch
-  participants.forEach(p => {
-    const testId = p.testId || p.test?.id || 0;
-    let b = batchesMap.get(testId);
-    if (!b) {
-      const testObj = p.test || {};
-      const title = testObj.title || 'Sesi Tanpa Judul';
-      const startDate = p.startTime || testObj.startDate;
-      const clientName = testObj.client?.name || 'Umum / Internal';
-      const jobPositionName = p.test?.jobPosition?.name || title.split('-')[0]?.trim() || 'General';
+  // Calculate actual participant stats per batch
+  participants.forEach((p) => {
+    const testId = p.testId || p.test?.id;
+    if (!testId) return;
 
-      let testToolsArr = [];
-      if (testObj.sequence) {
-        try { testToolsArr = JSON.parse(testObj.sequence); } catch(e){}
+    if (!batchesMap.has(testId)) {
+      const title = p.test?.title || 'Sesi Tanpa Judul';
+      const startDate = p.test?.startDate;
+      const clientName = p.test?.client?.name || 'Umum / Internal';
+      const jobPositionName = p.test?.jobPosition?.name || '-';
+
+      let batteryTestStr = '-';
+      if (p.test?.sequence) {
+        try {
+          const parsed = JSON.parse(p.test.sequence);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            batteryTestStr = parsed.join(' + ');
+          }
+        } catch (e) {}
       }
-      const batteryTestStr = testToolsArr.length > 0 ? testToolsArr.join(' + ') : 'coba';
 
-      b = {
+      batchesMap.set(testId, {
         id: testId,
         title,
         startDate,
@@ -143,11 +172,11 @@ export default function ParticipantsPage() {
         clientName,
         jobPositionName,
         totalParticipants: 0,
-        completedParticipants: 0
-      };
-      batchesMap.set(testId, b);
+        completedParticipants: 0,
+      });
     }
 
+    const b = batchesMap.get(testId)!;
     b.totalParticipants += 1;
     if (p.status === 'completed') {
       b.completedParticipants += 1;
@@ -186,180 +215,214 @@ export default function ParticipantsPage() {
   const totalPending = participants.filter((p) => p.status === 'pending').length;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       
       {/* ── KPI Cards (Always visible) ── */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="w-9 h-9 rounded-xl border border-sky-100 bg-sky-50 text-sky-600 flex items-center justify-center mb-3 text-lg">📁</div>
-          <p className="text-[26px] font-black leading-none text-sky-700">{batchesList.length}</p>
-          <p className="text-[13px] font-semibold text-slate-700 mt-1">Total Sesi Ujian</p>
-        </div>
+        <Card>
+          <CardContent className="p-5 flex flex-col gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-sky-100 bg-sky-50 text-sky-700">
+              <FolderKanban className="h-5 w-5" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-2xl font-black text-sky-800 leading-none">{batchesList.length}</span>
+              <span className="text-xs font-semibold text-slate-700 mt-1">Total Sesi Ujian</span>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="w-9 h-9 rounded-xl border border-violet-100 bg-violet-50 text-violet-600 flex items-center justify-center mb-3 text-lg">👥</div>
-          <p className="text-[26px] font-black leading-none text-violet-700">{totalParticipantsCount}</p>
-          <p className="text-[13px] font-semibold text-slate-700 mt-1">Total Peserta</p>
-        </div>
+        <Card>
+          <CardContent className="p-5 flex flex-col gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-violet-100 bg-violet-50 text-violet-700">
+              <Users className="h-5 w-5" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-2xl font-black text-violet-800 leading-none">{totalParticipantsCount}</span>
+              <span className="text-xs font-semibold text-slate-700 mt-1">Total Peserta</span>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="w-9 h-9 rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3 text-lg">✅</div>
-          <p className="text-[26px] font-black leading-none text-emerald-700">{totalCompleted}</p>
-          <p className="text-[13px] font-semibold text-slate-700 mt-1">Selesai Ujian</p>
-        </div>
+        <Card>
+          <CardContent className="p-5 flex flex-col gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-700">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-2xl font-black text-emerald-800 leading-none">{totalCompleted}</span>
+              <span className="text-xs font-semibold text-slate-700 mt-1">Selesai Ujian</span>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="w-9 h-9 rounded-xl border border-amber-100 bg-amber-50 text-amber-600 flex items-center justify-center mb-3 text-lg">⏳</div>
-          <p className="text-[26px] font-black leading-none text-amber-700">{totalInProgress}</p>
-          <p className="text-[13px] font-semibold text-slate-700 mt-1">Sedang Mengerjakan</p>
-        </div>
+        <Card>
+          <CardContent className="p-5 flex flex-col gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-amber-700">
+              <Clock className="h-5 w-5" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-2xl font-black text-amber-800 leading-none">{totalInProgress}</span>
+              <span className="text-xs font-semibold text-slate-700 mt-1">Sedang Mengerjakan</span>
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="w-9 h-9 rounded-xl border border-slate-100 bg-slate-50 text-slate-600 flex items-center justify-center mb-3 text-lg">📝</div>
-          <p className="text-[26px] font-black leading-none text-slate-600">{totalPending}</p>
-          <p className="text-[13px] font-semibold text-slate-700 mt-1">Belum Mulai</p>
-        </div>
+        <Card>
+          <CardContent className="p-5 flex flex-col gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-100 bg-slate-50 text-slate-600">
+              <ClipboardList className="h-5 w-5" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-2xl font-black text-slate-700 leading-none">{totalPending}</span>
+              <span className="text-xs font-semibold text-slate-700 mt-1">Belum Mulai</span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── Table Card ── */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-5">
-        
-        {/* Back Link or Search bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <Card>
+        <CardContent className="p-6 flex flex-col gap-5">
           
-          {selectedBatchId !== null ? (
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => {
-                  setSelectedBatchId(null);
-                  setSearch('');
-                }}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-[13px] font-bold transition-colors"
-              >
-                &larr; Kembali ke Daftar Sesi
-              </button>
-              <div className="border-l border-slate-200 h-6 hidden sm:block"></div>
-              <div>
-                <h3 className="font-extrabold text-slate-900 text-sm">{currentBatch?.title}</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">Klien: {currentBatch?.clientName}</p>
+          {/* Back Link or Search bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            
+            {selectedBatchId !== null ? (
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedBatchId(null);
+                    setSearch('');
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Kembali ke Daftar Sesi
+                </Button>
+                <div className="border-l border-slate-200 h-6 hidden sm:block"></div>
+                <div className="flex flex-col gap-0.5">
+                  <h3 className="font-bold text-slate-900 text-sm">{currentBatch?.title}</h3>
+                  <p className="text-xs text-slate-400">Klien: {currentBatch?.clientName}</p>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div>
-              <h3 className="font-extrabold text-slate-900 text-sm">Daftar Sesi Ujian & Peserta</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">Pilih salah satu sesi di bawah untuk melihat daftar akun dan data peserta.</p>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col gap-0.5">
+                <h3 className="font-bold text-slate-900 text-sm">Daftar Sesi Ujian & Peserta</h3>
+                <p className="text-xs text-slate-400">Pilih salah satu sesi di bawah untuk melihat daftar akun dan data peserta.</p>
+              </div>
+            )}
 
-          {/* Search Box */}
-          <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 w-full sm:w-72 bg-slate-50 focus-within:border-teal-400 focus-within:bg-white transition-all">
-            <span className="text-slate-400">🔍</span>
-            <input
-              type="text"
-              placeholder={selectedBatchId !== null ? "Cari nama peserta / ID..." : "Cari batch, klien, posisi..."}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-transparent text-[13px] text-slate-700 outline-none placeholder-slate-400"
-            />
+            {/* Search Box */}
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder={selectedBatchId !== null ? "Cari nama peserta / ID..." : "Cari batch, klien, posisi..."}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
           </div>
 
-        </div>
-
-        {/* Dynamic Table Content */}
-        {selectedBatchId === null ? (
-          
-          /* ── LEVEL 1: BATCH LIST VIEW ── */
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="pb-3 pl-2">NAMA BATCH & TANGGAL</th>
-                  <th className="pb-3">BATTERY TEST</th>
-                  <th className="pb-3">KLIEN PERUSAHAAN</th>
-                  <th className="pb-3">TESTER PJ</th>
-                  <th className="pb-3">JUMLAH PESERTA</th>
-                  <th className="pb-3 text-right pr-2">AKSI</th>
-                </tr>
-              </thead>
-              <tbody>
+          {/* Dynamic Table Content */}
+          {selectedBatchId === null ? (
+            
+            /* ── LEVEL 1: BATCH LIST VIEW ── */
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nama Batch & Tanggal</TableHead>
+                  <TableHead>Battery Test</TableHead>
+                  <TableHead>Klien Perusahaan</TableHead>
+                  <TableHead>Tester PJ</TableHead>
+                  <TableHead>Jumlah Peserta</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-8 text-center text-slate-400 text-sm">
                       Memuat data sesi...
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : filteredBatches.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-8 text-center text-slate-400 text-sm">
                       Tidak ada batch sesi ujian yang ditemukan.
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   filteredBatches.map((b) => (
-                    <tr key={b.id} className="border-b border-slate-100 last:border-none text-[13px] text-slate-700 hover:bg-slate-50/50 transition-colors">
-                      <td className="py-4 pl-2">
-                        <div className="font-bold text-slate-900">{b.title}</div>
-                        <div className="text-[11px] text-slate-400 mt-1">
-                          {b.startDate ? new Date(b.startDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
+                    <TableRow key={b.id}>
+                      <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-bold text-slate-900">{b.title}</span>
+                          <span className="text-xs text-slate-400">
+                            {b.startDate ? new Date(b.startDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
+                          </span>
                         </div>
-                      </td>
-                      <td className="py-4">
-                        <span className="text-slate-600 font-semibold">{b.batteryTestStr}</span>
-                      </td>
-                      <td className="py-4">
-                        <span className="bg-slate-100 text-slate-700 border border-slate-200 px-3 py-1 rounded-full text-[11px] font-bold inline-block">
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-slate-600 font-semibold text-xs">{b.batteryTestStr}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
                           {b.clientName}
-                        </span>
-                      </td>
-                      <td className="py-4">
-                        <span className="bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded text-[11px] font-semibold inline-block">
-                          aku
-                        </span>
-                      </td>
-                      <td className="py-4">
-                        <div className="font-bold text-slate-800">{b.totalParticipants} Peserta</div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          {b.completedParticipants}/{b.totalParticipants} Selesai
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="primary">
+                          {session?.user?.name || 'Tester'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-bold text-slate-800 text-xs">{b.totalParticipants} Peserta</span>
+                          <span className="text-xs text-slate-400">
+                            {b.completedParticipants}/{b.totalParticipants} Selesai
+                          </span>
                         </div>
-                      </td>
-                      <td className="py-4 text-right pr-2">
-                        <button
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
                           onClick={() => {
                             setSelectedBatchId(b.id);
                             setSearch('');
                           }}
-                          className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-4 py-2 rounded-xl text-[12px] transition-colors shadow-sm cursor-pointer"
                         >
                           Lihat Peserta
-                        </button>
-                      </td>
-                    </tr>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          
-          /* ── LEVEL 2: PARTICIPANTS IN BATCH VIEW ── */
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="pb-3 pl-2">NO</th>
-                  <th className="pb-3">NAMA PESERTA & AKUN</th>
-                  <th className="pb-3">POSISI / JABATAN</th>
-                  <th className="pb-3">BATTERY TEST</th>
-                  <th className="pb-3">STATUS PENGERJAAN</th>
-                </tr>
-              </thead>
-              <tbody>
+              </TableBody>
+            </Table>
+          ) : (
+            
+            /* ── LEVEL 2: PARTICIPANTS IN BATCH VIEW ── */
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>No</TableHead>
+                  <TableHead>Nama Peserta & Akun</TableHead>
+                  <TableHead>Posisi / Jabatan</TableHead>
+                  <TableHead>Battery Test</TableHead>
+                  <TableHead>Status Pengerjaan</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {filteredParticipants.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-400 text-sm">
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-8 text-center text-slate-400 text-sm">
                       Tidak ada peserta terdaftar di batch ini yang sesuai dengan pencarian.
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   filteredParticipants.map((p, index) => {
                     let testModules: string[] = [];
@@ -368,54 +431,58 @@ export default function ParticipantsPage() {
                     } catch (e) {}
 
                     return (
-                      <tr key={p.id} className="border-b border-slate-100 last:border-none text-[13px] text-slate-700 hover:bg-slate-50/50 transition-colors">
-                        <td className="py-4 pl-2 font-semibold text-slate-400">{index + 1}</td>
-                        <td className="py-4">
-                          <div className="font-bold text-slate-900">{p.user.name}</div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">
-                            ID: <span className="font-mono">{p.user.username}</span>
-                            {p.plainPassword && (
-                              <> &bull; Pass: <span className="font-mono text-teal-700 font-bold bg-teal-50 px-1 py-0.5 rounded">{p.plainPassword}</span></>
-                            )}
+                      <TableRow key={p.id}>
+                        <TableCell className="font-semibold text-slate-400 text-xs">{index + 1}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-bold text-slate-900">{p.user.name}</span>
+                            <div className="text-xs text-slate-400 flex items-center gap-1.5">
+                              ID: <span className="font-mono">{p.user.username}</span>
+                              {p.plainPassword && (
+                                <> &bull; Pass: <span className="font-mono text-teal-700 font-bold bg-teal-50 px-1 py-0.5 rounded text-xs">{p.plainPassword}</span></>
+                              )}
+                            </div>
                           </div>
-                        </td>
-                        <td className="py-4 font-semibold text-slate-800">
+                        </TableCell>
+                        <TableCell className="font-semibold text-slate-800 text-xs">
                           {p.test.jobPosition?.name || p.test.title || '-'}
-                        </td>
-                        <td className="py-4">
+                        </TableCell>
+                        <TableCell>
                           {testModules.length > 0 ? (
-                            <span className="bg-sky-50 text-sky-700 border border-sky-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-block">
+                            <Badge variant="outline" className="text-xs">
                               {testModules.join(' + ')}
-                            </span>
+                            </Badge>
                           ) : (
                             <span className="text-slate-400 italic text-xs">-</span>
                           )}
-                        </td>
-                        <td className="py-4">
+                        </TableCell>
+                        <TableCell>
                           {p.status === 'completed' ? (
-                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-block">
-                              ✓ Selesai Ujian
-                            </span>
+                            <Badge variant="success">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Selesai Ujian
+                            </Badge>
                           ) : p.status === 'in_progress' ? (
-                            <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-block">
-                              • Sedang Mengerjakan
-                            </span>
+                            <Badge variant="warning">
+                              <Clock className="h-3 w-3" />
+                              Sedang Mengerjakan
+                            </Badge>
                           ) : (
-                            <span className="bg-slate-100 text-slate-500 border border-slate-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-block">
+                            <Badge variant="secondary">
                               Menunggu Ujian
-                            </span>
+                            </Badge>
                           )}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })
                 )}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </TableBody>
+            </Table>
+          )}
 
-      </div>
+        </CardContent>
+      </Card>
 
     </div>
   );

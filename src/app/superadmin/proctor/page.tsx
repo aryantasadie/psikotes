@@ -2,7 +2,39 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import Link from 'next/link';
+import { 
+  ArrowLeft, 
+  Search, 
+  ShieldAlert, 
+  ShieldCheck, 
+  Camera, 
+  CheckCircle2, 
+  Clock, 
+  Building2, 
+  AlertTriangle, 
+  FileText, 
+  Calendar,
+  Loader2,
+  Eye
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table';
 
 interface Participant {
   id: number;
@@ -70,7 +102,7 @@ export default function ProctoringCenterPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [search, setSearch] = useState<string>('');
   
-  // Navigation States (Synced with URL so browser refresh stays on the same page)
+  // Navigation States
   const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
   const [selectedParticipantId, setSelectedParticipantId] = useState<number | null>(null);
 
@@ -88,7 +120,6 @@ export default function ProctoringCenterPage() {
   };
 
   useEffect(() => {
-    // Restore state from URL on initial load / refresh
     if (typeof window !== 'undefined') {
       const readUrlState = () => {
         const params = new URLSearchParams(window.location.search);
@@ -103,39 +134,29 @@ export default function ProctoringCenterPage() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchParticipants(true);
-    const pollInterval = setInterval(() => {
-      fetchParticipants(false);
-    }, 4000);
-    return () => clearInterval(pollInterval);
-  }, []);
-
-  const fetchParticipants = async (showLoading = false) => {
-    if (showLoading) setLoading(true);
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/superadmin/reports', { cache: 'no-store' });
+      const res = await fetch('/api/superadmin/proctor');
       if (res.ok) {
         const data = await res.json();
-        if (data && typeof data === 'object' && !Array.isArray(data)) {
-          setParticipants(data.participants || []);
-          setAssignedTests(data.assignedTests || []);
-        } else {
-          setParticipants(Array.isArray(data) ? data : []);
-          setAssignedTests([]);
-        }
+        setParticipants(data.participants || []);
+        setAssignedTests(data.assignedTests || []);
       }
     } catch (e) {
-      console.error('Failed to fetch participants for proctoring:', e);
+      console.error('Failed to load proctoring data:', e);
     } finally {
-      if (showLoading) setLoading(false);
+      setLoading(false);
     }
   };
 
-  // Group participants by Batch Session (Test)
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Group participants by Batch
   const batchesMap = new Map<number, BatchGroup>();
 
-  // Pre-populate batchesMap with all assigned tests to guarantee empty batches are displayed
   assignedTests.forEach(test => {
     const testId = test.id;
     const title = test.title || 'Sesi Tanpa Judul';
@@ -145,9 +166,9 @@ export default function ProctoringCenterPage() {
 
     let testToolsArr = [];
     if (test.sequence) {
-      try { testToolsArr = JSON.parse(test.sequence); } catch(e){}
+      try { testToolsArr = JSON.parse(test.sequence); } catch {}
     }
-    const batteryTestStr = testToolsArr.length > 0 ? testToolsArr.join(' + ') : 'coba';
+    const batteryTestStr = testToolsArr.length > 0 ? testToolsArr.join(' + ') : 'Standar';
 
     batchesMap.set(testId, {
       id: testId,
@@ -159,16 +180,15 @@ export default function ProctoringCenterPage() {
       totalParticipants: 0,
       completedCount: 0,
       inProgressCount: 0,
-      violationCount: 0
+      violationCount: 0,
     });
   });
 
-  // Count participants and violations for each batch
   participants.forEach(p => {
     const testId = p.testId || p.test?.id || 0;
     let b = batchesMap.get(testId);
     if (!b) {
-      const testObj = p.test || {};
+      const testObj = p.test || ({} as any);
       const title = testObj.title || 'Sesi Tanpa Judul';
       const startDate = p.startTime || testObj.startDate;
       const clientName = testObj.client?.name || 'Umum / Internal';
@@ -176,9 +196,9 @@ export default function ProctoringCenterPage() {
 
       let testToolsArr = [];
       if (testObj.sequence) {
-        try { testToolsArr = JSON.parse(testObj.sequence); } catch(e){}
+        try { testToolsArr = JSON.parse(testObj.sequence); } catch {}
       }
-      const batteryTestStr = testToolsArr.length > 0 ? testToolsArr.join(' + ') : 'coba';
+      const batteryTestStr = testToolsArr.length > 0 ? testToolsArr.join(' + ') : 'Standar';
 
       b = {
         id: testId,
@@ -190,7 +210,7 @@ export default function ProctoringCenterPage() {
         totalParticipants: 0,
         completedCount: 0,
         inProgressCount: 0,
-        violationCount: 0
+        violationCount: 0,
       };
       batchesMap.set(testId, b);
     }
@@ -202,7 +222,6 @@ export default function ProctoringCenterPage() {
       b.inProgressCount += 1;
     }
     
-    // Count safety violations in logs
     const candidateViolations = (p.logs || []).filter((l) => 
       l.logType.includes('tab_switch') || 
       l.logType.includes('fullscreen') || 
@@ -215,7 +234,6 @@ export default function ProctoringCenterPage() {
 
   const batchesList = Array.from(batchesMap.values());
 
-  // Filter batches for Level 1 view
   const filteredBatches = batchesList.filter(b => {
     const s = search.toLowerCase();
     return (
@@ -225,7 +243,6 @@ export default function ProctoringCenterPage() {
     );
   });
 
-  // Filter participants for Level 2 view (Specific Batch)
   const currentBatch = batchesList.find(b => b.id === selectedBatchId);
   const filteredParticipants = participants
     .filter(p => p.testId === selectedBatchId)
@@ -238,233 +255,212 @@ export default function ProctoringCenterPage() {
       );
     });
 
-  // Level 3 view (Specific Candidate logs)
   const currentParticipant = participants.find(p => p.id === selectedParticipantId);
 
-  // Group security logs by timestamp (nearest 4s) for side-by-side camera/screen view
-  const groupedLogs = (() => {
-    if (!currentParticipant || !currentParticipant.logs) return [];
-    
-    const groups: { time: string; logs: any[] }[] = [];
-    const logsList = [...currentParticipant.logs].sort((a: any, b: any) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-    
-    logsList.forEach(log => {
-      const logTime = new Date(log.createdAt);
-      const timeStr = logTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ', ' + logTime.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
-      const timeMs = logTime.getTime();
-      
-      let foundGroup = groups.find(g => {
-        const groupTime = new Date(g.logs[0].createdAt).getTime();
-        return Math.abs(groupTime - timeMs) <= 4000;
-      });
-      
-      if (foundGroup) {
-        foundGroup.logs.push(log);
-      } else {
-        groups.push({ time: timeStr, logs: [log] });
-      }
-    });
-    
-    return groups;
-  })();
-
   return (
-    <div className="space-y-6">
-      
-      {/* ── Main View Panel ── */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 space-y-5">
-        
-        {/* Navigation Breadcrumb Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          
-          {selectedParticipantId !== null ? (
-            /* Breadcrumbs for Level 3 (Timeline Logs) */
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigateTo(selectedBatchId ?? currentParticipant?.testId ?? null, null)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-[13px] font-bold transition-colors cursor-pointer"
-              >
-                &larr; Kembali ke Daftar Peserta
-              </button>
-              <div className="border-l border-slate-200 h-6 hidden sm:block"></div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-extrabold text-slate-900 text-sm">Log Keamanan: {currentParticipant?.user.name}</h3>
-                  {currentParticipant?.status === 'completed' ? (
-                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-                      ✓ Selesai Ujian
-                    </span>
-                  ) : currentParticipant?.status === 'in_progress' ? (
-                    <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-                      • Sedang Mengerjakan
-                    </span>
-                  ) : (
-                    <span className="bg-slate-100 text-slate-500 border border-slate-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
-                      Belum Mulai
-                    </span>
-                  )}
+    <div className="flex flex-col gap-6">
+      {/* Main Container Card */}
+      <Card>
+        <CardHeader className="border-b border-slate-100 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {selectedParticipantId !== null ? (
+              /* Breadcrumbs Level 3 */
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateTo(selectedBatchId ?? currentParticipant?.testId ?? null, null)}
+                  className="gap-1.5 text-xs"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Kembali ke Daftar Peserta</span>
+                </Button>
+                <div className="h-5 w-px bg-slate-200 hidden sm:block" />
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base font-bold text-slate-900">
+                      Log Pengawasan: {currentParticipant?.user.name}
+                    </CardTitle>
+                    {currentParticipant?.status === 'completed' ? (
+                      <Badge variant="success" className="text-xs gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>Selesai</span>
+                      </Badge>
+                    ) : currentParticipant?.status === 'in_progress' ? (
+                      <Badge variant="warning" className="text-xs gap-1">
+                        <Clock className="w-3 h-3" />
+                        <span>Mengerjakan</span>
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs">Belum Mulai</Badge>
+                    )}
+                  </div>
+                  <CardDescription className="text-xs text-slate-500">
+                    Username: {currentParticipant?.user.username}
+                  </CardDescription>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">Username: {currentParticipant?.user.username}</p>
               </div>
-            </div>
-          ) : selectedBatchId !== null ? (
-            /* Breadcrumbs for Level 2 (Participant List in Batch) */
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigateTo(null, null)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2 rounded-xl text-[13px] font-bold transition-colors cursor-pointer"
-              >
-                &larr; Kembali ke Daftar Sesi
-              </button>
-              <div className="border-l border-slate-200 h-6 hidden sm:block"></div>
-              <div>
-                <h3 className="font-extrabold text-slate-900 text-sm">{currentBatch?.title}</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">Klien: {currentBatch?.clientName}</p>
-              </div>
-            </div>
-          ) : (
-            /* Title for Level 1 (Batch overview) */
-            <div>
-              <h3 className="font-extrabold text-slate-900 text-sm">Log Pengawasan: Rekaman Layar & Kamera</h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">Tinjau rekaman kamera dan tangkapan layar desktop untuk mendeteksi kecurangan.</p>
-            </div>
-          )}
-
-          {/* Search Box (only visible on list views) */}
-          {selectedParticipantId === null && (
-            <div className="flex items-center gap-2 border border-slate-200 rounded-xl px-3 py-2 w-full sm:w-72 bg-slate-50 focus-within:border-teal-400 focus-within:bg-white transition-all">
-              <span className="text-slate-400">🔍</span>
-              <input
-                type="text"
-                placeholder={selectedBatchId !== null ? "Cari nama peserta / ID..." : "Cari batch, klien..."}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="flex-1 bg-transparent text-[13px] text-slate-700 outline-none placeholder-slate-400"
-              />
-            </div>
-          )}
-
-        </div>
-
-        {/* ──────────────────────────────────────────────────────── */}
-        {/* VIEW ROUTING */}
-        
-        {selectedParticipantId !== null ? (
-          
-          /* ── LEVEL 3: TIMELINE VIEW ── */
-          <div className="space-y-4">
-            {(!currentParticipant?.logs || currentParticipant.logs.length === 0) ? (
-              <div className="py-12 text-center text-slate-400 border border-slate-200 border-dashed rounded-2xl text-sm">
-                Belum ada rekaman foto kamera dan log pelanggaran yang tersimpan untuk peserta ini.
+            ) : selectedBatchId !== null ? (
+              /* Breadcrumbs Level 2 */
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateTo(null, null)}
+                  className="gap-1.5 text-xs"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Kembali ke Daftar Sesi</span>
+                </Button>
+                <div className="h-5 w-px bg-slate-200 hidden sm:block" />
+                <div className="flex flex-col gap-0.5">
+                  <CardTitle className="text-base font-bold text-slate-900">
+                    {currentBatch?.title}
+                  </CardTitle>
+                  <CardDescription className="text-xs text-slate-500">
+                    Klien: {currentBatch?.clientName}
+                  </CardDescription>
+                </div>
               </div>
             ) : (
-              <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                {[...currentParticipant.logs]
-                  .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                  .map((log: any, idx: number) => {
-                    const logTime = new Date(log.createdAt);
-                    const timeStr = logTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ', ' + logTime.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+              /* Title Level 1 */
+              <div className="flex flex-col gap-0.5">
+                <CardTitle className="text-base font-bold text-slate-900">
+                  Log Pengawasan: Rekaman Layar & Kamera
+                </CardTitle>
+                <CardDescription className="text-xs text-slate-500">
+                  Tinjau rekaman kamera dan tangkapan layar desktop untuk mendeteksi kecurangan
+                </CardDescription>
+              </div>
+            )}
 
-                    const isProctorNote = log.logType === 'proctor_note';
-                    const isPhoto = log.logType.includes('camera') || log.logType.includes('initial') || log.logType.includes('photo') || log.mediaUrl.startsWith('data:image') || log.mediaUrl.startsWith('/api/uploads/') || log.mediaUrl.startsWith('/uploads/') || log.mediaUrl.endsWith('.jpg') || log.mediaUrl.endsWith('.png') || log.mediaUrl.endsWith('.webp');
-
-                    if (isProctorNote) {
-                      return (
-                        <div key={log.id || idx} className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-[12px] font-bold text-amber-900">📝 Catatan Khusus Pengawas • {timeStr}</span>
-                            <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                              Catatan Khusus
-                            </span>
-                          </div>
-                          <p className="text-[13px] text-slate-800 font-medium pl-1 border-l-2 border-amber-400">
-                            {log.mediaUrl}
-                          </p>
-                        </div>
-                      );
-                    }
-
-                    if (!isPhoto) {
-                      // Text-only Violation Log
-                      return (
-                        <div key={log.id || idx} className="bg-rose-50/50 border border-rose-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2">
-                          <div className="flex justify-between items-center">
-                            <span className="text-[12px] font-bold text-rose-900">⚠️ Log Pelanggaran Ujian • {timeStr}</span>
-                            <span className="bg-rose-100 text-rose-800 text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full">
-                              Pelanggaran
-                            </span>
-                          </div>
-                          <div className="bg-white/80 border border-rose-100 rounded-xl p-3 text-[13px] text-slate-800 font-semibold flex items-center gap-2">
-                            <span className="text-rose-500 text-base">⚠️</span>
-                            <span>{log.mediaUrl}</span>
-                          </div>
-                        </div>
-                      );
-                    }
-
-                    // Photo Log (Foto Awal / Foto 10 Menit)
-                    const isInitial = log.logType.includes('awal') || log.logType.includes('initial');
-                    const is10Min = log.logType.includes('10min');
-
-                    let photoBadge = '📷 Foto Wajah Peserta';
-                    if (isInitial) photoBadge = '📷 Foto Awal (Submit Identitas)';
-                    else if (is10Min) photoBadge = '📷 Foto Menit ke-10 (Monitoring 1x)';
-
-                    const imgUrl = log.mediaUrl.startsWith('/uploads/') ? log.mediaUrl.replace('/uploads/', '/api/uploads/') : log.mediaUrl;
-
-                    return (
-                      <div key={log.id || idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col gap-4">
-                        {/* Log Header */}
-                        <div className="flex justify-between items-center flex-wrap gap-2">
-                          <div>
-                            <span className="text-[13px] font-extrabold text-slate-900">{timeStr}</span>
-                            <div className="text-[11px] text-teal-600 font-semibold mt-0.5">{photoBadge}</div>
-                          </div>
-                          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-[10px] font-black uppercase">
-                            {isInitial ? 'Verifikasi Identitas' : is10Min ? 'Verifikasi Menit ke-10 (1x)' : 'Pengawasan Kamera'}
-                          </span>
-                        </div>
-
-                        {/* Photo Image Card */}
-                        <div className="max-w-md space-y-2">
-                          <div className="text-[11px] font-bold text-slate-500">📷 Foto Wajah Peserta (Webcam):</div>
-                          <img
-                            src={imgUrl}
-                            alt="Webcam Capture"
-                            className="w-full max-h-72 object-cover border border-slate-200 rounded-xl shadow-sm"
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+            {/* Search Box */}
+            {selectedParticipantId === null && (
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  type="text"
+                  placeholder={selectedBatchId !== null ? "Cari nama peserta / ID..." : "Cari batch, klien..."}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 h-9 text-xs"
+                />
               </div>
             )}
           </div>
+        </CardHeader>
 
-        ) : selectedBatchId !== null ? (
-          
-          /* ── LEVEL 2: CANDIDATE LIST IN BATCH ── */
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="pb-3 pl-2">NO</th>
-                  <th className="pb-3">NAMA PESERTA & AKUN</th>
-                  <th className="pb-3">POSISI / JABATAN</th>
-                  <th className="pb-3">STATUS PENGERJAAN</th>
-                  <th className="pb-3">STATUS PELANGGARAN</th>
-                  <th className="pb-3 text-right pr-2">AKSI</th>
-                </tr>
-              </thead>
-              <tbody>
+        <CardContent className="p-0">
+          {/* LEVEL 3: TIMELINE VIEW */}
+          {selectedParticipantId !== null ? (
+            <div className="p-6">
+              {(!currentParticipant?.logs || currentParticipant.logs.length === 0) ? (
+                <div className="py-12 text-center text-slate-400 border border-slate-200 border-dashed rounded-xl text-sm">
+                  Belum ada rekaman foto kamera dan log keamanan yang tersimpan untuk peserta ini.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto pr-1">
+                  {[...currentParticipant.logs]
+                    .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .map((log: any, idx: number) => {
+                      const logTime = new Date(log.createdAt);
+                      const timeStr = logTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ', ' + logTime.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+
+                      const isProctorNote = log.logType === 'proctor_note';
+                      const isPhoto = log.logType.includes('camera') || log.logType.includes('initial') || log.logType.includes('photo') || log.mediaUrl.startsWith('data:image') || log.mediaUrl.startsWith('/api/uploads/') || log.mediaUrl.startsWith('/uploads/') || log.mediaUrl.endsWith('.jpg') || log.mediaUrl.endsWith('.png') || log.mediaUrl.endsWith('.webp');
+
+                      if (isProctorNote) {
+                        return (
+                          <div key={log.id || idx} className="bg-amber-50/70 border border-amber-200 rounded-xl p-4 flex flex-col gap-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Catatan Pengawas • {timeStr}</span>
+                              </span>
+                              <Badge variant="outline" className="text-xs bg-amber-100 text-amber-800 border-amber-300">
+                                Catatan Khusus
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-slate-800 font-medium pl-2 border-l-2 border-amber-400">
+                              {log.mediaUrl}
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      if (!isPhoto) {
+                        return (
+                          <div key={log.id || idx} className="bg-rose-50/50 border border-rose-200 rounded-xl p-4 flex flex-col gap-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-bold text-rose-900 flex items-center gap-1.5">
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                                <span>Log Pelanggaran Ujian • {timeStr}</span>
+                              </span>
+                              <Badge variant="destructive" className="text-xs">
+                                Pelanggaran
+                              </Badge>
+                            </div>
+                            <div className="bg-white/80 border border-rose-100 rounded-lg p-2.5 text-xs text-slate-800 font-semibold flex items-center gap-2">
+                              <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+                              <span>{log.mediaUrl}</span>
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      const isInitial = log.logType.includes('awal') || log.logType.includes('initial');
+                      const is10Min = log.logType.includes('10min');
+                      const photoBadge = isInitial ? 'Foto Awal (Identitas)' : is10Min ? 'Foto Menit ke-10 (1x)' : 'Pengawasan Kamera';
+                      const imgUrl = log.mediaUrl.startsWith('/uploads/') ? log.mediaUrl.replace('/uploads/', '/api/uploads/') : log.mediaUrl;
+
+                      return (
+                        <div key={log.id || idx} className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
+                          <div className="flex justify-between items-center flex-wrap gap-2">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-xs font-bold text-slate-900">{timeStr}</span>
+                              <span className="text-xs text-teal-600 font-semibold flex items-center gap-1">
+                                <Camera className="w-3 h-3" />
+                                <span>{photoBadge}</span>
+                              </span>
+                            </div>
+                            <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-800 border-emerald-200">
+                              {isInitial ? 'Verifikasi Identitas' : is10Min ? 'Verifikasi Menit ke-10' : 'Pengawasan Kamera'}
+                            </Badge>
+                          </div>
+
+                          <div className="max-w-md flex flex-col gap-1.5">
+                            <img
+                              src={imgUrl}
+                              alt="Webcam Capture"
+                              className="w-full max-h-72 object-cover border border-slate-200 rounded-lg shadow-sm"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          ) : selectedBatchId !== null ? (
+            /* LEVEL 2: CANDIDATE LIST */
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead className="w-12 text-xs font-bold uppercase text-slate-500">No</TableHead>
+                  <TableHead className="text-xs font-bold uppercase text-slate-500">Nama Peserta & Akun</TableHead>
+                  <TableHead className="text-xs font-bold uppercase text-slate-500">Posisi / Jabatan</TableHead>
+                  <TableHead className="text-xs font-bold uppercase text-slate-500">Status Pengerjaan</TableHead>
+                  <TableHead className="text-xs font-bold uppercase text-slate-500">Status Keamanan</TableHead>
+                  <TableHead className="text-xs font-bold uppercase text-slate-500 text-right">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {filteredParticipants.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-10 text-slate-400 text-sm">
                       Tidak ada peserta terdaftar di batch ini yang sesuai dengan kriteria.
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   filteredParticipants.map((p, index) => {
                     const candidateViolations = (p.logs || []).filter((l) => 
@@ -475,146 +471,157 @@ export default function ProctoringCenterPage() {
                     ).length;
 
                     return (
-                      <tr key={p.id} className="border-b border-slate-100 last:border-none text-[13px] text-slate-700 hover:bg-slate-50/50 transition-colors">
-                        <td className="py-4 pl-2 font-semibold text-slate-400">{index + 1}</td>
-                        <td className="py-4">
-                          <div className="font-bold text-slate-900">{p.user.name}</div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">
-                            ID: <span className="font-mono">{p.user.username}</span>
+                      <TableRow key={p.id} className="hover:bg-slate-50/70 transition-colors">
+                        <TableCell className="text-xs font-semibold text-slate-400">{index + 1}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-sm font-bold text-slate-900">{p.user.name}</span>
+                            <span className="text-xs font-mono text-slate-400">{p.user.username}</span>
                           </div>
-                        </td>
-                        <td className="py-4 font-semibold text-slate-800">
+                        </TableCell>
+                        <TableCell className="text-xs font-semibold text-slate-700">
                           {p.test.jobPosition?.name || p.test.title || '-'}
-                        </td>
-                        <td className="py-4">
+                        </TableCell>
+                        <TableCell>
                           {p.status === 'completed' ? (
-                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Selesai Ujian
-                            </span>
+                            <Badge variant="success" className="text-xs gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              <span>Selesai Ujian</span>
+                            </Badge>
                           ) : p.status === 'in_progress' ? (
-                            <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-flex items-center gap-1.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Sedang Mengerjakan
-                            </span>
+                            <Badge variant="warning" className="text-xs gap-1">
+                              <Clock className="w-3 h-3 animate-spin" />
+                              <span>Sedang Mengerjakan</span>
+                            </Badge>
                           ) : (
-                            <span className="bg-slate-100 text-slate-500 border border-slate-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-block">
-                              Belum Mulai
-                            </span>
+                            <Badge variant="secondary" className="text-xs">Belum Mulai</Badge>
                           )}
-                        </td>
-                        <td className="py-4">
+                        </TableCell>
+                        <TableCell>
                           {candidateViolations > 0 ? (
-                            <span className="bg-rose-50 text-rose-700 border border-rose-200 px-3 py-1 rounded-full text-[11px] font-black inline-block">
-                              ⚠️ Terdeteksi {candidateViolations}x Pelanggaran
-                            </span>
+                            <Badge variant="destructive" className="text-xs gap-1">
+                              <ShieldAlert className="w-3 h-3" />
+                              <span>{candidateViolations}x Pelanggaran</span>
+                            </Badge>
                           ) : (
-                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-[11px] font-bold inline-block">
-                              ✓ Aman (Tidak Ada)
-                            </span>
+                            <Badge variant="success" className="text-xs gap-1">
+                              <ShieldCheck className="w-3 h-3" />
+                              <span>Aman</span>
+                            </Badge>
                           )}
-                        </td>
-                        <td className="py-4 text-right pr-2">
-                          <button
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
                             onClick={() => navigateTo(selectedBatchId ?? p.testId, p.id)}
-                            className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-4 py-2 rounded-xl text-[12px] transition-colors shadow-sm cursor-pointer"
+                            className="h-8 px-3 text-xs gap-1"
                           >
-                            Lihat Log Pengawasan
-                          </button>
-                        </td>
-                      </tr>
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Lihat Log</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     );
                   })
                 )}
-              </tbody>
-            </table>
-          </div>
-
-        ) : (
-          
-          /* ── LEVEL 1: BATCH LIST VIEW ── */
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="pb-3 pl-2">NAMA BATCH & TANGGAL</th>
-                  <th className="pb-3">KLIEN PERUSAHAAN</th>
-                  <th className="pb-3">TESTER PJ</th>
-                  <th className="pb-3">JUMLAH PESERTA & STATUS</th>
-                  <th className="pb-3">STATUS KEAMANAN</th>
-                  <th className="pb-3 text-right pr-2">AKSI</th>
-                </tr>
-              </thead>
-              <tbody>
+              </TableBody>
+            </Table>
+          ) : (
+            /* LEVEL 1: BATCH LIST */
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50">
+                  <TableHead className="font-bold text-xs uppercase text-slate-500">Nama Batch & Tanggal</TableHead>
+                  <TableHead className="font-bold text-xs uppercase text-slate-500">Klien Perusahaan</TableHead>
+                  <TableHead className="font-bold text-xs uppercase text-slate-500">Tester PJ</TableHead>
+                  <TableHead className="font-bold text-xs uppercase text-slate-500">Jumlah Peserta</TableHead>
+                  <TableHead className="font-bold text-xs uppercase text-slate-500">Status Keamanan</TableHead>
+                  <TableHead className="font-bold text-xs uppercase text-slate-500 text-right">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {loading ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-10 text-slate-400 text-sm">
+                      <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600" />
                       Memuat data pengawasan...
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : filteredBatches.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400 text-sm">
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-10 text-slate-400 text-sm">
                       Tidak ada batch sesi ujian yang ditemukan.
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   filteredBatches.map((b) => (
-                    <tr key={b.id} className="border-b border-slate-100 last:border-none text-[13px] text-slate-700 hover:bg-slate-50/50 transition-colors">
-                      <td className="py-4 pl-2">
-                        <div className="font-bold text-slate-900">{b.title}</div>
-                        <div className="text-[11px] text-slate-400 mt-1">
-                          {b.startDate ? new Date(b.startDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
-                        </div>
-                      </td>
-                      <td className="py-4 font-semibold text-slate-800">
-                        {b.clientName}
-                      </td>
-                      <td className="py-4">
-                        <span className="bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded text-[11px] font-semibold inline-block">
-                          aku
-                        </span>
-                      </td>
-                      <td className="py-4">
-                        <div className="font-bold text-slate-800">{b.totalParticipants} Peserta</div>
-                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                            {b.completedCount} Selesai
-                          </span>
-                          {b.inProgressCount > 0 && (
-                            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-                              {b.inProgressCount} Mengerjakan
+                    <TableRow key={b.id} className="hover:bg-slate-50/70 transition-colors">
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm font-bold text-slate-900">{b.title}</span>
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            <span>
+                              {b.startDate ? new Date(b.startDate).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
                             </span>
-                          )}
+                          </div>
                         </div>
-                      </td>
-                      <td className="py-4">
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
+                          <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{b.clientName}</span>
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs bg-teal-50 text-teal-700 border-teal-200">
+                          Tim Pengawas
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs font-bold text-slate-900">{b.totalParticipants} Peserta</span>
+                          <span className="text-xs text-slate-500">
+                            {b.completedCount} Selesai · {b.inProgressCount} Mengerjakan
+                          </span>
+                        </div>
+                      </TableCell>
+
+                      <TableCell>
                         {b.violationCount > 0 ? (
-                          <span className="bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full text-[11px] font-black inline-block">
-                            🚨 {b.violationCount}x Pelanggaran
-                          </span>
+                          <Badge variant="destructive" className="text-xs gap-1">
+                            <ShieldAlert className="w-3 h-3" />
+                            <span>{b.violationCount}x Pelanggaran</span>
+                          </Badge>
                         ) : (
-                          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full text-[11px] font-bold inline-block">
-                            ✓ Aman (Bersih)
-                          </span>
+                          <Badge variant="success" className="text-xs gap-1">
+                            <ShieldCheck className="w-3 h-3" />
+                            <span>Aman</span>
+                          </Badge>
                         )}
-                      </td>
-                      <td className="py-4 text-right pr-2">
-                        <button
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
                           onClick={() => navigateTo(b.id, null)}
-                          className="bg-teal-600 hover:bg-teal-700 text-white font-bold px-4 py-2 rounded-xl text-[12px] transition-colors shadow-sm cursor-pointer"
+                          className="h-8 px-3 text-xs gap-1"
                         >
-                          Lihat Akun
-                        </button>
-                      </td>
-                    </tr>
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Lihat Akun</span>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-      </div>
-
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

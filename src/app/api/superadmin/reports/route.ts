@@ -64,45 +64,67 @@ export async function GET(req: Request) {
       });
     }
 
-    const participants = await prisma.testParticipant.findMany({
-      where: whereClause,
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            email: true,
-            phone: true,
-            role: true,
-            status: true,
-            createdAt: true
-          }
-        },
-        jobPosition: true,
-        psychoResults: true,
-        logs: true,
-        test: {
-          include: {
-            jobPosition: true,
-            client: {
-              select: { id: true, name: true, username: true, email: true, role: true }
+    const [rawParticipants, fetchedTests] = await Promise.all([
+      prisma.testParticipant.findMany({
+        where: whereClause,
+        select: {
+          id: true,
+          userId: true,
+          testId: true,
+          status: true,
+          plainPassword: true,
+          startTime: true,
+          endTime: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              username: true,
+              email: true,
+              phone: true,
+              role: true,
+              status: true,
+              createdAt: true
             }
+          },
+          psychoResults: {
+            select: { id: true, status: true }
+          },
+          rawResults: {
+            select: { testType: true }
+          },
+          answers: {
+            select: { question: { select: { testType: true } } }
           }
         },
-        rawResults: true,
-        answers: {
-          include: {
-            question: true
-          }
-        }
-      },
-      orderBy: {
-        id: 'desc'
-      }
-    });
+        orderBy: { id: 'desc' }
+      }),
+      assignedTests.length > 0 ? Promise.resolve(assignedTests) : prisma.test.findMany({
+        select: {
+          id: true,
+          title: true,
+          sequence: true,
+          startDate: true,
+          jobPosition: { select: { id: true, name: true } },
+          client: { select: { id: true, name: true, username: true, email: true, role: true } }
+        },
+        orderBy: { id: 'desc' }
+      })
+    ]);
 
-    return NextResponse.json({ participants, assignedTests });
+    const testMap = new Map<number, any>();
+    fetchedTests.forEach((t: any) => testMap.set(t.id, t));
+
+    const participants = rawParticipants.map((p: any) => ({
+      ...p,
+      test: testMap.get(p.testId) || null,
+      jobPosition: testMap.get(p.testId)?.jobPosition || null,
+      logs: [],
+      answers: p.answers || [],
+      rawResults: p.rawResults || []
+    }));
+
+    return NextResponse.json({ participants, assignedTests: fetchedTests });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

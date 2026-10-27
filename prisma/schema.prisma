@@ -17,9 +17,12 @@ model User {
   phone           String?
   license         String?  // Lisensi SIPP / Spesialisasi / Catatan
   password        String
-  role            String   // "superadmin", "psikolog", "tester", "user"
+  role            String   // "superadmin", "psikolog", "tester", "client", "user"
   status          String   @default("active") // "active", "inactive"
   assignedTestIds String?  // JSON string array of assigned Test/Batch IDs e.g. "[1, 2]"
+  testQuotas      String?  // JSON string per-test quota e.g. {"Kraepelin": 50, "WPT": 100}
+  usedQuotas      String?  // JSON string per-test used e.g. {"Kraepelin": 10, "WPT": 5}
+  logoUrl         String?  // URL logo perusahaan klien (white-labeling)
   createdAt       DateTime @default(now())
 
   participants TestParticipant[]
