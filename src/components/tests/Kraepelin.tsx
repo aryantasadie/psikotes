@@ -352,23 +352,10 @@ export default function KraepelinTest() {
             Standar Resmi Tes Kraepelin Psikologi
           </p>
 
-          {/* Aturan Pengerjaan */}
-          <div style={{ background: '#F8FAFC', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '20px', textAlign: 'left', marginBottom: '22px', lineHeight: '1.6' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#1E293B', marginBottom: '10px' }}>
-              Petunjuk Utama:
-            </h3>
-            <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13.5px', color: '#475569', display: 'flex', flexDirection: 'column', gap: '7px' }}>
-              <li>Jumlahkan 2 angka yang berdekatan dari <strong>BAWAH ke ATAS</strong>.</li>
-              <li>Jika hasil penjumlahan &ge; 10, ketikkan <strong>ANGKA SATUANNYA SAJA</strong> (Contoh: 8 + 7 = 15 &rarr; ketik <strong>5</strong>).</li>
-              <li>Setiap kolom memiliki batas waktu <strong>15 detik</strong>. Ketika muncul tanda <strong>PINDAH!</strong>, sistem akan otomatis beralih ke kolom berikutnya.</li>
-              <li>Gunakan tombol angka <code>0</code> s.d. <code>9</code> pada keyboard atau keypad layar.</li>
-            </ul>
-          </div>
-
-          {/* Contoh Visual Gambar & Penjelasan */}
+          {/* Contoh Visual Gambar & Petunjuk Pengerjaan */}
           <div style={{ background: '#F0F9FF', borderRadius: '16px', border: '1.5px solid #BAE6FD', padding: '20px', textAlign: 'left', marginBottom: '26px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-              <span style={{ background: '#0284C7', color: 'white', borderRadius: '6px', padding: '2px 8px', fontSize: '11.5px', fontWeight: 800, letterSpacing: '0.5px' }}>CONTOH</span>
+              <span style={{ background: '#0284C7', color: 'white', borderRadius: '6px', padding: '2px 8px', fontSize: '11.5px', fontWeight: 800, letterSpacing: '0.5px' }}>PETUNJUK</span>
               <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0369A1' }}>
                 Cara Menjawab Sesuai Tampilan Soal:
               </h4>
@@ -403,9 +390,17 @@ export default function KraepelinTest() {
               </div>
             </div>
 
-            <p style={{ margin: '12px 0 0 0', fontSize: '12.5px', color: '#0284C7', fontWeight: 600, borderTop: '1px dashed #BAE6FD', paddingTop: '10px' }}>
-              💡 Teruskan menjumlahkan ke atas secepat dan seteliti mungkin sampai muncul tanda <strong>PINDAH!</strong>.
-            </p>
+            {/* Poin Waktu dan Input */}
+            <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px dashed #BAE6FD', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: '#0369A1', lineHeight: '1.5' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <span style={{ fontSize: '14px', flexShrink: 0 }}>⏱️</span>
+                <span>Setiap kolom memiliki batas waktu <strong>15 detik</strong>. Ketika muncul tanda <strong>PINDAH!</strong>, sistem akan otomatis beralih ke kolom berikutnya.</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <span style={{ fontSize: '14px', flexShrink: 0 }}>⌨️</span>
+                <span>Gunakan tombol angka <code>0</code> s.d. <code>9</code> pada keyboard atau keypad layar.</span>
+              </div>
+            </div>
           </div>
 
           <button
