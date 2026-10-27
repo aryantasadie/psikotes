@@ -23,18 +23,19 @@ export async function POST(req: Request) {
   }
 
   try {
-    const {
-      testId: jobPositionId,
-      positionName,
-      batchTitle,
-      sessionDate,
-      clientId,
-      testerId,
-      prefix,
-      count,
-      customSequence,
-      disableMedia
-    } = await req.json();
+    const body = await req.json();
+    const jobPositionId = body.jobPositionId || body.testId || null;
+    const positionName = body.positionName;
+    const batchTitle = body.batchTitle;
+    const sessionDate = body.sessionDate || body.startDate;
+    const clientId = body.clientId;
+    const testerId = body.testerId;
+    const prefix = body.prefix;
+    const count = body.count;
+    const customSequence = Array.isArray(body.customSequence) && body.customSequence.length > 0
+      ? body.customSequence
+      : (Array.isArray(body.customTools) && body.customTools.length > 0 ? body.customTools : []);
+    const disableMedia = body.disableMedia;
 
     if (!prefix || !count || count <= 0 || count > 200) {
       return NextResponse.json({ error: 'Input tidak valid. Jumlah akun harus 1-200.' }, { status: 400 });

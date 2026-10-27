@@ -193,13 +193,16 @@ export default function SchedulePage() {
         body: JSON.stringify({
           positionName: positionName.trim() || undefined,
           jobPositionId: selectedJobPositionId ? parseInt(selectedJobPositionId) : null,
+          testId: selectedJobPositionId ? parseInt(selectedJobPositionId) : null,
           clientId: selectedClientId ? parseInt(selectedClientId) : null,
           startDate: sessionDate,
+          sessionDate: sessionDate,
           testerId: selectedTesterId ? parseInt(selectedTesterId) : null,
           prefix: prefix.trim().toLowerCase(),
           count: n,
           disableMedia,
-          customTools: (useCustomTools || !selectedJobPositionId) ? selectedCustomTools : undefined
+          customTools: (useCustomTools || !selectedJobPositionId) ? selectedCustomTools : undefined,
+          customSequence: (useCustomTools || !selectedJobPositionId) ? selectedCustomTools : undefined
         }),
       });
 
