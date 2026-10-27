@@ -82,19 +82,22 @@ export default function IST6() {
     return (
       <div className="test-instruction-wrapper" style={{ padding: '30px', fontFamily: '"Inter", sans-serif', background: '#f4f7f6', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div className="test-instruction-card" style={{ maxWidth: '700px', background: 'white', padding: '50px', borderRadius: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-          <h2 className="test-instruction-title" style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>IST 6 - Deret Angka</h2>
+          <h2 className="test-instruction-title" style={{ fontSize: '32px', color: '#2c3e50', marginBottom: '20px', fontWeight: '800' }}>IST 6 - Deret Angka (Zahlenreihen)</h2>
           <div className="test-instruction-box" style={{ textAlign: 'left', background: '#f8fbff', padding: '25px', borderRadius: '12px', borderLeft: '6px solid #3498db', marginBottom: '35px', lineHeight: '1.7', color: '#444', fontSize: '16px' }}>
             <p style={{ margin: '0 0 10px 0' }}><strong>Waktu Pengerjaan:</strong> 10 Menit (Otomatis berpindah jika waktu habis)</p>
+            <p style={{ margin: '0 0 15px 0' }}>
+              <strong>Petunjuk Pengerjaan:</strong> Pada subtes ini, diberikan deretan angka yang tersusun menurut aturan atau pola tertentu. Tugas Anda adalah menemukan pola dari deret tersebut, kemudian menentukan angka berikutnya untuk melengkapi deretan angka tersebut. Tuliskan angka jawaban Anda pada kolom yang tersedia.
+            </p>
             <div className="test-instruction-example" style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #ddd', marginTop: '20px' }}>
-              <h4 style={{ margin: '0 0 15px 0', color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>CONTOH SOAL</h4>
-              <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>Tentukan angka lanjutan yang tepat sesuai pola deret berikut:</p>
-              <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '10px' }}>
-                <div className="test-example-options" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 12px', fontWeight: 'bold', marginBottom: '8px' }}>
-                  <span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span style={{ color: '#2980b9' }}>?</span>
-                </div>
-                <p style={{ margin: '0 0 4px 0', color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : 24</p>
-                <p style={{ margin: 0, color: '#27ae60', fontWeight: 'bold' }}>Alasan: pola +3</p>
+              <h4 style={{ margin: '0 0 15px 0', color: '#2c3e50', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>CONTOH 06</h4>
+              <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '15px' }}>
+                <p style={{ margin: '0 0 6px 0', fontWeight: 'bold', fontSize: '17px', color: '#2c3e50' }}>Terdapat angka 2, 4, 6, 8, 10, 12, 14 ?</p>
+                <p style={{ margin: 0, fontStyle: 'italic', color: '#666', fontSize: '14px' }}>Angka berapa yang dapat melengkapi deretan angka selanjutnya?</p>
               </div>
+              <p style={{ margin: '0 0 6px 0', color: '#27ae60', fontWeight: 'bold' }}>Jawaban yang benar adalah : 16</p>
+              <p style={{ margin: 0, color: '#333', fontSize: '14.5px', lineHeight: '1.6' }}>
+                <strong>Penjelasan:</strong> Pada deret ini, angka berikutnya selalu didapat jika angka di depannya ditambah dengan 2 (+2). Maka jawaban adalah <strong>16</strong>. Oleh karena itu, tuliskan <strong>16</strong> pada kolom jawaban yang tersedia.
+              </p>
             </div>
           </div>
           <button 
