@@ -361,12 +361,12 @@ export default function KraepelinTest() {
               </h4>
             </div>
 
-            {/* Container Gambar */}
-            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '12px', display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+            {/* Container Gambar (Fokus & Tajam) */}
+            <div style={{ background: '#FFFFFF', borderRadius: '14px', border: '1px solid #E2E8F0', padding: '16px', display: 'flex', justifyContent: 'center', marginBottom: '18px', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.03)' }}>
               <img 
                 src="/kraepelin_instruction.jpg" 
                 alt="Contoh Tampilan Kolom Kraepelin" 
-                style={{ maxHeight: '180px', width: 'auto', maxWidth: '100%', objectFit: 'contain', borderRadius: '8px' }} 
+                style={{ maxHeight: 'clamp(220px, 36vh, 290px)', width: 'auto', maxWidth: '100%', objectFit: 'contain', borderRadius: '10px' }} 
               />
             </div>
 
