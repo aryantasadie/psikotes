@@ -104,7 +104,8 @@ export default function SuperadminLayout({ children }: { children: React.ReactNo
       {
         label: 'Hasil & Evaluasi',
         items: [
-          { label: 'Daftar Peserta', path: '/superadmin/participants', icon: FileText },
+          { label: 'Daftar Peserta', path: '/superadmin/participants', icon: Users },
+          { label: 'Hasil & Laporan', path: '/superadmin/reports', icon: FileText },
           { label: 'Monitoring Tes', path: '/superadmin/live-stream', icon: Radio, badge: 'Live', live: true },
           { label: 'Log Pengawasan', path: '/superadmin/proctor', icon: ShieldAlert },
         ],

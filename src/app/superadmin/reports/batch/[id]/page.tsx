@@ -16,18 +16,15 @@ export default function BatchParticipantsReportPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
+  const userRole = (session?.user as any)?.role;
+
   useEffect(() => {
     if (status === 'authenticated') {
-      const userRole = (session?.user as any)?.role;
-      if (!['superadmin', 'psikolog'].includes(userRole)) {
-        if (userRole === 'tester') {
-          router.replace('/superadmin/participants');
-        } else {
-          router.replace('/');
-        }
+      if (!['superadmin', 'psikolog', 'tester'].includes(userRole)) {
+        router.replace('/');
       }
     }
-  }, [session, status, router]);
+  }, [session, status, userRole, router]);
 
   const fetchBatchData = () => {
     setLoading(true);
@@ -216,13 +213,15 @@ export default function BatchParticipantsReportPage() {
                             Lihat Laporan
                           </Link>
 
-                          <button 
-                            onClick={() => handleDeleteParticipant(p.id)}
-                            className="text-[11px] font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 px-2 py-1.5 rounded-lg transition-colors"
-                            title="Hapus Peserta"
-                          >
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                          </button>
+                          {userRole === 'superadmin' && (
+                            <button 
+                              onClick={() => handleDeleteParticipant(p.id)}
+                              className="text-[11px] font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 px-2 py-1.5 rounded-lg transition-colors"
+                              title="Hapus Peserta"
+                            >
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -344,6 +344,7 @@ export default function ReportDetailPage() {
   const id = params.id as string;
   
   const role = (session?.user as any)?.role;
+  const canViewAnswerKeys = role === 'superadmin';
   
   const [participant, setParticipant] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -384,16 +385,12 @@ export default function ReportDetailPage() {
     }
   }, [selectedTest]);
 
-  // Role check: Only superadmin and psikolog
+  // Role check: Only superadmin, psikolog, and tester
   useEffect(() => {
     if (session?.user) {
       const userRole = (session.user as any)?.role;
-      if (!['superadmin', 'psikolog'].includes(userRole)) {
-        if (userRole === 'tester') {
-          router.replace('/superadmin/participants');
-        } else {
-          router.replace('/');
-        }
+      if (!['superadmin', 'psikolog', 'tester'].includes(userRole)) {
+        router.replace('/');
       }
     }
   }, [session, router]);
@@ -1485,11 +1482,35 @@ export default function ReportDetailPage() {
 
   const renderQuestionAnswersGrid = () => {
     if (questions.length === 0) return null;
+
+    if (!canViewAnswerKeys) {
+      return (
+        <div style={{ background: '#FFFFFF', padding: '1.25rem 1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', marginTop: '1.5rem', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+            🔒
+          </div>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: '#1E293B' }}>
+              Rincian Kunci Jawaban Ditutup
+            </div>
+            <div style={{ fontSize: '12.5px', color: '#64748B', marginTop: '2px', lineHeight: '1.4' }}>
+              Khusus role Tester dan Psikolog, rincian kunci jawaban ditutup demi kerahasiaan &amp; integritas alat tes psikologi. Skor akhir, akurasi, klasifikasi, dan psikogram di atas merupakan hasil resmi yang telah divalidasi sistem.
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div style={{ background: '#FFFFFF', padding: '1.5rem', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 2px 4px rgba(0,0,0,0.03)', marginTop: '2rem' }}>
-        <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1E293B', marginBottom: '1rem' }}>
-          Rincian Lembar Jawaban ({questions.length} Soal)
-        </h4>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '8px' }}>
+          <h4 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1E293B', margin: 0 }}>
+            Rincian Lembar Jawaban ({questions.length} Soal)
+          </h4>
+          <span style={{ fontSize: '11px', background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', padding: '2px 8px', borderRadius: '6px', fontWeight: 600 }}>
+            Mode Superadmin: Kunci Terbuka
+          </span>
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '1rem' }}>
           {questions.map((q: any, idx: number) => {
             const ans = currentAnswers.find((a: any) => a.questionId === q.id);
@@ -2752,15 +2773,17 @@ export default function ReportDetailPage() {
                   </div>
 
                   {/* Rincian Transparan Soal & Jawaban (All 50 Columns Centered & Displayed Directly) */}
-                  <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Rincian Transparan Soal & Jawaban (50 Kolom Centered)</span>
+                  {canViewAnswerKeys ? (
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '10px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>Rincian Transparan Soal & Jawaban (50 Kolom Centered)</span>
+                          <span style={{ fontSize: '10px', background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', padding: '2px 8px', borderRadius: '4px', fontWeight: 600, textTransform: 'none' }}>Mode Superadmin: Kunci Terbuka</span>
+                        </div>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B' }}>
+                          Geser horizontal untuk mengecek seluruh 50 kolom
+                        </span>
                       </div>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B' }}>
-                        Geser horizontal untuk mengecek seluruh 50 kolom
-                      </span>
-                    </div>
 
                     <div style={{ width: '100%', overflowX: 'auto', paddingBottom: '10px' }}>
                       <div style={{ display: 'flex', gap: '12px', minWidth: 'max-content' }}>
@@ -2865,6 +2888,21 @@ export default function ReportDetailPage() {
                       </div>
                     </div>
                   </div>
+                ) : (
+                  <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+                    <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+                      🔒
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#1E293B' }}>
+                        Rincian Kunci Penjumlahan Kraepelin Ditutup
+                      </div>
+                      <div style={{ fontSize: '12.5px', color: '#64748B', marginTop: '2px', lineHeight: '1.4' }}>
+                        Khusus role Tester dan Psikolog, rincian hitungan penjumlahan tiap digit ditutup demi kerahasiaan &amp; integritas alat tes. Ringkasan performa 50 kolom (kecepatan panker, ketelitian benar/salah, stabilitas grafik) di atas menampilkan evaluasi lengkap hasil tes.
+                      </div>
+                    </div>
+                  </div>
+                )}
                 </div>
 
               </div>

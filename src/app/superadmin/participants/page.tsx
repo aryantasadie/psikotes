@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import {
   FolderKanban,
@@ -414,12 +415,13 @@ export default function ParticipantsPage() {
                   <TableHead>Posisi / Jabatan</TableHead>
                   <TableHead>Battery Test</TableHead>
                   <TableHead>Status Pengerjaan</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredParticipants.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-slate-400 text-sm">
+                    <TableCell colSpan={6} className="py-8 text-center text-slate-400 text-sm">
                       Tidak ada peserta terdaftar di batch ini yang sesuai dengan pencarian.
                     </TableCell>
                   </TableRow>
@@ -471,6 +473,15 @@ export default function ParticipantsPage() {
                             <Badge variant="secondary">
                               Menunggu Ujian
                             </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {p.status === 'completed' && (
+                            <Link href={`/superadmin/reports/${p.id}`}>
+                              <Button size="sm" variant="outline" className="h-7 text-xs border-teal-500 text-teal-700 hover:bg-teal-50 font-semibold">
+                                Lihat Hasil
+                              </Button>
+                            </Link>
                           )}
                         </TableCell>
                       </TableRow>

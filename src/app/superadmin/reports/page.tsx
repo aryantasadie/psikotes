@@ -62,12 +62,8 @@ export default function ReportsPage() {
   useEffect(() => {
     if (status === 'authenticated') {
       const userRole = (session?.user as any)?.role;
-      if (!['superadmin', 'psikolog'].includes(userRole)) {
-        if (userRole === 'tester') {
-          router.replace('/superadmin/participants');
-        } else {
-          router.replace('/');
-        }
+      if (!['superadmin', 'psikolog', 'tester'].includes(userRole)) {
+        router.replace('/');
       }
     }
   }, [session, status, router]);
@@ -118,12 +114,12 @@ export default function ReportsPage() {
   };
 
   useEffect(() => {
-    if (status === 'authenticated' && ['superadmin', 'psikolog'].includes((session?.user as any)?.role)) {
+    if (status === 'authenticated' && ['superadmin', 'psikolog', 'tester'].includes((session?.user as any)?.role)) {
       fetchParticipants();
     }
   }, [status, session]);
 
-  if (status === 'loading' || !['superadmin', 'psikolog'].includes((session?.user as any)?.role)) {
+  if (status === 'loading' || !['superadmin', 'psikolog', 'tester'].includes((session?.user as any)?.role)) {
     return (
       <div className="flex items-center justify-center min-h-[50vh] text-slate-500 text-sm gap-2">
         <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
