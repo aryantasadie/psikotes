@@ -196,19 +196,22 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'ID wajib diisi' }, { status: 400 });
     }
 
-    const target = await prisma.user.findUnique({ where: { id: Number(id) } });
+    const clientId = Number(id);
+    const target = await prisma.user.findUnique({ where: { id: clientId } });
     if (!target || target.role !== 'client') {
       return NextResponse.json({ error: 'Target bukan akun klien' }, { status: 400 });
     }
 
-    // Disconnect tests from client if any exist to prevent foreign key issues
-    await prisma.test.updateMany({
-      where: { clientId: Number(id) },
-      data: { clientId: null }
-    });
+    // Keamanan Data: Periksa apakah klien masih memiliki batch tes yang terhubung
+    const testCount = await prisma.test.count({ where: { clientId } });
+    if (testCount > 0) {
+      return NextResponse.json({ 
+        error: `Tidak dapat menghapus: Klien ini masih memiliki ${testCount} batch tes yang terhubung. Hapus batch tes terkait terlebih dahulu demi keamanan data.` 
+      }, { status: 400 });
+    }
 
     await prisma.user.delete({
-      where: { id: Number(id) }
+      where: { id: clientId }
     });
 
     return NextResponse.json({ message: 'Data klien berhasil dihapus' });

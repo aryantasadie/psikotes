@@ -243,7 +243,12 @@ export default function ClientsManagementPage() {
       const res = await fetch(`/api/superadmin/clients?id=${client.id}`, {
         method: 'DELETE',
       });
-      if (res.ok) fetchClients();
+      if (res.ok) {
+        fetchClients();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Gagal menghapus klien.');
+      }
     } catch (e) {
       console.error('Failed to delete client:', e);
     }

@@ -233,7 +233,12 @@ export default function TeamManagementPage() {
       const res = await fetch(`/api/superadmin/team?id=${member.id}`, {
         method: 'DELETE',
       });
-      if (res.ok) fetchTeamData();
+      if (res.ok) {
+        fetchTeamData();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'Gagal menghapus anggota tim.');
+      }
     } catch (e) {
       console.error('Failed to delete member:', e);
     }

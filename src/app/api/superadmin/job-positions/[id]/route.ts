@@ -78,28 +78,33 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
   const { id } = await context.params;
   try {
+    const positionId = parseInt(id);
+
+    // Keamanan Data: Periksa apakah masih ada data aktif yang terhubung ke standar jabatan ini
+    const [testCount, participantCount, psychoCount] = await Promise.all([
+      prisma.test.count({ where: { jobPositionId: positionId } }),
+      prisma.testParticipant.count({ where: { jobPositionId: positionId } }),
+      prisma.testResultPsychograph.count({ where: { jobPositionId: positionId } })
+    ]);
+
+    if (testCount > 0 || participantCount > 0 || psychoCount > 0) {
+      const reasons: string[] = [];
+      if (testCount > 0) reasons.push(`${testCount} batch tes`);
+      if (participantCount > 0) reasons.push(`${participantCount} peserta`);
+      if (psychoCount > 0) reasons.push(`${psychoCount} laporan psikogram`);
+
+      return NextResponse.json({ 
+        error: `Tidak dapat menghapus: Standar jabatan ini masih terhubung dengan ${reasons.join(', ')}. Kosongkan atau hapus data terkait terlebih dahulu demi keamanan data.` 
+      }, { status: 400 });
+    }
+
+    // Jika sudah kosong/bersih dari relasi data peserta, aman untuk dihapus
     await prisma.psychographGrayArea.deleteMany({
-      where: { jobPositionId: parseInt(id) }
-    });
-
-    // Disconnect any test or participant references before deleting
-    await prisma.test.updateMany({
-      where: { jobPositionId: parseInt(id) },
-      data: { jobPositionId: null }
-    });
-
-    await prisma.testParticipant.updateMany({
-      where: { jobPositionId: parseInt(id) },
-      data: { jobPositionId: null }
-    });
-
-    // Delete any psychograph test results associated with this job position
-    await prisma.testResultPsychograph.deleteMany({
-      where: { jobPositionId: parseInt(id) }
+      where: { jobPositionId: positionId }
     });
 
     await prisma.jobPosition.delete({
-      where: { id: parseInt(id) }
+      where: { id: positionId }
     });
     return NextResponse.json({ success: true });
   } catch (error) {

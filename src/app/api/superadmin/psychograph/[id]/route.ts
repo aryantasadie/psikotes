@@ -79,16 +79,21 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   try {
     const presetId = parseInt(id);
 
-    // Disconnect any job positions or tests referencing this preset
-    await prisma.jobPosition.updateMany({
-      where: { psychographPresetId: presetId },
-      data: { psychographPresetId: null }
-    });
+    // Keamanan Data: Periksa apakah masih ada standar jabatan atau batch tes yang terhubung
+    const [jobCount, testCount] = await Promise.all([
+      prisma.jobPosition.count({ where: { psychographPresetId: presetId } }),
+      prisma.test.count({ where: { psychographPresetId: presetId } })
+    ]);
 
-    await prisma.test.updateMany({
-      where: { psychographPresetId: presetId },
-      data: { psychographPresetId: null }
-    });
+    if (jobCount > 0 || testCount > 0) {
+      const reasons: string[] = [];
+      if (jobCount > 0) reasons.push(`${jobCount} standar jabatan`);
+      if (testCount > 0) reasons.push(`${testCount} batch tes`);
+
+      return NextResponse.json({ 
+        error: `Tidak dapat menghapus: Preset ini masih terhubung dengan ${reasons.join(', ')}. Kosongkan atau hapus data terkait terlebih dahulu demi keamanan data.` 
+      }, { status: 400 });
+    }
 
     await prisma.psychographPreset.delete({
       where: { id: presetId }

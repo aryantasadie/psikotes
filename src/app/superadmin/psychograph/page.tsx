@@ -55,8 +55,12 @@ export default function PsychographPresetList() {
   const handleDelete = async (id: number) => {
     if (!confirm('Yakin ingin menghapus Preset Kompetensi & Alat Tes ini?')) return;
     const res = await fetch(`/api/superadmin/psychograph/${id}`, { method: 'DELETE' });
-    if (res.ok) setPresets(p => p.filter(x => x.id !== id));
-    else alert('Gagal menghapus.');
+    if (res.ok) {
+      setPresets(p => p.filter(x => x.id !== id));
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || 'Gagal menghapus.');
+    }
   };
 
   const filteredPresets = presets.filter(preset => {

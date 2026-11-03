@@ -201,18 +201,23 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'ID wajib diisi' }, { status: 400 });
     }
 
-    if (Number(id) === Number((session.user as any).id)) {
+    const memberId = Number(id);
+    if (memberId === Number((session.user as any).id)) {
       return NextResponse.json({ error: 'Tidak dapat menghapus akun Anda sendiri' }, { status: 400 });
     }
 
-    // Disconnect reviewer reference in psychograph reviews if any exist
-    await prisma.testResultPsychograph.updateMany({
-      where: { reviewerId: Number(id) },
-      data: { reviewerId: null }
+    // Keamanan Data: Periksa apakah staf ini menjadi reviewer pada laporan psikogram
+    const reviewCount = await prisma.testResultPsychograph.count({
+      where: { reviewerId: memberId }
     });
+    if (reviewCount > 0) {
+      return NextResponse.json({ 
+        error: `Tidak dapat menghapus: Staf ini tercatat sebagai reviewer pada ${reviewCount} laporan psikogram. Ubah reviewer pada laporan terkait terlebih dahulu demi keamanan data.` 
+      }, { status: 400 });
+    }
 
     await prisma.user.delete({
-      where: { id: Number(id) }
+      where: { id: memberId }
     });
 
     return NextResponse.json({ message: 'Anggota tim berhasil dihapus' });
