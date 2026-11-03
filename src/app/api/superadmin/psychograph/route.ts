@@ -21,6 +21,9 @@ export async function GET() {
           }
         },
         tests: {
+          where: {
+            participants: { some: {} }
+          },
           select: {
             id: true,
             title: true,

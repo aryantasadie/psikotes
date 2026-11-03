@@ -88,10 +88,16 @@ export default function PsychographPresetList() {
   }, []);
 
   const handleInitiateDelete = (preset: any) => {
-    const hasPositions = preset.jobPositions && preset.jobPositions.length > 0;
-    const hasBatches = preset.tests && preset.tests.length > 0;
+    // Hanya hitung batch yang benar-benar aktif (memiliki peserta > 0), abaikan shell dummy internal
+    const realBatches = (preset.tests || []).filter((t: any) => {
+      const count = typeof t.participantCount === 'number' ? t.participantCount : (t._count?.participants ?? 0);
+      return count > 0;
+    });
 
-    // Keamanan 1: Jika terdeteksi ada standar jabatan atau batch ujian yang memakai template ini
+    const hasPositions = preset.jobPositions && preset.jobPositions.length > 0;
+    const hasBatches = realBatches.length > 0;
+
+    // Keamanan 1: Jika terdeteksi ada standar jabatan atau batch ujian aktif yang memakai template ini
     if (hasPositions || hasBatches) {
       setBlockedData({
         isOpen: true,
@@ -100,11 +106,11 @@ export default function PsychographPresetList() {
           id: jp.id,
           name: jp.name
         })),
-        batches: (preset.tests || []).map((t: any) => ({
+        batches: realBatches.map((t: any) => ({
           id: t.id,
           title: t.title,
           clientName: t.client?.name || 'Umum / Semua Klien',
-          participantCount: t._count?.participants ?? 0,
+          participantCount: typeof t.participantCount === 'number' ? t.participantCount : (t._count?.participants ?? 0),
           startDate: t.startDate
         }))
       });

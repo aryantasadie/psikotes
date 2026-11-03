@@ -80,9 +80,12 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   try {
     const jobPositionId = parseInt(id);
 
-    // Keamanan: Cek apakah standar psikogram jabatan masih terhubung dengan batch ujian
+    // Keamanan: Cek apakah standar psikogram jabatan masih terhubung dengan batch ujian aktif (ada peserta)
     const connectedBatches = await prisma.test.findMany({
-      where: { jobPositionId },
+      where: { 
+        jobPositionId,
+        participants: { some: {} }
+      },
       select: {
         id: true,
         title: true,
@@ -110,6 +113,14 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
         totalParticipants: connectedParticipantsCount
       }, { status: 400 });
     }
+
+    // Bersihkan batch dummy shell (tanpa peserta) jika ada yang mengaitkan job position ini
+    await prisma.test.deleteMany({
+      where: {
+        jobPositionId,
+        participants: { none: {} }
+      }
+    });
 
     await prisma.psychographGrayArea.deleteMany({
       where: { jobPositionId }

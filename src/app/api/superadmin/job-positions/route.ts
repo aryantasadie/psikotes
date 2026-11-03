@@ -16,6 +16,9 @@ export async function GET() {
         psychographPreset: true,
         grayAreas: true,
         tests: {
+          where: {
+            participants: { some: {} }
+          },
           select: {
             id: true,
             title: true,

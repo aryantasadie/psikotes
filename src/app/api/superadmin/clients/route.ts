@@ -36,9 +36,12 @@ export async function GET() {
       orderBy: { createdAt: 'desc' }
     });
 
-    // Also get tests count for each client
+    // Also get tests count for each client (only active batches with participants)
     const testsCount = await prisma.test.groupBy({
       by: ['clientId'],
+      where: {
+        participants: { some: {} }
+      },
       _count: { id: true }
     });
 
@@ -201,9 +204,12 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Target bukan akun klien' }, { status: 400 });
     }
 
-    // Keamanan: Cek apakah klien masih memiliki batch jadwal ujian aktif
+    // Keamanan: Cek apakah klien masih memiliki batch jadwal ujian aktif (ada peserta)
     const connectedBatches = await prisma.test.findMany({
-      where: { clientId: Number(id) },
+      where: { 
+        clientId: Number(id),
+        participants: { some: {} }
+      },
       select: {
         id: true,
         title: true,
@@ -224,6 +230,14 @@ export async function DELETE(req: Request) {
         }))
       }, { status: 400 });
     }
+
+    // Bersihkan batch shell tanpa peserta jika ada yang mengaitkan klien ini
+    await prisma.test.deleteMany({
+      where: {
+        clientId: Number(id),
+        participants: { none: {} }
+      }
+    });
 
     await prisma.user.delete({
       where: { id: Number(id) }

@@ -86,16 +86,21 @@ export default function JobPositionList() {
   }, []);
 
   const handleInitiateDelete = (pos: any) => {
-    // Keamanan 1: Jika sudah terdeteksi ada batch terkait, langsung blokir dengan popup informatif
-    if (pos.tests && pos.tests.length > 0) {
+    // Keamanan 1: Jika sudah terdeteksi ada batch ujian aktif (ada peserta) terkait, blokir dengan popup informatif
+    const realBatches = (pos.tests || []).filter((t: any) => {
+      const count = typeof t.participantCount === 'number' ? t.participantCount : (t._count?.participants ?? 0);
+      return count > 0;
+    });
+
+    if (realBatches.length > 0) {
       setBlockedData({
         isOpen: true,
         positionName: pos.name,
-        batches: pos.tests.map((t: any) => ({
+        batches: realBatches.map((t: any) => ({
           id: t.id,
           title: t.title,
           clientName: t.client?.name || 'Umum / Semua Klien',
-          participantCount: t._count?.participants ?? 0,
+          participantCount: typeof t.participantCount === 'number' ? t.participantCount : (t._count?.participants ?? 0),
           startDate: t.startDate
         }))
       });
