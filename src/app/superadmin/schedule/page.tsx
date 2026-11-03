@@ -47,6 +47,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 
 interface BatchAccount {
@@ -77,18 +78,71 @@ interface BatchSession {
   participants: BatchAccount[];
 }
 
-const AVAILABLE_TEST_TOOLS = [
+export interface BaseTestTool {
+  id: string;
+  label: string;
+  hasSubtests?: boolean;
+}
+
+export const BASE_TEST_TOOLS: BaseTestTool[] = [
   { id: 'WPT', label: 'WPT' },
-  { id: 'IST', label: 'IST' },
+  { id: 'IST', label: 'IST', hasSubtests: true },
   { id: 'PAPI KOSTICK', label: 'PAPI KOSTICK' },
   { id: 'DISC', label: 'DISC' },
-  { id: 'CFIT', label: 'CFIT' },
-  { id: 'TIKI', label: 'TIKI' },
+  { id: 'CFIT', label: 'CFIT', hasSubtests: true },
+  { id: 'TIKI', label: 'TIKI', hasSubtests: true },
   { id: 'MSDT', label: 'MSDT' },
   { id: 'POWER', label: 'POWER' },
   { id: 'Kraepelin', label: 'Kraepelin' },
   { id: 'Wartegg', label: 'Wartegg' },
   { id: 'Tes Grafis', label: 'Tes Grafis' },
+];
+
+export const SUBTEST_CONFIG: Record<string, {
+  name: string;
+  badge: string;
+  desc: string;
+  subtests: { id: string; label: string; desc?: string }[];
+}> = {
+  IST: {
+    name: 'IST (Intelligence Structure Test)',
+    badge: 'IST Subtes',
+    desc: 'Pilih modul subtes IST yang akan diujikan pada sesi ini:',
+    subtests: [
+      { id: 'IST 2', label: 'IST 2', desc: 'WA - Hubungan Kata' },
+      { id: 'IST 3', label: 'IST 3', desc: 'AN - Analogi' },
+      { id: 'IST 6', label: 'IST 6', desc: 'ZR - Deret Angka' },
+      { id: 'IST 7', label: 'IST 7', desc: 'FA - Memilih Bentuk' },
+    ],
+  },
+  CFIT: {
+    name: 'CFIT (Culture Fair Intelligence Test)',
+    badge: 'CFIT Subtes',
+    desc: 'Pilih modul subtes CFIT yang akan diujikan pada sesi ini:',
+    subtests: [
+      { id: 'CFIT 1', label: 'CFIT 1', desc: 'Subtes 1 - Series' },
+      { id: 'CFIT 2', label: 'CFIT 2', desc: 'Subtes 2 - Classification' },
+      { id: 'CFIT 3', label: 'CFIT 3', desc: 'Subtes 3 - Matrices' },
+      { id: 'CFIT 4', label: 'CFIT 4', desc: 'Subtes 4 - Conditions' },
+    ],
+  },
+  TIKI: {
+    name: 'TIKI (Tes Inteligensi Kolektif Indonesia)',
+    badge: 'TIKI Subtes',
+    desc: 'Pilih modul subtes TIKI yang akan diujikan pada sesi ini:',
+    subtests: [
+      { id: 'TIKI 1', label: 'TIKI 1', desc: 'Subtes 1 - Berhitung Angka' },
+      { id: 'TIKI 2', label: 'TIKI 2', desc: 'Subtes 2 - Gabungan Bagian' },
+      { id: 'TIKI 3', label: 'TIKI 3', desc: 'Subtes 3 - Hubungan Kata' },
+      { id: 'TIKI 4', label: 'TIKI 4', desc: 'Subtes 4 - Eksklusi Gambar' },
+      { id: 'TIKI 6', label: 'TIKI 6', desc: 'Subtes 6 - Bayangan Cermin' },
+    ],
+  },
+};
+
+export const AVAILABLE_TEST_TOOLS = [
+  ...BASE_TEST_TOOLS.filter(t => !t.hasSubtests),
+  ...Object.values(SUBTEST_CONFIG).flatMap(c => c.subtests.map(s => ({ id: s.id, label: s.label })))
 ];
 
 export default function SchedulePage() {
@@ -111,6 +165,7 @@ export default function SchedulePage() {
   // Custom Test Tools Override State
   const [useCustomTools, setUseCustomTools] = useState(false);
   const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>([]);
+  const [activeSubtestModal, setActiveSubtestModal] = useState<string | null>(null);
 
   // Result State
   const [generatedAccounts, setGeneratedAccounts] = useState<any[]>([]);
@@ -179,12 +234,25 @@ export default function SchedulePage() {
     );
   };
 
+  const selectAllSubtests = (subtestIds: string[]) => {
+    setSelectedCustomTools(prev => Array.from(new Set([...prev, ...subtestIds])));
+  };
+
+  const unselectAllSubtests = (subtestIds: string[]) => {
+    setSelectedCustomTools(prev => prev.filter(id => !subtestIds.includes(id)));
+  };
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage('');
 
+    if (!positionName.trim()) {
+      alert('Nama Sesi / Jabatan wajib diisi!');
+      return;
+    }
+
     if (!selectedJobPositionId && selectedCustomTools.length === 0) {
-      alert('Pilih minimal Standar Jabatan Posisi ATAU centang minimal satu Alat Tes yang diujikan!');
+      alert('Pilih minimal Psikogram Jabatan ATAU centang minimal satu Alat Tes yang diujikan!');
       return;
     }
 
@@ -480,7 +548,7 @@ export default function SchedulePage() {
               Buat Sesi & Akun Peserta
             </CardTitle>
             <CardDescription className="text-xs text-slate-500">
-              Isi data sesi, standar jabatan / modul tes, tanggal, dan tester penanggung jawab
+              Isi data sesi, psikogram jabatan / modul tes, tanggal, dan tester penanggung jawab
             </CardDescription>
           </CardHeader>
 
@@ -489,21 +557,22 @@ export default function SchedulePage() {
               {/* Nama Sesi / Jabatan */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-slate-700">
-                  Nama Sesi / Jabatan <span className="text-slate-400 font-normal">(Opsional)</span>
+                  Nama Sesi / Jabatan <span className="text-rose-500">*</span>
                 </label>
                 <Input
                   type="text"
+                  required
                   placeholder="Contoh: Staff Admin / Tes Mandiri WPT / Batch 1"
                   value={positionName}
                   onChange={e => setPositionName(e.target.value)}
                 />
               </div>
 
-              {/* Standar Jabatan */}
+              {/* Psikogram Jabatan */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-bold text-slate-700">
-                    Standar Jabatan Posisi <span className="text-slate-400 font-normal">(Opsional jika tes mandiri)</span>
+                    Psikogram Jabatan <span className="text-slate-400 font-normal">(Opsional jika tes mandiri)</span>
                   </label>
                   {selectedJobPositionId && (
                     <button
@@ -511,7 +580,7 @@ export default function SchedulePage() {
                       onClick={() => setSelectedJobPositionId('')}
                       className="text-xs text-rose-500 hover:text-rose-700 font-semibold underline"
                     >
-                      Batal pilih standar
+                      Batal pilih psikogram
                     </button>
                   )}
                 </div>
@@ -521,7 +590,7 @@ export default function SchedulePage() {
                   onChange={e => setSelectedJobPositionId(e.target.value)}
                   className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
                 >
-                  <option value="">— Tanpa Standar Jabatan (Pilih Alat Tes Mandiri) —</option>
+                  <option value="">— Tanpa Psikogram Jabatan (Pilih Alat Tes Mandiri) —</option>
                   {jobPositions.map(t => (
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
@@ -559,32 +628,102 @@ export default function SchedulePage() {
                 )}
 
                 {(useCustomTools || !selectedJobPositionId) && (
-                  <div className="flex flex-col gap-2 pt-1">
+                  <div className="flex flex-col gap-2.5 pt-1">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {AVAILABLE_TEST_TOOLS.map(tool => (
-                        <label
-                          key={tool.id}
-                          className="flex items-center gap-2 cursor-pointer bg-slate-50 hover:bg-slate-100 p-2 rounded-md border border-slate-200 transition-colors text-xs font-semibold text-slate-800"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedCustomTools.includes(tool.id)}
-                            onChange={() => toggleCustomTool(tool.id)}
-                            className="w-3.5 h-3.5 rounded accent-teal-600 cursor-pointer"
-                          />
-                          <span className="truncate">{tool.label}</span>
-                        </label>
-                      ))}
+                      {BASE_TEST_TOOLS.map(tool => {
+                        if (tool.hasSubtests) {
+                          const config = SUBTEST_CONFIG[tool.id];
+                          const subtestIds = config?.subtests.map(s => s.id) || [];
+                          const selectedSubtests = subtestIds.filter(id => selectedCustomTools.includes(id));
+                          const isChecked = selectedSubtests.length > 0;
+
+                          return (
+                            <div
+                              key={tool.id}
+                              onClick={() => setActiveSubtestModal(tool.id)}
+                              className={`flex items-center justify-between p-2 rounded-md border cursor-pointer transition-all text-xs select-none ${
+                                isChecked
+                                  ? 'bg-teal-50 border-teal-400 text-teal-900 shadow-2xs font-bold'
+                                  : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800 font-semibold'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    if (isChecked) {
+                                      unselectAllSubtests(subtestIds);
+                                    } else {
+                                      setActiveSubtestModal(tool.id);
+                                    }
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="w-3.5 h-3.5 rounded accent-teal-600 cursor-pointer shrink-0"
+                                />
+                                <span className="truncate">{tool.label}</span>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0 ml-1">
+                                {isChecked ? (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-200/80 text-teal-900 font-bold">
+                                    {selectedSubtests.length} Subtes ▾
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 font-normal">
+                                    Pilih ▾
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // Standar Tool tanpa subtes
+                        const isChecked = selectedCustomTools.includes(tool.id);
+                        return (
+                          <label
+                            key={tool.id}
+                            className={`flex items-center gap-2 cursor-pointer p-2 rounded-md border transition-all text-xs select-none ${
+                              isChecked
+                                ? 'bg-teal-50 border-teal-400 text-teal-900 shadow-2xs font-bold'
+                                : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-800 font-semibold'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => toggleCustomTool(tool.id)}
+                              className="w-3.5 h-3.5 rounded accent-teal-600 cursor-pointer shrink-0"
+                            />
+                            <span className="truncate">{tool.label}</span>
+                          </label>
+                        );
+                      })}
                     </div>
-                    {selectedCustomTools.length > 0 ? (
-                      <p className="text-xs text-teal-600 font-semibold">
-                        ✓ {selectedCustomTools.length} tes terpilih: {selectedCustomTools.join(', ')}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-rose-500 font-medium">
-                        ⚠️ Belum ada alat tes yang dipilih. Silakan centang minimal 1 alat tes.
-                      </p>
-                    )}
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                      {selectedCustomTools.length > 0 ? (
+                        <p className="text-xs text-teal-700 font-semibold">
+                          ✓ {selectedCustomTools.length} alat tes terpilih: <span className="font-mono text-[11px]">{selectedCustomTools.join(', ')}</span>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-rose-500 font-medium">
+                          ⚠️ Belum ada alat tes yang dipilih. Silakan centang minimal 1 alat tes.
+                        </p>
+                      )}
+
+                      {selectedCustomTools.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCustomTools([])}
+                          className="text-xs font-semibold text-rose-600 hover:text-rose-800 hover:underline"
+                        >
+                          Kosongkan Pilihan
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1275,6 +1414,90 @@ export default function SchedulePage() {
                 </Button>
               </div>
             </form>
+          </DialogContent>
+        )}
+      </Dialog>
+
+      {/* Modal Pemilihan Subtes (IST, CFIT, TIKI) */}
+      <Dialog open={!!activeSubtestModal} onOpenChange={(open) => !open && setActiveSubtestModal(null)}>
+        {activeSubtestModal && SUBTEST_CONFIG[activeSubtestModal] && (
+          <DialogContent className="max-w-md p-6">
+            <DialogHeader className="pb-3 border-b border-slate-100">
+              <div className="flex items-center justify-between pr-6">
+                <DialogTitle className="text-base font-bold text-slate-900">
+                  Pilih Subtes {activeSubtestModal}
+                </DialogTitle>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-teal-100 text-teal-800">
+                  {SUBTEST_CONFIG[activeSubtestModal].subtests.filter(s => selectedCustomTools.includes(s.id)).length} Terpilih
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                {SUBTEST_CONFIG[activeSubtestModal].desc}
+              </p>
+            </DialogHeader>
+
+            <div className="py-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {SUBTEST_CONFIG[activeSubtestModal].subtests.map((subtest) => {
+                  const isChecked = selectedCustomTools.includes(subtest.id);
+                  return (
+                    <label
+                      key={subtest.id}
+                      className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all text-xs select-none ${
+                        isChecked
+                          ? 'bg-teal-50 border-teal-400 text-teal-900 font-bold shadow-2xs'
+                          : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 font-medium'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleCustomTool(subtest.id)}
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer shrink-0"
+                      />
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate">{subtest.label}</span>
+                        {subtest.desc && (
+                          <span className="text-[10px] text-slate-400 font-normal truncate">{subtest.desc}</span>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <DialogFooter className="pt-3 border-t border-slate-100 flex items-center justify-between sm:justify-between w-full">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectAllSubtests(SUBTEST_CONFIG[activeSubtestModal].subtests.map(s => s.id))}
+                  className="text-xs h-8"
+                >
+                  Pilih Semua
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => unselectAllSubtests(SUBTEST_CONFIG[activeSubtestModal].subtests.map(s => s.id))}
+                  className="text-xs h-8 text-slate-500 hover:text-rose-600"
+                >
+                  Kosongkan
+                </Button>
+              </div>
+
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setActiveSubtestModal(null)}
+                className="text-xs h-8 bg-teal-600 hover:bg-teal-700 text-white px-4 font-semibold"
+              >
+                Selesai
+              </Button>
+            </DialogFooter>
           </DialogContent>
         )}
       </Dialog>

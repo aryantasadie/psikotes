@@ -88,9 +88,11 @@ export async function GET(
       orderBy: { id: 'asc' }
     });
 
+    const sanitizedParticipants = participants.map(({ plainPassword, ...rest }) => rest);
+
     return NextResponse.json({
       test,
-      participants
+      participants: sanitizedParticipants
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Gagal memuat batch' }, { status: 500 });

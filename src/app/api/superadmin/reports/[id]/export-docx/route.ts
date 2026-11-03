@@ -17,83 +17,16 @@ import {
   BorderStyle,
   ImageRun,
   VerticalAlign,
+  TableLayoutType,
 } from 'docx';
-
-// Default Aspect Descriptions & Mapping
-const ASPECT_DESCRIPTIONS: Record<string, string> = {
-  "Inteligensi Umum": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
-  "Intelegensi umum": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
-  "Intelegensi Umum": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
-  "IQ / Kapasitas Intelektual": "Kemampuan untuk memecahkan persoalan yang sifatnya kompleks dan baru.",
-  "Daya Analisa": "Mampu mengolah dan mengidentifikasi keterkaitan informasi; menghubungkan data dari berbagai sumber.",
-  "Logika Berpikir": "Kemampuan untuk berpikir runtut, terarah, praktis dan logis dengan penalaran masuk akal.",
-  "Daya Abstraksi": "Kemampuan untuk menelaah persoalan dari berbagai sudut pandang dan berpikir antisipatif.",
-  "Problem Solving": "Kemampuan membuat keputusan tepat dengan mempertimbangkan efektivitas solusi.",
-  "Stabilitas Emosi": "Kemampuan mengendalikan diri dan bersikap tenang dalam situasi penuh tekanan.",
-  "Kepekaan Emosi / Sosial": "Mampu memahami perasaan orang lain dan berempati secara wajar.",
-  "Kepercayaan Diri": "Yakin pada kapasitas diri, berani mengambil sikap tegas dan asertif.",
-  "Sosiabilitas": "Minat sosial, mampu menciptakan impresi baik dan menjalin relasi interpersonal.",
-  "Adaptasi": "Kemampuan menyesuaikan diri secara luwes terhadap perubahan lingkungan atau tugas baru.",
-  "Komunikasi": "Mampu menyampaikan gagasan secara jelas, lugas, dan persuasif.",
-  "Orientasi Berprestasi": "Dorongan untuk mencapai target unggul dan standar performa optimal.",
-  "Daya Juang": "Ketekunan, persistensi, dan keuletan dalam menuntaskan rintangan kerja.",
-  "Kedetailan": "Cermat terhadap detail operasional serta meminimalkan kesalahan kerja.",
-  "Sistematika Kerja": "Bekerja secara terencana, berurutan, terorganisir, dan terstruktur.",
-  "Kecepatan Kerja": "Tempo penyelesaian tugas dengan ritme dinamis dan efisien.",
-  "Ketelitian Kerja": "Akurasi tinggi dan kecermatan dalam pemrosesan data/dokumen.",
-  "Daya Tahan Stress": "Resiliensi mental saat menghadapi beban kerja tinggi atau tenggat waktu ketat.",
-  "Kepemimpinan": "Kemampuan memandu, memotivasi, dan mengarahkan orang lain mencapai tujuan bersama.",
-  "Inisiatif": "Proaktif mengambil tindakan tanpa harus menunggu instruksi atasan.",
-  "Tanggung Jawab": "Komitmen tinggi atas tugas dan integritas terhadap hasil kerja.",
-  "Kerjasama": "Kesediaan berkolaborasi dan berkontribusi secara suportif dalam kelompok kerja.",
-  "Pengambilan Keputusan": "Keberanian menentukan pilihan solusi secara cepat dan terukur.",
-};
-
-const DEFAULT_PRESET_MAPPING = [
-  {
-    category: "I. KEMAMPUAN KOGNITIF",
-    aspects: [
-      { name: "IQ / Kapasitas Intelektual", checked: true },
-      { name: "Daya Analisa", checked: true },
-      { name: "Logika Berpikir", checked: true },
-      { name: "Daya Abstraksi", checked: true },
-      { name: "Problem Solving", checked: true },
-    ]
-  },
-  {
-    category: "II. SISI AFEKTIF",
-    aspects: [
-      { name: "Stabilitas Emosi", checked: true },
-      { name: "Kepekaan Emosi / Sosial", checked: true },
-      { name: "Kepercayaan Diri", checked: true },
-    ]
-  },
-  {
-    category: "III. HUBUNGAN ANTAR MANUSIA",
-    aspects: [
-      { name: "Sosiabilitas", checked: true },
-      { name: "Adaptasi", checked: true },
-      { name: "Komunikasi", checked: true },
-    ]
-  },
-  {
-    category: "IV. SIKAP KERJA",
-    aspects: [
-      { name: "Orientasi Berprestasi", checked: true },
-      { name: "Daya Juang", checked: true },
-      { name: "Kedetailan", checked: true },
-      { name: "Sistematika Kerja", checked: true },
-      { name: "Kecepatan Kerja", checked: true },
-      { name: "Ketelitian Kerja", checked: true },
-      { name: "Daya Tahan Stress", checked: true },
-      { name: "Kepemimpinan", checked: true },
-      { name: "Inisiatif", checked: true },
-      { name: "Tanggung Jawab", checked: true },
-      { name: "Kerjasama", checked: true },
-      { name: "Pengambilan Keputusan", checked: true },
-    ]
-  }
-];
+import {
+  calculateComputerScores,
+  resolveFinalAspectScore,
+  resolveTargetScore,
+  ASPECT_DESCRIPTIONS,
+  DEFAULT_PRESET_MAPPING,
+  getCanonicalAspectKey,
+} from '@/lib/psychographScoring';
 
 export async function GET(
   req: Request,
@@ -124,11 +57,18 @@ export async function GET(
         test: {
           include: {
             jobPosition: { include: { grayAreas: true, psychographPreset: true } },
+            psychographPreset: true,
             client: { select: { name: true } }
           }
         },
         psychoResults: true,
-        normResults: true
+        normResults: true,
+        answers: {
+          include: {
+            question: true
+          }
+        },
+        rawResults: true
       }
     });
 
@@ -191,13 +131,17 @@ export async function GET(
     }, {});
 
     // Preset mapping
+    const preset = jobPosition?.psychographPreset || participant.test?.psychographPreset;
     let mapping: any[] = [];
-    if (jobPosition?.psychographPreset?.mapping) {
-      try { mapping = JSON.parse(jobPosition.psychographPreset.mapping); } catch (e) {}
+    if (preset?.mapping) {
+      try { mapping = JSON.parse(preset.mapping); } catch (e) {}
     }
     if (!Array.isArray(mapping) || mapping.length === 0) {
       mapping = DEFAULT_PRESET_MAPPING;
     }
+
+    // Calculate computer scores from participant answers & test results!
+    const computerScores = calculateComputerScores(participant);
 
     const candidateName = participant.user?.name || 'Peserta';
     const positionName = participant.test?.title?.split('-')[0]?.trim() || jobPosition?.name || 'Posisi General';
@@ -394,6 +338,7 @@ export async function GET(
     // 3. Candidate Bio Table (Tabel Dossier Resmi)
     const statusText = psychoResults.status === 'RELEASED' ? 'RELEASED (RESMI / FINAL)' : 'CONFIDENTIAL REVIEW (INTERNAL)';
     const bioTable = new Table({
+      layout: TableLayoutType.FIXED,
       width: { size: TOTAL_WIDTH_DXA, type: WidthType.DXA },
       columnWidths: [1800, 3359, 1800, 3359],
       borders: {
@@ -467,48 +412,49 @@ export async function GET(
     const psychogramRows: TableRow[] = [
       new TableRow({
         tableHeader: true,
+        cantSplit: true,
         children: [
           new TableCell({
-            width: { size: 2800, type: WidthType.DXA },
+            width: { size: 2600, type: WidthType.DXA },
             shading: { fill: "1E293B" },
             margins: { top: 90, bottom: 90, left: 100, right: 100 },
             children: [new Paragraph({ children: [new TextRun({ text: "ASPEK & DIMENSI", font: "Arial", size: 16, bold: true, color: "FFFFFF" })] })],
           }),
           new TableCell({
-            width: { size: 4518, type: WidthType.DXA },
+            width: { size: 4218, type: WidthType.DXA },
             shading: { fill: "1E293B" },
             margins: { top: 90, bottom: 90, left: 100, right: 100 },
             children: [new Paragraph({ children: [new TextRun({ text: "DEFINISI OPERASIONAL", font: "Arial", size: 16, bold: true, color: "FFFFFF" })] })],
           }),
           new TableCell({
-            width: { size: 600, type: WidthType.DXA },
+            width: { size: 700, type: WidthType.DXA },
             shading: { fill: "1E293B" },
-            margins: { top: 90, bottom: 90, left: 40, right: 40 },
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "KS (1)", font: "Arial", size: 14, bold: true, color: "FFFFFF" })] })],
+            margins: { top: 90, bottom: 90, left: 15, right: 15 },
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "KS\u00A0(1)", font: "Arial", size: 14, bold: true, color: "FFFFFF" })] })],
           }),
           new TableCell({
-            width: { size: 600, type: WidthType.DXA },
+            width: { size: 700, type: WidthType.DXA },
             shading: { fill: "1E293B" },
-            margins: { top: 90, bottom: 90, left: 40, right: 40 },
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "K (2)", font: "Arial", size: 14, bold: true, color: "FFFFFF" })] })],
+            margins: { top: 90, bottom: 90, left: 15, right: 15 },
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "K\u00A0(2)", font: "Arial", size: 14, bold: true, color: "FFFFFF" })] })],
           }),
           new TableCell({
-            width: { size: 600, type: WidthType.DXA },
+            width: { size: 700, type: WidthType.DXA },
             shading: { fill: "1E293B" },
-            margins: { top: 90, bottom: 90, left: 40, right: 40 },
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "C (3)", font: "Arial", size: 14, bold: true, color: "FFFFFF" })] })],
+            margins: { top: 90, bottom: 90, left: 15, right: 15 },
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "C\u00A0(3)", font: "Arial", size: 14, bold: true, color: "FFFFFF" })] })],
           }),
           new TableCell({
-            width: { size: 600, type: WidthType.DXA },
+            width: { size: 700, type: WidthType.DXA },
             shading: { fill: "1E293B" },
-            margins: { top: 90, bottom: 90, left: 40, right: 40 },
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "B (4)", font: "Arial", size: 14, bold: true, color: "FFFFFF" })] })],
+            margins: { top: 90, bottom: 90, left: 15, right: 15 },
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "B\u00A0(4)", font: "Arial", size: 14, bold: true, color: "FFFFFF" })] })],
           }),
           new TableCell({
-            width: { size: 600, type: WidthType.DXA },
+            width: { size: 700, type: WidthType.DXA },
             shading: { fill: "1E293B" },
-            margins: { top: 90, bottom: 90, left: 40, right: 40 },
-            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "BS (5)", font: "Arial", size: 14, bold: true, color: "FFFFFF" })] })],
+            margins: { top: 90, bottom: 90, left: 15, right: 15 },
+            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "BS\u00A0(5)", font: "Arial", size: 14, bold: true, color: "FFFFFF" })] })],
           }),
         ],
       }),
@@ -521,9 +467,11 @@ export async function GET(
       // Category Header Row
       psychogramRows.push(
         new TableRow({
+          cantSplit: true,
           children: [
             new TableCell({
               columnSpan: 7,
+              width: { size: TOTAL_WIDTH_DXA, type: WidthType.DXA },
               shading: { fill: BG_HEADER_TINT },
               margins: { top: 80, bottom: 80, left: 100, right: 100 },
               children: [
@@ -539,16 +487,16 @@ export async function GET(
       // Aspect Rows
       activeAsps.forEach((asp: any) => {
         const aspectName = asp.name;
-        const targetScore = grayAreasMap[aspectName] || 3;
-        const finalScore = modifiedScores[aspectName] !== undefined ? modifiedScores[aspectName] : 3;
+        const targetScore = resolveTargetScore(aspectName, grayAreasMap, 3);
+        const finalScore = resolveFinalAspectScore(aspectName, modifiedScores, computerScores, 3);
 
         const scoreCells: TableCell[] = [1, 2, 3, 4, 5].map((s) => {
           const isTarget = s === targetScore;
           const isActual = s === finalScore;
           return new TableCell({
-            width: { size: 600, type: WidthType.DXA },
+            width: { size: 700, type: WidthType.DXA },
             verticalAlign: VerticalAlign.CENTER,
-            margins: { top: 70, bottom: 70, left: 40, right: 40 },
+            margins: { top: 60, bottom: 60, left: 15, right: 15 },
             shading: isTarget ? { fill: GREY_AREA_BG } : undefined,
             children: [
               new Paragraph({
@@ -557,7 +505,7 @@ export async function GET(
                   new TextRun({
                     text: isActual ? "●" : "",
                     font: "Arial",
-                    size: 21,
+                    size: 20,
                     bold: true,
                     color: PRIMARY_CHARCOAL,
                   }),
@@ -569,17 +517,18 @@ export async function GET(
 
         psychogramRows.push(
           new TableRow({
+            cantSplit: true,
             children: [
               new TableCell({
-                width: { size: 2800, type: WidthType.DXA },
+                width: { size: 2600, type: WidthType.DXA },
                 verticalAlign: VerticalAlign.CENTER,
-                margins: { top: 70, bottom: 70, left: 100, right: 100 },
+                margins: { top: 60, bottom: 60, left: 100, right: 100 },
                 children: [new Paragraph({ children: [new TextRun({ text: aspectName, font: "Arial", size: 16, bold: true, color: PRIMARY_CHARCOAL })] })],
               }),
               new TableCell({
-                width: { size: 4518, type: WidthType.DXA },
+                width: { size: 4218, type: WidthType.DXA },
                 verticalAlign: VerticalAlign.CENTER,
-                margins: { top: 70, bottom: 70, left: 100, right: 100 },
+                margins: { top: 60, bottom: 60, left: 100, right: 100 },
                 children: [
                   new Paragraph({
                     children: [
@@ -611,8 +560,9 @@ export async function GET(
     });
 
     const psychogramTable = new Table({
+      layout: TableLayoutType.FIXED,
       width: { size: TOTAL_WIDTH_DXA, type: WidthType.DXA },
-      columnWidths: [2800, 4518, 600, 600, 600, 600, 600],
+      columnWidths: [2600, 4218, 700, 700, 700, 700, 700],
       borders: {
         top: { style: BorderStyle.SINGLE, size: 6, color: PRIMARY_CHARCOAL },
         bottom: { style: BorderStyle.SINGLE, size: 6, color: PRIMARY_CHARCOAL },
@@ -728,6 +678,7 @@ export async function GET(
     const recText = psychoResults.recommendation || 'DIPERTIMBANGKAN';
 
     const recTable = new Table({
+      layout: TableLayoutType.FIXED,
       width: { size: TOTAL_WIDTH_DXA, type: WidthType.DXA },
       columnWidths: [3439, 3439, 3440],
       borders: {
@@ -756,11 +707,11 @@ export async function GET(
           ],
         }),
         new TableRow({
+          cantSplit: true,
           children: [
             // DISARANKAN
             new TableCell({
               width: { size: 3439, type: WidthType.DXA },
-              shading: recText === 'DISARANKAN' ? { fill: "ECFDF5" } : { fill: "FAFAFA" },
               margins: { top: 130, bottom: 130, left: 100, right: 100 },
               children: [
                 new Paragraph({
@@ -771,8 +722,8 @@ export async function GET(
                       text: recText === 'DISARANKAN' ? "✔ DISARANKAN" : "DISARANKAN",
                       font: "Arial",
                       size: 19,
-                      bold: true,
-                      color: recText === 'DISARANKAN' ? "047857" : "94A3B8",
+                      bold: recText === 'DISARANKAN',
+                      color: recText === 'DISARANKAN' ? PRIMARY_CHARCOAL : "94A3B8",
                     }),
                   ],
                 }),
@@ -784,7 +735,7 @@ export async function GET(
                       text: "Memenuhi seluruh kompetensi psikologis yang dipersyaratkan.",
                       font: "Arial",
                       size: 14,
-                      color: recText === 'DISARANKAN' ? "065F46" : "94A3B8",
+                      color: recText === 'DISARANKAN' ? SECONDARY_SLATE : "94A3B8",
                     }),
                   ],
                 }),
@@ -793,7 +744,6 @@ export async function GET(
             // DIPERTIMBANGKAN
             new TableCell({
               width: { size: 3439, type: WidthType.DXA },
-              shading: recText === 'DIPERTIMBANGKAN' ? { fill: "FFFBEB" } : { fill: "FAFAFA" },
               margins: { top: 130, bottom: 130, left: 100, right: 100 },
               children: [
                 new Paragraph({
@@ -804,8 +754,8 @@ export async function GET(
                       text: recText === 'DIPERTIMBANGKAN' ? "✔ DIPERTIMBANGKAN" : "DIPERTIMBANGKAN",
                       font: "Arial",
                       size: 19,
-                      bold: true,
-                      color: recText === 'DIPERTIMBANGKAN' ? "B45309" : "94A3B8",
+                      bold: recText === 'DIPERTIMBANGKAN',
+                      color: recText === 'DIPERTIMBANGKAN' ? PRIMARY_CHARCOAL : "94A3B8",
                     }),
                   ],
                 }),
@@ -817,7 +767,7 @@ export async function GET(
                       text: "Memenuhi kualifikasi dasar dengan beberapa catatan pengembangan.",
                       font: "Arial",
                       size: 14,
-                      color: recText === 'DIPERTIMBANGKAN' ? "92400E" : "94A3B8",
+                      color: recText === 'DIPERTIMBANGKAN' ? SECONDARY_SLATE : "94A3B8",
                     }),
                   ],
                 }),
@@ -826,7 +776,6 @@ export async function GET(
             // TIDAK DISARANKAN
             new TableCell({
               width: { size: 3440, type: WidthType.DXA },
-              shading: recText === 'TIDAK DISARANKAN' ? { fill: "FEF2F2" } : { fill: "FAFAFA" },
               margins: { top: 130, bottom: 130, left: 100, right: 100 },
               children: [
                 new Paragraph({
@@ -837,8 +786,8 @@ export async function GET(
                       text: recText === 'TIDAK DISARANKAN' ? "✔ TIDAK DISARANKAN" : "TIDAK DISARANKAN",
                       font: "Arial",
                       size: 19,
-                      bold: true,
-                      color: recText === 'TIDAK DISARANKAN' ? "B91C1C" : "94A3B8",
+                      bold: recText === 'TIDAK DISARANKAN',
+                      color: recText === 'TIDAK DISARANKAN' ? PRIMARY_CHARCOAL : "94A3B8",
                     }),
                   ],
                 }),
@@ -850,7 +799,7 @@ export async function GET(
                       text: "Belum memenuhi standar kompetensi minimal posisi jabatan.",
                       font: "Arial",
                       size: 14,
-                      color: recText === 'TIDAK DISARANKAN' ? "991B1B" : "94A3B8",
+                      color: recText === 'TIDAK DISARANKAN' ? SECONDARY_SLATE : "94A3B8",
                     }),
                   ],
                 }),
@@ -945,6 +894,7 @@ export async function GET(
 
     // 7. Section III: Poin Kekuatan & Area Pengembangan (Formal 2-Column Table)
     const swTable = new Table({
+      layout: TableLayoutType.FIXED,
       width: { size: TOTAL_WIDTH_DXA, type: WidthType.DXA },
       columnWidths: [5159, 5159],
       borders: {

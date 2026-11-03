@@ -174,7 +174,6 @@ export default function BatchParticipantsReportPage() {
                       {/* Nama Peserta & Akun: Format "Nama Lengkap - Username" */}
                       <td className="px-4 py-3.5">
                         <p className="text-[13px] font-bold text-slate-900">{displayName}</p>
-                        <p className="text-[11px] font-mono text-slate-400 mt-0.5">Plain Pass: {p.plainPassword || '123456'}</p>
                       </td>
 
                       {/* Posisi / Jabatan */}

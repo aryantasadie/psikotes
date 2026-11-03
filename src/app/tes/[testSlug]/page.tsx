@@ -41,6 +41,9 @@ export default async function TestPage({ params }: { params: Promise<{ testSlug:
   if (testSlug.includes('msdt')) return <MSDT />;
   if (testSlug.includes('power')) return <POWER />;
   if (testSlug.includes('kraepelin') || testSlug.includes('kreapelin')) return <Kraepelin />;
+  if (testSlug === 'ist') return <IST2 />;
+  if (testSlug === 'cfit') return <CFIT1 />;
+  if (testSlug === 'tiki') return <TIKI1 />;
 
   // Jika tidak ditemukan
   return (

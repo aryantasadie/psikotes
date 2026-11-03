@@ -41,9 +41,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Input tidak valid. Jumlah akun harus 1-200.' }, { status: 400 });
     }
 
-    // Jika Standar Jabatan tidak dipilih, wajib menentukan minimal 1 alat tes mandiri
+    if (!positionName || !positionName.trim()) {
+      return NextResponse.json({ error: 'Nama Sesi / Jabatan wajib diisi.' }, { status: 400 });
+    }
+
+    // Jika Psikogram Jabatan tidak dipilih, wajib menentukan minimal 1 alat tes mandiri
     if (!jobPositionId && (!Array.isArray(customSequence) || customSequence.length === 0)) {
-      return NextResponse.json({ error: 'Harap pilih Standar Jabatan atau tentukan minimal 1 alat tes.' }, { status: 400 });
+      return NextResponse.json({ error: 'Harap pilih Psikogram Jabatan atau tentukan minimal 1 alat tes.' }, { status: 400 });
     }
 
     // Get Client Name if clientId is provided
@@ -71,7 +75,7 @@ export async function POST(req: Request) {
       });
 
       if (!jobPosition) {
-        return NextResponse.json({ error: 'Standar Jabatan tidak ditemukan' }, { status: 400 });
+        return NextResponse.json({ error: 'Psikogram Jabatan tidak ditemukan' }, { status: 400 });
       }
 
       // 1. Get base sequence from template test or psychograph preset mapping

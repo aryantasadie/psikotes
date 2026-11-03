@@ -64,7 +64,7 @@ export async function GET(req: Request) {
       });
     }
 
-    const [rawParticipants, fetchedTests] = await Promise.all([
+    const [rawParticipants, fetchedTests, teamMembers] = await Promise.all([
       prisma.testParticipant.findMany({
         where: whereClause,
         select: {
@@ -114,22 +114,59 @@ export async function GET(req: Request) {
                 orderBy: { id: 'desc' }
               })
             : Promise.resolve([])
-          )
+          ),
+      prisma.user.findMany({
+        where: {
+          role: { in: ['tester', 'psikolog'] },
+          assignedTestIds: { not: null }
+        },
+        select: { id: true, name: true, role: true, assignedTestIds: true }
+      })
     ]);
 
-    const testMap = new Map<number, any>();
-    fetchedTests.forEach((t: any) => testMap.set(t.id, t));
+    const testerMap: Record<number, string[]> = {};
+    const psikologMap: Record<number, string[]> = {};
 
-    const participants = rawParticipants.map((p: any) => ({
-      ...p,
-      test: testMap.get(p.testId) || null,
-      jobPosition: testMap.get(p.testId)?.jobPosition || null,
-      logs: [],
-      answers: p.answers || [],
-      rawResults: p.rawResults || []
+    teamMembers.forEach((tm: any) => {
+      if (!tm.assignedTestIds) return;
+      try {
+        const ids: number[] = JSON.parse(tm.assignedTestIds);
+        if (Array.isArray(ids)) {
+          ids.forEach((testId: number) => {
+            if (tm.role === 'tester') {
+              if (!testerMap[testId]) testerMap[testId] = [];
+              testerMap[testId].push(tm.name);
+            } else if (tm.role === 'psikolog') {
+              if (!psikologMap[testId]) psikologMap[testId] = [];
+              psikologMap[testId].push(tm.name);
+            }
+          });
+        }
+      } catch (e) {}
+    });
+
+    const enrichedTests = fetchedTests.map((t: any) => ({
+      ...t,
+      assignedTesters: testerMap[t.id] || [],
+      assignedPsikologs: psikologMap[t.id] || []
     }));
 
-    return NextResponse.json({ participants, assignedTests: fetchedTests });
+    const testMap = new Map<number, any>();
+    enrichedTests.forEach((t: any) => testMap.set(t.id, t));
+
+    const participants = rawParticipants.map((p: any) => {
+      const { plainPassword, ...safeP } = p;
+      return {
+        ...safeP,
+        test: testMap.get(p.testId) || null,
+        jobPosition: testMap.get(p.testId)?.jobPosition || null,
+        logs: [],
+        answers: p.answers || [],
+        rawResults: p.rawResults || []
+      };
+    });
+
+    return NextResponse.json({ participants, assignedTests: enrichedTests });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

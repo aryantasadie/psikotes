@@ -38,7 +38,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
           include: { 
             jobPosition: {
               include: { grayAreas: true, psychographPreset: true }
-            }
+            },
+            psychographPreset: true,
+            client: { select: { id: true, name: true } }
           }
         },
         rawResults: true,
@@ -86,7 +88,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       }
     }
 
-    return NextResponse.json(participant);
+    const { plainPassword, ...safeParticipant } = participant;
+    return NextResponse.json(safeParticipant);
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
