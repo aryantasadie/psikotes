@@ -14,7 +14,22 @@ export async function GET() {
     const jobPositions = await prisma.jobPosition.findMany({
       include: {
         psychographPreset: true,
-        grayAreas: true
+        grayAreas: true,
+        tests: {
+          select: {
+            id: true,
+            title: true,
+            startDate: true,
+            client: { select: { id: true, name: true } },
+            _count: { select: { participants: true } }
+          }
+        },
+        _count: {
+          select: {
+            tests: true,
+            testParticipants: true
+          }
+        }
       },
       orderBy: { id: 'desc' }
     });

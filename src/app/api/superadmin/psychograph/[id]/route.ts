@@ -79,28 +79,56 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   try {
     const presetId = parseInt(id);
 
-    // Keamanan Data: Periksa apakah masih ada standar jabatan atau batch tes yang terhubung
-    const [jobCount, testCount] = await Promise.all([
-      prisma.jobPosition.count({ where: { psychographPresetId: presetId } }),
-      prisma.test.count({ where: { psychographPresetId: presetId } })
-    ]);
+    // Keamanan: Cek apakah template kompetensi masih terhubung dengan standar jabatan atau batch ujian
+    const connectedPositions = await prisma.jobPosition.findMany({
+      where: { psychographPresetId: presetId },
+      select: { id: true, name: true }
+    });
 
-    if (jobCount > 0 || testCount > 0) {
-      const reasons: string[] = [];
-      if (jobCount > 0) reasons.push(`${jobCount} standar jabatan`);
-      if (testCount > 0) reasons.push(`${testCount} batch tes`);
+    // Cek batch ujian aktif yang menggunakan preset ini
+    const connectedBatches = await prisma.test.findMany({
+      where: { 
+        psychographPresetId: presetId,
+        participants: { some: {} }
+      },
+      select: {
+        id: true,
+        title: true,
+        startDate: true,
+        client: { select: { name: true } },
+        _count: { select: { participants: true } }
+      }
+    });
 
-      return NextResponse.json({ 
-        error: `Tidak dapat menghapus: Preset ini masih terhubung dengan ${reasons.join(', ')}. Kosongkan atau hapus data terkait terlebih dahulu demi keamanan data.` 
+    if (connectedPositions.length > 0 || connectedBatches.length > 0) {
+      return NextResponse.json({
+        error: `Template kompetensi tidak dapat dihapus karena masih digunakan oleh ${connectedPositions.length} standar jabatan dan ${connectedBatches.length} batch ujian.`,
+        code: 'HAS_CONNECTED_DATA',
+        connectedPositions: connectedPositions.map(p => ({ id: p.id, name: p.name })),
+        connectedBatches: connectedBatches.map(b => ({
+          id: b.id,
+          title: b.title,
+          clientName: b.client?.name || 'Umum / Semua Klien',
+          participantCount: b._count.participants,
+          startDate: b.startDate
+        }))
       }, { status: 400 });
     }
+
+    // Bersihkan batch dummy shell (tanpa peserta) yang dibuat otomatis saat preset dibuat
+    await prisma.test.deleteMany({
+      where: {
+        psychographPresetId: presetId,
+        participants: { none: {} }
+      }
+    });
 
     await prisma.psychographPreset.delete({
       where: { id: presetId }
     });
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: 'Template kompetensi berhasil dihapus' });
   } catch (error) {
     console.error('Error deleting psychograph preset:', error);
-    return NextResponse.json({ error: 'Failed to delete' }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal menghapus template kompetensi' }, { status: 500 });
   }
 }

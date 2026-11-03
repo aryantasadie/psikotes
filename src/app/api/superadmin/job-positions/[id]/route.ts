@@ -78,37 +78,49 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
   const { id } = await context.params;
   try {
-    const positionId = parseInt(id);
+    const jobPositionId = parseInt(id);
 
-    // Keamanan Data: Periksa apakah masih ada data aktif yang terhubung ke standar jabatan ini
-    const [testCount, participantCount, psychoCount] = await Promise.all([
-      prisma.test.count({ where: { jobPositionId: positionId } }),
-      prisma.testParticipant.count({ where: { jobPositionId: positionId } }),
-      prisma.testResultPsychograph.count({ where: { jobPositionId: positionId } })
-    ]);
+    // Keamanan: Cek apakah standar psikogram jabatan masih terhubung dengan batch ujian
+    const connectedBatches = await prisma.test.findMany({
+      where: { jobPositionId },
+      select: {
+        id: true,
+        title: true,
+        startDate: true,
+        client: { select: { name: true } },
+        _count: { select: { participants: true } }
+      }
+    });
 
-    if (testCount > 0 || participantCount > 0 || psychoCount > 0) {
-      const reasons: string[] = [];
-      if (testCount > 0) reasons.push(`${testCount} batch tes`);
-      if (participantCount > 0) reasons.push(`${participantCount} peserta`);
-      if (psychoCount > 0) reasons.push(`${psychoCount} laporan psikogram`);
+    const connectedParticipantsCount = await prisma.testParticipant.count({
+      where: { jobPositionId }
+    });
 
-      return NextResponse.json({ 
-        error: `Tidak dapat menghapus: Standar jabatan ini masih terhubung dengan ${reasons.join(', ')}. Kosongkan atau hapus data terkait terlebih dahulu demi keamanan data.` 
+    if (connectedBatches.length > 0 || connectedParticipantsCount > 0) {
+      return NextResponse.json({
+        error: `Standar jabatan tidak dapat dihapus karena masih digunakan oleh ${connectedBatches.length} batch ujian (${connectedParticipantsCount} peserta).`,
+        code: 'HAS_CONNECTED_DATA',
+        connectedBatches: connectedBatches.map(b => ({
+          id: b.id,
+          title: b.title,
+          clientName: b.client?.name || 'Umum / Semua Klien',
+          participantCount: b._count.participants,
+          startDate: b.startDate
+        })),
+        totalParticipants: connectedParticipantsCount
       }, { status: 400 });
     }
 
-    // Jika sudah kosong/bersih dari relasi data peserta, aman untuk dihapus
     await prisma.psychographGrayArea.deleteMany({
-      where: { jobPositionId: positionId }
+      where: { jobPositionId }
     });
 
     await prisma.jobPosition.delete({
-      where: { id: positionId }
+      where: { id: jobPositionId }
     });
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: 'Standar psikogram jabatan berhasil dihapus' });
   } catch (error) {
     console.error('Error deleting job position:', error);
-    return NextResponse.json({ error: 'Failed to delete' }, { status: 500 });
+    return NextResponse.json({ error: 'Gagal menghapus standar jabatan' }, { status: 500 });
   }
 }

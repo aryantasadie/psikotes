@@ -11,7 +11,12 @@ import {
   Building2, 
   Calendar, 
   Layers, 
-  Loader2 
+  Loader2,
+  ShieldAlert,
+  AlertTriangle,
+  Users,
+  FolderOpen,
+  Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,11 +36,39 @@ import {
   TableRow,
   TableCell,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 
 export default function JobPositionList() {
   const [positions, setPositions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  // Dialog State: Keamanan Relasi Data & Konfirmasi Hapus
+  const [blockedData, setBlockedData] = useState<{
+    isOpen: boolean;
+    positionName: string;
+    batches: Array<{
+      id: number;
+      title: string;
+      clientName?: string;
+      participantCount?: number;
+      startDate?: string;
+    }>;
+  } | null>(null);
+
+  const [confirmDeleteData, setConfirmDeleteData] = useState<{
+    isOpen: boolean;
+    id: number;
+    name: string;
+    isDeleting: boolean;
+  } | null>(null);
 
   const fetchPositions = () => {
     setLoading(true);
@@ -52,14 +85,59 @@ export default function JobPositionList() {
     fetchPositions();
   }, []);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Yakin ingin menghapus Standar Psikogram Posisi ini?')) return;
-    const res = await fetch(`/api/superadmin/job-positions/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      setPositions(p => p.filter(x => x.id !== id));
-    } else {
-      const err = await res.json().catch(() => ({}));
-      alert(err.error || 'Gagal menghapus.');
+  const handleInitiateDelete = (pos: any) => {
+    // Keamanan 1: Jika sudah terdeteksi ada batch terkait, langsung blokir dengan popup informatif
+    if (pos.tests && pos.tests.length > 0) {
+      setBlockedData({
+        isOpen: true,
+        positionName: pos.name,
+        batches: pos.tests.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          clientName: t.client?.name || 'Umum / Semua Klien',
+          participantCount: t._count?.participants ?? 0,
+          startDate: t.startDate
+        }))
+      });
+      return;
+    }
+
+    // Jika belum terhubung ke batch manapun, buka konfirmasi hapus aman
+    setConfirmDeleteData({
+      isOpen: true,
+      id: pos.id,
+      name: pos.name,
+      isDeleting: false
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDeleteData) return;
+    setConfirmDeleteData(prev => prev ? { ...prev, isDeleting: true } : null);
+
+    try {
+      const res = await fetch(`/api/superadmin/job-positions/${confirmDeleteData.id}`, { method: 'DELETE' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setConfirmDeleteData(null);
+        if (data.code === 'HAS_CONNECTED_DATA') {
+          setBlockedData({
+            isOpen: true,
+            positionName: confirmDeleteData.name,
+            batches: data.connectedBatches || []
+          });
+        } else {
+          alert(data.error || 'Gagal menghapus standar psikogram jabatan.');
+        }
+        return;
+      }
+
+      setPositions(p => p.filter(x => x.id !== confirmDeleteData.id));
+      setConfirmDeleteData(null);
+    } catch (e) {
+      alert('Terjadi kesalahan jaringan.');
+      setConfirmDeleteData(null);
     }
   };
 
@@ -220,7 +298,7 @@ export default function JobPositionList() {
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={() => handleDelete(pos.id)}
+                            onClick={() => handleInitiateDelete(pos)}
                             className="h-8 px-2.5 text-xs gap-1"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -236,6 +314,121 @@ export default function JobPositionList() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* ══════════════════════════════════════════════════════════════════════════
+          POPUP MODAL: STANDAR JABATAN TIDAK BISA DIHAPUS KARENA TERHUBUNG KE BATCH
+          ══════════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={Boolean(blockedData?.isOpen)} onOpenChange={(open) => !open && setBlockedData(null)}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader className="flex flex-col items-center text-center gap-2">
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-xs mb-1">
+              <ShieldAlert className="w-7 h-7" />
+            </div>
+            <DialogTitle className="text-lg font-bold text-slate-900">
+              Tidak Dapat Dihapus
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-600 leading-relaxed text-center">
+              Standar psikogram jabatan <strong className="text-slate-900 font-bold">&quot;{blockedData?.positionName}&quot;</strong> saat ini masih aktif digunakan pada <strong className="text-amber-700 font-bold">{blockedData?.batches.length || 0} batch ujian</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Daftar Batch Terkait */}
+          <div className="mt-1 space-y-2">
+            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+              <FolderOpen className="w-3.5 h-3.5 text-slate-400" />
+              <span>Daftar Batch Ujian yang Menggunakan Standar Ini:</span>
+            </div>
+
+            <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+              {blockedData?.batches.map((batch) => (
+                <div
+                  key={batch.id}
+                  className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 text-xs"
+                >
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className="font-bold text-slate-900 truncate">
+                      {batch.title}
+                    </span>
+                    <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                      <Building2 className="w-3 h-3 text-slate-400" />
+                      <span className="truncate">{batch.clientName || 'Umum'}</span>
+                    </span>
+                  </div>
+                  <Badge variant="secondary" className="shrink-0 text-[11px] font-semibold bg-white border border-slate-200 text-slate-700">
+                    <Users className="w-3 h-3 mr-1 text-slate-400" />
+                    <span>{batch.participantCount || 0} Peserta</span>
+                  </Badge>
+                </div>
+              ))}
+            </div>
+
+            {/* Kotak Petunjuk Ramah untuk Pengguna Awam */}
+            <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-[11.5px] text-amber-900 leading-relaxed flex items-start gap-2.5 mt-3">
+              <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <strong>Petunjuk:</strong> Agar hasil penilaian psikogram peserta pada batch di atas tidak rusak, Anda perlu mengubah standar jabatan pada batch tersebut atau menghapus batch-nya terlebih dahulu di menu <strong>Penjadwalan & Sesi</strong>.
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4 sm:justify-center">
+            <Button
+              type="button"
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold"
+              onClick={() => setBlockedData(null)}
+            >
+              Saya Mengerti
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════════════════════════════════════════════════════════════════════════
+          POPUP MODAL: KONFIRMASI HAPUS (STANDAR BEBAS RELASI)
+          ══════════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={Boolean(confirmDeleteData?.isOpen)} onOpenChange={(open) => !open && setConfirmDeleteData(null)}>
+        <DialogContent className="max-w-sm p-6 text-center">
+          <DialogHeader className="flex flex-col items-center gap-2">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mb-1">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-base font-bold text-slate-900">
+              Hapus Standar Psikogram?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 leading-relaxed text-center">
+              Apakah Anda yakin ingin menghapus standar jabatan <strong className="text-slate-900 font-bold">&quot;{confirmDeleteData?.name}&quot;</strong>? Standar ini belum digunakan oleh batch manapun dan aman dihapus.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-4 flex flex-row gap-2 justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 text-xs"
+              onClick={() => setConfirmDeleteData(null)}
+              disabled={confirmDeleteData?.isDeleting}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1 text-xs font-semibold"
+              onClick={handleConfirmDelete}
+              disabled={confirmDeleteData?.isDeleting}
+            >
+              {confirmDeleteData?.isDeleting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                  <span>Menghapus…</span>
+                </>
+              ) : (
+                'Ya, Hapus'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

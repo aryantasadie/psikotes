@@ -19,7 +19,10 @@ import {
   EyeOff,
   Unlock,
   ShieldAlert,
-  Clock
+  Clock,
+  FolderOpen,
+  Users,
+  Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +47,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 
@@ -85,6 +89,21 @@ export default function ClientsManagementPage() {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingClient, setEditingClient] = useState<ClientCompany | null>(null);
+
+  // Dialog State: Keamanan Relasi Data & Konfirmasi Hapus
+  const [blockedData, setBlockedData] = useState<{
+    isOpen: boolean;
+    clientName: string;
+    totalBatches: number;
+    batches?: Array<{ id: number; title: string; participantCount?: number; startDate?: string }>;
+  } | null>(null);
+
+  const [confirmDeleteData, setConfirmDeleteData] = useState<{
+    isOpen: boolean;
+    id: number;
+    name: string;
+    isDeleting: boolean;
+  } | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -236,21 +255,55 @@ export default function ClientsManagementPage() {
     }
   };
 
-  const handleDeleteClient = async (client: ClientCompany) => {
-    if (!confirm(`Hapus permanen akun Klien "${client.name}"? Data yang terhapus tidak dapat dikembalikan.`)) return;
+  const handleInitiateDeleteClient = (client: ClientCompany) => {
+    // Keamanan: Jika klien masih memiliki batch ujian, langsung blokir dengan popup informatif
+    if (client.totalBatches && client.totalBatches > 0) {
+      setBlockedData({
+        isOpen: true,
+        clientName: client.name,
+        totalBatches: client.totalBatches,
+      });
+      return;
+    }
+
+    setConfirmDeleteData({
+      isOpen: true,
+      id: client.id,
+      name: client.name,
+      isDeleting: false
+    });
+  };
+
+  const handleConfirmDeleteClient = async () => {
+    if (!confirmDeleteData) return;
+    setConfirmDeleteData(prev => prev ? { ...prev, isDeleting: true } : null);
 
     try {
-      const res = await fetch(`/api/superadmin/clients?id=${client.id}`, {
+      const res = await fetch(`/api/superadmin/clients?id=${confirmDeleteData.id}`, {
         method: 'DELETE',
       });
-      if (res.ok) {
-        fetchClients();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        alert(data.error || 'Gagal menghapus klien.');
+      const data = await res.json();
+
+      if (!res.ok) {
+        setConfirmDeleteData(null);
+        if (data.code === 'HAS_CONNECTED_DATA') {
+          setBlockedData({
+            isOpen: true,
+            clientName: confirmDeleteData.name,
+            totalBatches: data.connectedBatches?.length || 1,
+            batches: data.connectedBatches || []
+          });
+        } else {
+          alert(data.error || 'Gagal menghapus data klien.');
+        }
+        return;
       }
+
+      setConfirmDeleteData(null);
+      fetchClients();
     } catch (e) {
-      console.error('Failed to delete client:', e);
+      alert('Terjadi kesalahan jaringan.');
+      setConfirmDeleteData(null);
     }
   };
 
@@ -546,7 +599,7 @@ export default function ClientsManagementPage() {
                         <Button
                           variant="destructive"
                           size="sm"
-                          onClick={() => handleDeleteClient(client)}
+                          onClick={() => handleInitiateDeleteClient(client)}
                           className="h-8 px-2 text-xs"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -709,6 +762,117 @@ export default function ClientsManagementPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════════════════════════════════════════════════════════════════════════
+          POPUP MODAL: KLIEN TIDAK DAPAT DIHAPUS KARENA MEMILIKI BATCH UJIAN
+          ══════════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={Boolean(blockedData?.isOpen)} onOpenChange={(open) => !open && setBlockedData(null)}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader className="flex flex-col items-center text-center gap-2">
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-xs mb-1">
+              <ShieldAlert className="w-7 h-7" />
+            </div>
+            <DialogTitle className="text-lg font-bold text-slate-900">
+              Tidak Dapat Dihapus
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-600 leading-relaxed text-center">
+              Perusahaan klien <strong className="text-slate-900 font-bold">&quot;{blockedData?.clientName}&quot;</strong> saat ini masih memiliki <strong className="text-amber-700 font-bold">{blockedData?.totalBatches || 0} batch jadwal ujian</strong> aktif.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-1 space-y-3">
+            {blockedData?.batches && blockedData.batches.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                  <FolderOpen className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Daftar Batch Terkait:</span>
+                </div>
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                  {blockedData.batches.map((batch) => (
+                    <div
+                      key={batch.id}
+                      className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2 text-xs"
+                    >
+                      <span className="font-bold text-slate-900 truncate">
+                        {batch.title}
+                      </span>
+                      <Badge variant="secondary" className="shrink-0 text-[11px] bg-white border border-slate-200">
+                        <Users className="w-3 h-3 mr-1 text-slate-400" />
+                        <span>{batch.participantCount || 0} Peserta</span>
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Kotak Petunjuk Ramah untuk Pengguna Awam */}
+            <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80 text-[11.5px] text-amber-900 leading-relaxed flex items-start gap-2.5">
+              <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <strong>Petunjuk:</strong> Akun klien yang memiliki riwayat batch asesmen dilindungi agar data hasil ujian kandidat tidak hilang. Silakan hapus batch ujian terkait di menu <strong>Penjadwalan & Sesi</strong> terlebih dahulu jika memang seluruh asesmen telah selesai.
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4 sm:justify-center">
+            <Button
+              type="button"
+              className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold"
+              onClick={() => setBlockedData(null)}
+            >
+              Saya Mengerti
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════════════════════════════════════════════════════════════════════════
+          POPUP MODAL: KONFIRMASI HAPUS KLIEN (BEBAS BATCH)
+          ══════════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={Boolean(confirmDeleteData?.isOpen)} onOpenChange={(open) => !open && setConfirmDeleteData(null)}>
+        <DialogContent className="max-w-sm p-6 text-center">
+          <DialogHeader className="flex flex-col items-center gap-2">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 mb-1">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-base font-bold text-slate-900">
+              Hapus Akun Klien?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 leading-relaxed text-center">
+              Apakah Anda yakin ingin menghapus akun klien <strong className="text-slate-900 font-bold">&quot;{confirmDeleteData?.name}&quot;</strong>? Klien ini tidak memiliki batch ujian aktif dan aman dihapus.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-4 flex flex-row gap-2 justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1 text-xs"
+              onClick={() => setConfirmDeleteData(null)}
+              disabled={confirmDeleteData?.isDeleting}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="flex-1 text-xs font-semibold"
+              onClick={handleConfirmDeleteClient}
+              disabled={confirmDeleteData?.isDeleting}
+            >
+              {confirmDeleteData?.isDeleting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                  <span>Menghapus…</span>
+                </>
+              ) : (
+                'Ya, Hapus'
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

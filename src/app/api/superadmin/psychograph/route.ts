@@ -12,6 +12,30 @@ export async function GET() {
 
   try {
     const presets = await prisma.psychographPreset.findMany({
+      include: {
+        jobPositions: {
+          select: {
+            id: true,
+            name: true,
+            _count: { select: { grayAreas: true, tests: true } }
+          }
+        },
+        tests: {
+          select: {
+            id: true,
+            title: true,
+            startDate: true,
+            client: { select: { id: true, name: true } },
+            _count: { select: { participants: true } }
+          }
+        },
+        _count: {
+          select: {
+            jobPositions: true,
+            tests: true
+          }
+        }
+      },
       orderBy: { createdAt: 'desc' }
     });
     return NextResponse.json(presets);
