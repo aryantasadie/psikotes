@@ -56,6 +56,11 @@ export async function DELETE(req: Request, context: { params: Promise<{ id: stri
       return NextResponse.json({ error: `Tidak bisa dihapus. Ada ${count} peserta yang sedang / sudah mengerjakan tes ini.` }, { status: 400 });
     }
 
+    // Delete questions associated with this test if any exist
+    await prisma.question.deleteMany({
+      where: { testId }
+    });
+
     await prisma.test.delete({
       where: { id: testId }
     });

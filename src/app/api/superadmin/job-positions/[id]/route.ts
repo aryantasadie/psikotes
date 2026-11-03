@@ -93,6 +93,11 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       data: { jobPositionId: null }
     });
 
+    // Delete any psychograph test results associated with this job position
+    await prisma.testResultPsychograph.deleteMany({
+      where: { jobPositionId: parseInt(id) }
+    });
+
     await prisma.jobPosition.delete({
       where: { id: parseInt(id) }
     });

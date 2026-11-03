@@ -55,8 +55,12 @@ export default function JobPositionList() {
   const handleDelete = async (id: number) => {
     if (!confirm('Yakin ingin menghapus Standar Psikogram Posisi ini?')) return;
     const res = await fetch(`/api/superadmin/job-positions/${id}`, { method: 'DELETE' });
-    if (res.ok) setPositions(p => p.filter(x => x.id !== id));
-    else alert('Gagal menghapus.');
+    if (res.ok) {
+      setPositions(p => p.filter(x => x.id !== id));
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert(err.error || 'Gagal menghapus.');
+    }
   };
 
   const filteredPositions = positions.filter(pos => {
