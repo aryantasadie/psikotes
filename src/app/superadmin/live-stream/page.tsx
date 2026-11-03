@@ -459,6 +459,35 @@ export default function MonitoringPesertaPage() {
     }
   };
 
+  // Toggle pause specifically BEFORE the first test
+  const handleToggleBreakBeforeFirst = async (firstTest: string) => {
+    if (!currentBatch) {
+      alert('Pilih salah satu sesi ujian terlebih dahulu.');
+      return;
+    }
+    try {
+      const res = await fetch('/api/superadmin/proctor/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'toggle_test_pause',
+          batchId: currentBatch.id,
+          isBeforeFirst: true,
+          nextTest: firstTest
+        })
+      });
+      if (res.ok) {
+        await fetchBatchesAndNotes();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Gagal mengubah jeda tes.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Terjadi kesalahan saat mengubah jeda tes.');
+    }
+  };
+
   // 1-Click Emergency Toggle:
   // If Emergency Stop is active -> 1-CLICK RESUME IMMEDIATELY (no modal!)
   // If Emergency Stop is not active -> Opens confirm modal to prevent accidental click
@@ -523,13 +552,14 @@ export default function MonitoringPesertaPage() {
   // Quick 1-Click Resume for a single participant (also restores stopped participant)
   const handleResumeSingle = async (participantId: number, nextTest?: string) => {
     try {
+      const fallbackNext = nextTest || (tableSequence.length > 0 ? tableSequence[0] : undefined);
       const res = await fetch('/api/superadmin/proctor/control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'resume_participant',
           participantId,
-          nextTest
+          nextTest: fallbackNext
         })
       });
       if (res.ok) {
@@ -574,6 +604,29 @@ export default function MonitoringPesertaPage() {
     } finally {
       setProcessingAction(false);
     }
+  };
+
+  // Check if break is active before the first test.
+  // Uses canonical format: "BREAK_BEFORE_<CLEANFIRST>" or "BREAK_BEFORE_FIRST"
+  const isBreakActiveBeforeFirst = (firstTest?: string): boolean => {
+    if (!currentBatch || !firstTest) return false;
+    let pausedList: string[] = [];
+    if (Array.isArray(currentBatch.pausedTests)) {
+      pausedList = currentBatch.pausedTests;
+    } else if (typeof currentBatch.pausedTests === 'string') {
+      try { 
+        const parsed = JSON.parse(currentBatch.pausedTests); 
+        pausedList = Array.isArray(parsed) ? parsed : [currentBatch.pausedTests];
+      } catch (e) { 
+        pausedList = [currentBatch.pausedTests]; 
+      }
+    }
+    const cleanFirst = cleanTestName(firstTest);
+    const canonicalKey = `BREAK_BEFORE_${cleanFirst}`;
+    return pausedList.some((pt: string) => {
+      const u = String(pt).toUpperCase().replace(/[\s\-_]+/g, '');
+      return u === canonicalKey.replace(/[\s\-_]+/g, '') || u === 'BREAK_BEFORE_FIRST';
+    });
   };
 
   // Check if break is active after prevTest (before nextTest).
@@ -774,6 +827,59 @@ export default function MonitoringPesertaPage() {
                     Kontrol Peserta
                   </th>
 
+                  {/* Header Kolom Jeda Sebelum Tes Pertama */}
+                  {tableSequence.length > 0 && (() => {
+                    const firstTest = tableSequence[0];
+                    const breakBeforeFirstActive = isBreakActiveBeforeFirst(firstTest);
+                    const waitingCountBeforeFirst = filteredParticipants.filter(p => {
+                      if (!p.isPaused) return false;
+                      const cDone = (p.completedTests || []).map(cleanTestName);
+                      return cDone.length === 0;
+                    }).length;
+
+                    return (
+                      <th className={`px-2.5 py-2.5 border-r border-slate-300 text-center transition-colors ${
+                        breakBeforeFirstActive ? 'bg-slate-200/90 min-w-[50px] max-w-[60px]' : 'bg-slate-50 min-w-[135px]'
+                      }`}>
+                        <div className="flex flex-col items-center justify-center gap-1">
+                          <span className="text-[9px] uppercase tracking-wider font-bold text-slate-500">
+                            JEDA SESI
+                          </span>
+                          {breakBeforeFirstActive ? (
+                            <div className="space-y-1">
+                              <span className="inline-block bg-slate-800 text-white text-[10px] font-semibold px-2 py-0.5 rounded shadow-2xs">
+                                Jeda Aktif
+                              </span>
+                              <button
+                                onClick={() => handleToggleBreakBeforeFirst(firstTest)}
+                                className="text-[10px] text-rose-600 hover:text-rose-800 font-semibold block mx-auto underline transition-colors"
+                              >
+                                Matikan
+                              </button>
+
+                              {waitingCountBeforeFirst > 0 && (
+                                <button
+                                  onClick={() => handleResumeAllWaiting(firstTest)}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2 py-0.5 rounded block mx-auto transition-colors shadow-2xs"
+                                >
+                                  ▶ Lanjut ({waitingCountBeforeFirst})
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleToggleBreakBeforeFirst(firstTest)}
+                              className="text-[10px] text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl font-medium shadow-2xs transition-colors"
+                              title={`Atur jeda sebelum tes pertama (${firstTest})`}
+                            >
+                              + Jeda sblm {firstTest}
+                            </button>
+                          )}
+                        </div>
+                      </th>
+                    );
+                  })()}
+
                   {/* Kolom Tes & Kolom Jeda Bebas */}
                   {tableSequence.map((testName, idx) => {
                     const nextTestName = tableSequence[idx + 1];
@@ -848,7 +954,7 @@ export default function MonitoringPesertaPage() {
                 {filteredParticipants.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={tableSequence.length * 2 + 2}
+                      colSpan={tableSequence.length > 0 ? (tableSequence.length * 2 + 2) : 2}
                       className="px-4 py-10 text-center text-slate-400 italic text-[12px]"
                     >
                       {filterOnlineOnly 
@@ -887,7 +993,7 @@ export default function MonitoringPesertaPage() {
                                 </span>
                               ) : p.isPaused ? (
                                 <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded inline-block">
-                                  Menyiapkan {p.nextTest || p.currentTest?.replace(/^Jeda stlh\s+/i, '') || 'Ujian'}
+                                  Menyiapkan {p.nextTest || p.currentTest?.replace(/^Jeda\s+(stlh|setelah|sblm|sebelum)\s+/i, '') || 'Ujian'}
                                 </span>
                               ) : isCompleted ? (
                                 <span className="bg-slate-100 text-slate-500 text-[10px] font-semibold px-2 py-0.5 rounded inline-block">
@@ -912,7 +1018,7 @@ export default function MonitoringPesertaPage() {
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {isStopped || p.isPaused ? (
                               <button
-                                onClick={() => handleResumeSingle(p.participantId, p.nextTest || undefined)}
+                                onClick={() => handleResumeSingle(p.participantId, p.nextTest || tableSequence[0] || undefined)}
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] px-2.5 py-1 rounded-lg transition-colors shadow-2xs flex items-center gap-1"
                                 title="Lanjutkan pengerjaan peserta ini"
                               >
@@ -954,6 +1060,27 @@ export default function MonitoringPesertaPage() {
                             </button>
                           </div>
                         </td>
+
+                        {/* Sel Kolom Jeda Sebelum Tes Pertama */}
+                        {tableSequence.length > 0 && (() => {
+                          const firstTest = tableSequence[0];
+                          const breakBeforeFirstActive = isBreakActiveBeforeFirst(firstTest);
+
+                          return breakBeforeFirstActive ? (
+                            <td className="border-r border-slate-300 bg-slate-300/80 px-1.5 py-3 text-center align-middle w-12 min-w-[48px] max-w-[56px]">
+                              <div className="flex flex-col items-center justify-center font-black text-slate-800 text-[11px] tracking-widest select-none leading-4">
+                                <span>J</span>
+                                <span>E</span>
+                                <span>D</span>
+                                <span>A</span>
+                              </div>
+                            </td>
+                          ) : (
+                            <td className="border-r border-slate-200 px-2.5 py-3 text-center transition-colors bg-slate-50/40">
+                              <span className="text-slate-300 select-none">-</span>
+                            </td>
+                          );
+                        })()}
 
                         {/* Kolom Modul Tes */}
                         {tableSequence.map((testName, idx) => {

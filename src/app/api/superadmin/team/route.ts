@@ -205,6 +205,12 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Tidak dapat menghapus akun Anda sendiri' }, { status: 400 });
     }
 
+    // Disconnect reviewer reference in psychograph reviews if any exist
+    await prisma.testResultPsychograph.updateMany({
+      where: { reviewerId: Number(id) },
+      data: { reviewerId: null }
+    });
+
     await prisma.user.delete({
       where: { id: Number(id) }
     });

@@ -101,13 +101,19 @@ export async function GET() {
     ]);
 
     const testerMap: Record<number, { id: number; name: string }[]> = {};
+    const psikologMap: Record<number, { id: number; name: string }[]> = {};
     testers.forEach((t) => {
       if (t.assignedTestIds) {
         try {
           const ids: number[] = JSON.parse(t.assignedTestIds);
           ids.forEach((testId) => {
-            if (!testerMap[testId]) testerMap[testId] = [];
-            testerMap[testId].push({ id: t.id, name: t.name });
+            if (t.role === 'tester') {
+              if (!testerMap[testId]) testerMap[testId] = [];
+              testerMap[testId].push({ id: t.id, name: t.name });
+            } else if (t.role === 'psikolog') {
+              if (!psikologMap[testId]) psikologMap[testId] = [];
+              psikologMap[testId].push({ id: t.id, name: t.name });
+            }
           });
         } catch (e) {}
       }
@@ -120,6 +126,8 @@ export async function GET() {
       const completedReportsCount = b.participants.filter((p) => p.psychoResults && ['REVIEWED', 'RELEASED'].includes(p.psychoResults.status)).length;
       const assignedTesterObjs = testerMap[b.id] || [];
       const assignedTesters = assignedTesterObjs.map(t => t.name);
+      const assignedPsikologObjs = psikologMap[b.id] || [];
+      const assignedPsikologs = assignedPsikologObjs.map(p => p.name);
 
       let parsedPausedTests: string[] = [];
       try {
@@ -139,6 +147,8 @@ export async function GET() {
         clientName: b.client?.name || 'Umum / Internal',
         assignedTesters,
         assignedTesterId: assignedTesterObjs.length > 0 ? assignedTesterObjs[0].id : null,
+        assignedPsikologs,
+        assignedPsikologId: assignedPsikologObjs.length > 0 ? assignedPsikologObjs[0].id : null,
         totalParticipants: totalCount,
         completedParticipants: completedCount,
         completedReports: completedReportsCount,
@@ -177,7 +187,7 @@ export async function GET() {
   }
 }
 
-// PUT: Edit batch session details (title, startDate, clientId, testerId)
+// PUT: Edit batch session details (title, startDate, clientId, testerId, psikologId)
 export async function PUT(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -186,7 +196,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Unauthorized: Hanya Superadmin yang boleh mengedit batch' }, { status: 401 });
     }
 
-    const { id, title, startDate, clientId, testerId } = await req.json();
+    const { id, title, startDate, clientId, testerId, psikologId } = await req.json();
 
     if (!id) {
       return NextResponse.json({ error: 'ID batch wajib diisi' }, { status: 400 });
@@ -206,11 +216,11 @@ export async function PUT(req: Request) {
 
     // Update Tester assignment if provided
     if (testerId !== undefined) {
-      const allUsers = await prisma.user.findMany({
-        where: { assignedTestIds: { not: null } }
+      const allTesters = await prisma.user.findMany({
+        where: { role: 'tester', assignedTestIds: { not: null } }
       });
 
-      for (const u of allUsers) {
+      for (const u of allTesters) {
         if (u.assignedTestIds) {
           try {
             const ids: number[] = JSON.parse(u.assignedTestIds);
@@ -236,6 +246,45 @@ export async function PUT(req: Request) {
             currentAssigned.push(testId);
             await prisma.user.update({
               where: { id: tester.id },
+              data: { assignedTestIds: JSON.stringify(currentAssigned) }
+            });
+          }
+        }
+      }
+    }
+
+    // Update Psikolog assignment if provided
+    if (psikologId !== undefined) {
+      const allPsikologs = await prisma.user.findMany({
+        where: { role: 'psikolog', assignedTestIds: { not: null } }
+      });
+
+      for (const u of allPsikologs) {
+        if (u.assignedTestIds) {
+          try {
+            const ids: number[] = JSON.parse(u.assignedTestIds);
+            if (ids.includes(testId) && u.id !== Number(psikologId)) {
+              const newIds = ids.filter(i => i !== testId);
+              await prisma.user.update({
+                where: { id: u.id },
+                data: { assignedTestIds: JSON.stringify(newIds) }
+              });
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (psikologId) {
+        const psikolog = await prisma.user.findUnique({ where: { id: Number(psikologId) } });
+        if (psikolog) {
+          let currentAssigned: number[] = [];
+          if (psikolog.assignedTestIds) {
+            try { currentAssigned = JSON.parse(psikolog.assignedTestIds); } catch (e) {}
+          }
+          if (!currentAssigned.includes(testId)) {
+            currentAssigned.push(testId);
+            await prisma.user.update({
+              where: { id: psikolog.id },
               data: { assignedTestIds: JSON.stringify(currentAssigned) }
             });
           }

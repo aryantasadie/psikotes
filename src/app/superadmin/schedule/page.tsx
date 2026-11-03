@@ -22,7 +22,8 @@ import {
   Unlock,
   ShieldAlert,
   Power,
-  XCircle
+  XCircle,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,8 +74,11 @@ interface BatchSession {
   clientName: string;
   assignedTesters: string[];
   assignedTesterId?: number | null;
+  assignedPsikologs?: string[];
+  assignedPsikologId?: number | null;
   totalParticipants: number;
   completedParticipants: number;
+  sequence?: string[];
   participants: BatchAccount[];
 }
 
@@ -149,6 +153,7 @@ export default function SchedulePage() {
   const [jobPositions, setJobPositions] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [testers, setTesters] = useState<any[]>([]);
+  const [psikologs, setPsikologs] = useState<any[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
 
   // Form State
@@ -157,10 +162,15 @@ export default function SchedulePage() {
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedTesterId, setSelectedTesterId] = useState('');
+  const [selectedPsikologId, setSelectedPsikologId] = useState('');
   const [prefix, setPrefix] = useState('');
   const [count, setCount] = useState('');
   const [disableMedia, setDisableMedia] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Prefix check state
+  const [prefixInfo, setPrefixInfo] = useState<any>(null);
+  const [checkingPrefix, setCheckingPrefix] = useState(false);
 
   // Custom Test Tools Override State
   const [useCustomTools, setUseCustomTools] = useState(false);
@@ -185,6 +195,7 @@ export default function SchedulePage() {
   const [editDate, setEditDate] = useState('');
   const [editClientId, setEditClientId] = useState('');
   const [editTesterId, setEditTesterId] = useState('');
+  const [editPsikologId, setEditPsikologId] = useState('');
   const [updatingBatch, setUpdatingBatch] = useState(false);
 
   // Edit Participant Modal State
@@ -198,6 +209,33 @@ export default function SchedulePage() {
     fetchBatches();
   }, []);
 
+  // Debounced check for existing username prefix
+  useEffect(() => {
+    const trimmed = prefix.trim();
+    if (!trimmed) {
+      setPrefixInfo(null);
+      setCheckingPrefix(false);
+      return;
+    }
+
+    setCheckingPrefix(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/superadmin/schedule/check-prefix?prefix=${encodeURIComponent(trimmed)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setPrefixInfo(data);
+        }
+      } catch (err) {
+        console.error('Failed to check prefix:', err);
+      } finally {
+        setCheckingPrefix(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [prefix]);
+
   const fetchOptions = () => {
     fetch('/api/superadmin/schedule/options')
       .then(res => res.json())
@@ -205,6 +243,7 @@ export default function SchedulePage() {
         if (data.jobPositions) setJobPositions(data.jobPositions);
         if (data.clients) setClients(data.clients);
         if (data.testers) setTesters(data.testers);
+        if (data.psikologs) setPsikologs(data.psikologs);
         setLoadingOptions(false);
       })
       .catch(err => {
@@ -275,6 +314,7 @@ export default function SchedulePage() {
           startDate: sessionDate,
           sessionDate: sessionDate,
           testerId: selectedTesterId ? parseInt(selectedTesterId) : null,
+          psikologId: selectedPsikologId ? parseInt(selectedPsikologId) : null,
           prefix: prefix.trim().toLowerCase(),
           count: n,
           disableMedia,
@@ -463,6 +503,7 @@ export default function SchedulePage() {
     setEditDate(batch.startDate ? new Date(batch.startDate).toISOString().split('T')[0] : '');
     setEditClientId(batch.clientId ? String(batch.clientId) : '');
     setEditTesterId(batch.assignedTesterId ? String(batch.assignedTesterId) : '');
+    setEditPsikologId(batch.assignedPsikologId ? String(batch.assignedPsikologId) : '');
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -478,7 +519,8 @@ export default function SchedulePage() {
           title: editTitle.trim(),
           startDate: editDate || null,
           clientId: editClientId ? parseInt(editClientId) : null,
-          testerId: editTesterId ? parseInt(editTesterId) : null
+          testerId: editTesterId ? parseInt(editTesterId) : null,
+          psikologId: editPsikologId ? parseInt(editPsikologId) : null,
         })
       });
       const data = await res.json();
@@ -523,7 +565,8 @@ export default function SchedulePage() {
     return (
       (b.title || '').toLowerCase().includes(q) ||
       (b.jobPositionName || '').toLowerCase().includes(q) ||
-      (b.clientName || '').toLowerCase().includes(q)
+      (b.clientName || '').toLowerCase().includes(q) ||
+      (b.sequence || []).some(s => s.toLowerCase().includes(q))
     );
   });
 
@@ -757,53 +800,130 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              {/* Tester */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-700">Tester Penanggung Jawab</label>
-                <select
-                  value={selectedTesterId}
-                  onChange={e => setSelectedTesterId(e.target.value)}
-                  className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
-                >
-                  <option value="">— Tanpa Penugasan Spesifik —</option>
-                  {testers.map(t => (
-                    <option key={t.id} value={t.id}>{t.name} ({t.role === 'psikolog' ? 'Psikolog Assessor' : 'Tester'})</option>
-                  ))}
-                </select>
+              {/* Penanggung Jawab: Tester & Psikolog */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-700">Tester Penanggung Jawab</label>
+                  <select
+                    value={selectedTesterId}
+                    onChange={e => setSelectedTesterId(e.target.value)}
+                    className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                  >
+                    <option value="">— Tanpa Penugasan Spesifik —</option>
+                    {testers.map(t => (
+                      <option key={t.id} value={t.id}>{t.name} (Tester)</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-700">Psikolog Penanggung Jawab</label>
+                  <select
+                    value={selectedPsikologId}
+                    onChange={e => setSelectedPsikologId(e.target.value)}
+                    className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                  >
+                    <option value="">— Tanpa Penugasan Spesifik —</option>
+                    {psikologs.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} (Psikolog)</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {/* Prefix & Jumlah */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-slate-700">
-                    Prefix Username <span className="text-rose-500">*</span>
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="Contoh: mandiri"
-                    value={prefix}
-                    onChange={e => setPrefix(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())}
-                    required
-                  />
-                  <span className="text-xs text-slate-400">
-                    Format: {prefix ? `${prefix}_001` : 'mandiri_001'}
-                  </span>
+              <div className="flex flex-col gap-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-700">
+                      Prefix Username <span className="text-rose-500">*</span>
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="Contoh: mandiri"
+                      value={prefix}
+                      onChange={e => setPrefix(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())}
+                      required
+                    />
+                    <span className="text-xs text-slate-400">
+                      Format:{' '}
+                      {prefix ? (
+                        prefixInfo?.exists ? (
+                          <span className="text-emerald-700 font-semibold">
+                            Lanjutan: {prefixInfo.nextUsername}
+                          </span>
+                        ) : (
+                          `${prefix}_001`
+                        )
+                      ) : (
+                        'mandiri_001'
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-700">
+                      Jumlah Akun <span className="text-rose-500">*</span>
+                    </label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="200"
+                      placeholder="Max 200"
+                      value={count}
+                      onChange={e => setCount(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-slate-700">
-                    Jumlah Akun <span className="text-rose-500">*</span>
-                  </label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="200"
-                    placeholder="Max 200"
-                    value={count}
-                    onChange={e => setCount(e.target.value)}
-                    required
-                  />
-                </div>
+                {/* Status Checking Prefix */}
+                {checkingPrefix && prefix.trim() && (
+                  <div className="px-2 py-1 text-xs text-slate-500 flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-600" />
+                    <span>Mengecek ketersediaan prefix...</span>
+                  </div>
+                )}
+
+                {/* Notifikasi jika prefix sudah pernah dipakai */}
+                {prefixInfo?.exists && (
+                  <div className="p-3 bg-amber-50 border border-amber-200/90 rounded-xl text-xs text-amber-900 flex flex-col gap-1.5 shadow-2xs">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>Prefix "{prefixInfo.prefix}" sudah pernah digunakan sebelumnya</span>
+                    </div>
+                    <div className="text-[11.5px] text-amber-900/90 leading-relaxed space-y-1 pl-5">
+                      <p>
+                        Digunakan pada batch:{' '}
+                        <strong className="text-amber-950 font-bold">
+                          {prefixInfo.batches.length > 0
+                            ? prefixInfo.batches.map((b: any) => `${b.title} (${b.formattedDate})`).join(', ')
+                            : 'Batch Sebelumnya'}
+                        </strong>
+                      </p>
+                      <p>
+                        Akun terakhir yang terdaftar:{' '}
+                        <code className="bg-amber-100/90 px-1.5 py-0.5 rounded font-mono font-bold text-amber-950 border border-amber-300/60">
+                          {prefixInfo.lastUsername}
+                        </code>
+                      </p>
+                      <p className="text-emerald-800 font-medium pt-0.5">
+                        ✓ Nomor akun baru akan <strong>otomatis dilanjutkan</strong> mulai dari:{' '}
+                        <code className="bg-emerald-100 text-emerald-950 px-1.5 py-0.5 rounded font-mono font-bold border border-emerald-300">
+                          {prefixInfo.nextUsername}
+                        </code>
+                        {count && parseInt(count) > 0 ? (
+                          <span>
+                            {' '}s/d{' '}
+                            <code className="bg-emerald-100 text-emerald-950 px-1.5 py-0.5 rounded font-mono font-bold border border-emerald-300">
+                              {prefixInfo.prefix}_{(prefixInfo.nextNumber + parseInt(count) - 1).toString().padStart(3, '0')}
+                            </code>
+                          </span>
+                        ) : null}
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Proctoring Toggle */}
@@ -953,9 +1073,10 @@ export default function SchedulePage() {
             <TableHeader>
               <TableRow className="bg-slate-50">
                 <TableHead className="font-bold text-xs uppercase text-slate-500">Nama Batch & Tanggal</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Psikogram</TableHead>
                 <TableHead className="font-bold text-xs uppercase text-slate-500">Battery Test</TableHead>
                 <TableHead className="font-bold text-xs uppercase text-slate-500">Klien Perusahaan</TableHead>
-                <TableHead className="font-bold text-xs uppercase text-slate-500">Tester PJ</TableHead>
+                <TableHead className="font-bold text-xs uppercase text-slate-500">Tim PJ</TableHead>
                 <TableHead className="font-bold text-xs uppercase text-slate-500">Jumlah Akun</TableHead>
                 <TableHead className="font-bold text-xs uppercase text-slate-500 text-right">Aksi</TableHead>
               </TableRow>
@@ -963,14 +1084,14 @@ export default function SchedulePage() {
             <TableBody>
               {loadingBatches ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10 text-slate-400 text-sm">
+                  <TableCell colSpan={7} className="text-center py-10 text-slate-400 text-sm">
                     <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600" />
                     Memuat daftar batch…
                   </TableCell>
                 </TableRow>
               ) : filteredBatches.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10 text-slate-400 text-sm">
+                  <TableCell colSpan={7} className="text-center py-10 text-slate-400 text-sm">
                     Belum ada Batch Penjadwalan yang dibuat.
                   </TableCell>
                 </TableRow>
@@ -1000,8 +1121,37 @@ export default function SchedulePage() {
                       </div>
                     </TableCell>
 
-                    <TableCell className="text-xs font-semibold text-slate-700">
-                      {batch.jobPositionName}
+                    {/* Psikogram Jabatan */}
+                    <TableCell className="py-3">
+                      <div className="flex flex-wrap gap-1 max-w-[170px]">
+                        {batch.jobPositionName && batch.jobPositionName !== '-' && batch.jobPositionName !== 'Standar Umum' ? (
+                          <Badge variant="outline" className="text-[11px] font-semibold bg-purple-50 text-purple-700 border-purple-200 py-0.5 px-2">
+                            {batch.jobPositionName}
+                          </Badge>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 italic">Standar Umum</span>
+                        )}
+                      </div>
+                    </TableCell>
+
+                    {/* Battery Test */}
+                    <TableCell className="py-3">
+                      <div className="flex flex-wrap items-center gap-1 min-w-[200px] max-w-[320px] leading-relaxed">
+                        {batch.sequence && batch.sequence.length > 0 ? (
+                          batch.sequence.map((testName, i) => (
+                            <span key={i} className="inline-flex items-center gap-1">
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 text-[10.5px] font-semibold border border-slate-200/90 whitespace-nowrap">
+                                {testName}
+                              </span>
+                              {i < (batch.sequence?.length || 0) - 1 && (
+                                <span className="text-slate-400 text-[10px] font-bold">+</span>
+                              )}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">Standar</span>
+                        )}
+                      </div>
                     </TableCell>
 
                     <TableCell>
@@ -1012,17 +1162,31 @@ export default function SchedulePage() {
                     </TableCell>
 
                     <TableCell>
-                      {batch.assignedTesters.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {batch.assignedTesters.map((t, i) => (
-                            <Badge key={i} variant="outline" className="text-xs bg-teal-50 text-teal-700 border-teal-200">
-                              {t}
-                            </Badge>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-400 italic">Umum</span>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        {batch.assignedTesters && batch.assignedTesters.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className="text-[10px] font-semibold text-slate-400">Tester:</span>
+                            {batch.assignedTesters.map((t, i) => (
+                              <Badge key={i} variant="outline" className="text-[11px] bg-teal-50 text-teal-700 border-teal-200">
+                                {t}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {batch.assignedPsikologs && batch.assignedPsikologs.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1">
+                            <span className="text-[10px] font-semibold text-slate-400">Psikolog:</span>
+                            {batch.assignedPsikologs.map((p, i) => (
+                              <Badge key={i} variant="outline" className="text-[11px] bg-indigo-50 text-indigo-700 border-indigo-200">
+                                {p}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {(!batch.assignedTesters || batch.assignedTesters.length === 0) && (!batch.assignedPsikologs || batch.assignedPsikologs.length === 0) && (
+                          <span className="text-xs text-slate-400 italic">Umum</span>
+                        )}
+                      </div>
                     </TableCell>
 
                     <TableCell>
@@ -1370,20 +1534,38 @@ export default function SchedulePage() {
                 </select>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-700">Tester Penanggung Jawab (PJ)</label>
-                <select
-                  value={editTesterId}
-                  onChange={e => setEditTesterId(e.target.value)}
-                  className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
-                >
-                  <option value="">— Tanpa Penugasan Spesifik (Umum) —</option>
-                  {testers.map(t => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.role === 'psikolog' ? 'Psikolog Assessor' : 'Tester Pengawas'})
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-700">Tester Penanggung Jawab (PJ)</label>
+                  <select
+                    value={editTesterId}
+                    onChange={e => setEditTesterId(e.target.value)}
+                    className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                  >
+                    <option value="">— Tanpa Penugasan Spesifik (Umum) —</option>
+                    {testers.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} (Tester)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-700">Psikolog Penanggung Jawab (PJ)</label>
+                  <select
+                    value={editPsikologId}
+                    onChange={e => setEditPsikologId(e.target.value)}
+                    className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm font-semibold text-slate-800 focus:outline-none focus:border-teal-500"
+                  >
+                    <option value="">— Tanpa Penugasan Spesifik (Umum) —</option>
+                    {psikologs.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} (Psikolog)
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">

@@ -82,6 +82,17 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       where: { jobPositionId: parseInt(id) }
     });
 
+    // Disconnect any test or participant references before deleting
+    await prisma.test.updateMany({
+      where: { jobPositionId: parseInt(id) },
+      data: { jobPositionId: null }
+    });
+
+    await prisma.testParticipant.updateMany({
+      where: { jobPositionId: parseInt(id) },
+      data: { jobPositionId: null }
+    });
+
     await prisma.jobPosition.delete({
       where: { id: parseInt(id) }
     });

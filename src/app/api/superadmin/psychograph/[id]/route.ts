@@ -77,8 +77,21 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
 
   const { id } = await context.params;
   try {
+    const presetId = parseInt(id);
+
+    // Disconnect any job positions or tests referencing this preset
+    await prisma.jobPosition.updateMany({
+      where: { psychographPresetId: presetId },
+      data: { psychographPresetId: null }
+    });
+
+    await prisma.test.updateMany({
+      where: { psychographPresetId: presetId },
+      data: { psychographPresetId: null }
+    });
+
     await prisma.psychographPreset.delete({
-      where: { id: parseInt(id) }
+      where: { id: presetId }
     });
     return NextResponse.json({ success: true });
   } catch (error) {

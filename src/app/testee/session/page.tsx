@@ -76,33 +76,25 @@ export default function TesteeSession() {
         
         // Cek apakah nama di database masih bawaan/default atau sudah diisi nama asli peserta
         const isDefault = data.isDefaultName ?? true;
-        const savedName = sessionStorage.getItem('testee_name');
-        const savedAge = sessionStorage.getItem('testee_age');
-        const localSavedName = localStorage.getItem('testee_name');
-        const localSavedAge = localStorage.getItem('testee_age');
-
-        // Jika nama di DB sudah diubah (bukan bawaan), atau sudah terisi nama custom di session saat ini
         const hasCustomDbName = !isDefault && data.userName && !data.userName.toLowerCase().startsWith('peserta');
-        const hasValidLocalName = (savedName && !savedName.toLowerCase().startsWith('peserta') && savedAge) ||
-                                  (localSavedName && !localSavedName.toLowerCase().startsWith('peserta') && localSavedAge);
 
-        if (hasCustomDbName || hasValidLocalName) {
-          const finalName = hasCustomDbName ? data.userName : (savedName || localSavedName || 'Peserta');
-          const finalAge = savedAge || localSavedAge || '22';
+        if (hasCustomDbName) {
+          const finalName = data.userName;
+          const finalAge = sessionStorage.getItem('testee_age') || localStorage.getItem('testee_age') || '22';
           sessionStorage.setItem('testee_name', finalName);
           sessionStorage.setItem('testee_age', finalAge);
           localStorage.setItem('testee_name', finalName);
           localStorage.setItem('testee_age', finalAge);
-          setOnboardingStage(3); // Sudah isi nama asli -> langsung lanjut ke tes
+          setOnboardingStage(3); // Sudah isi nama asli di DB -> langsung lanjut ke ruang jeda atau ujian
         } else {
-          // Bersihkan sisa data lama & wajibkan input form nama & tanggal lahir
+          // Belum isi nama asli -> bersihkan sisa data lama & WAJIB input form nama
           sessionStorage.removeItem('testee_name');
           sessionStorage.removeItem('testee_age');
           sessionStorage.removeItem('testee_dob');
           localStorage.removeItem('testee_name');
           localStorage.removeItem('testee_age');
           localStorage.removeItem('testee_dob');
-          setOnboardingStage(1); // Minta input nama asli & tanggal lahir
+          setOnboardingStage(1); // WAJIB input nama lengkap & tanggal lahir di form
         }
         
         setLoading(false);
@@ -161,17 +153,25 @@ export default function TesteeSession() {
   const nextTestIndex = sequence.findIndex(t => !completedTests.includes(t));
   const isAllCompleted = sequence.length > 0 && nextTestIndex === -1;
   const nextTest = isAllCompleted || sequence.length === 0 ? null : sequence[nextTestIndex];
+  const isFirstTest = completedTests.length === 0;
 
   useEffect(() => {
-    // HANYA redirect jika loading selesai, ada nextTest, onboarding sudah tahap 3, TIDAK dijeda, dan TIDAK distop
-    if (!loading && sequence.length > 0 && nextTest && onboardingStage === 3 && !isPaused && !isStopped) {
-      let slug = nextTest.toLowerCase().replace(/[\s\-_]+/g, '');
-      if (slug.includes('power')) slug = 'power';
-      else if (slug.includes('papi')) slug = 'papikostick';
-      else if (slug.includes('kraepelin') || slug.includes('kreapelin')) slug = 'kraepelin';
-      router.replace(`/tes/${slug}`);
+    // Peserta diarahkan masuk ke tes jika:
+    // 1. Bukan distop oleh pengawas (!isStopped)
+    // 2. Onboarding sudah selesai (onboardingStage === 3)
+    // 3. Untuk tes pertama (isFirstTest), langsung redirect ke halaman tes (misal: /tes/wpt),
+    //    karena jeda dan lock layar untuk tes pertama berlangsung langsung di halaman tes WPT!
+    // 4. Untuk jeda antar tes berikutnya (!isFirstTest), hanya redirect jika jeda sudah dimatikan/dilanjutkan (!isPaused).
+    if (!loading && sequence.length > 0 && nextTest && onboardingStage === 3 && !isStopped) {
+      if (isFirstTest || !isPaused) {
+        let slug = nextTest.toLowerCase().replace(/[\s\-_]+/g, '');
+        if (slug.includes('power')) slug = 'power';
+        else if (slug.includes('papi')) slug = 'papikostick';
+        else if (slug.includes('kraepelin') || slug.includes('kreapelin')) slug = 'kraepelin';
+        router.replace(`/tes/${slug}`);
+      }
     }
-  }, [loading, sequence.length, nextTest, router, onboardingStage, isPaused, isStopped]);
+  }, [loading, sequence.length, nextTest, router, onboardingStage, isPaused, isStopped, isFirstTest]);
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,7 +219,7 @@ export default function TesteeSession() {
       window.dispatchEvent(new CustomEvent('cbt:trigger-initial-photo', { detail: { timestamp: initialTime, participantId: currentPId } }));
     }
     
-    // Pindah ke briefing
+    // Pindah ke briefing (Tahap 2)
     setOnboardingStage(2);
   };
 
@@ -261,7 +261,9 @@ export default function TesteeSession() {
     );
   }
 
-  if (isPaused) {
+  // Jeda antar subtes berikutnya (hanya tampil jika BUKAN tes pertama).
+  // Untuk tes pertama (isFirstTest), lock layar jeda berlangsung langsung di halaman tes (page WPT)!
+  if (isPaused && !isFirstTest) {
     return (
       <div style={{ minHeight: '100dvh', background: '#0F172A', padding: '16px', fontFamily: '"Inter", sans-serif', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
         <div style={{ maxWidth: '520px', width: '100%', margin: 'auto', background: '#1E293B', padding: '32px 24px', borderRadius: '20px', border: '1px solid #334155', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', textAlign: 'center', color: '#F8FAFC' }}>
@@ -291,15 +293,17 @@ export default function TesteeSession() {
           </div>
           
           <span style={{ display: 'inline-block', background: '#0284C7', color: '#FFFFFF', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '14px' }}>
-            ☕ Jeda Istirahat Antar Tes
+            {completedTests.length === 0 ? '☕ Ruang Tunggu Ujian' : '☕ Jeda Istirahat Antar Tes'}
           </span>
 
           <h2 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#FFFFFF', margin: '0 0 10px' }}>
-            Sesi Sedang Dijeda Pengawas
+            {completedTests.length === 0 ? 'Menunggu Arahan Pengawas' : 'Sesi Sedang Dijeda Pengawas'}
           </h2>
 
           <p style={{ fontSize: '0.88rem', color: '#94A3B8', margin: '0 0 20px', lineHeight: 1.5 }}>
-            {pausedMessage || 'Silakan istirahat sejenak. Seluruh jawaban dari subtes sebelumnya telah tersimpan dengan aman. Pengawas akan segera membuka akses ke modul ujian berikutnya.'}
+            {pausedMessage || (completedTests.length === 0 
+              ? 'Data diri Anda telah tersimpan dengan baik. Pengawas akan segera membuka akses ke modul ujian pertama. Harap tetap di halaman ini.' 
+              : 'Silakan istirahat sejenak. Seluruh jawaban dari subtes sebelumnya telah tersimpan dengan aman. Pengawas akan segera membuka akses ke modul ujian berikutnya.')}
           </p>
 
           {nextTest && (

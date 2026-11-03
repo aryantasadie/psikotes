@@ -201,6 +201,12 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Target bukan akun klien' }, { status: 400 });
     }
 
+    // Disconnect tests from client if any exist to prevent foreign key issues
+    await prisma.test.updateMany({
+      where: { clientId: Number(id) },
+      data: { clientId: null }
+    });
+
     await prisma.user.delete({
       where: { id: Number(id) }
     });

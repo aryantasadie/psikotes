@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
+import { updateStreamSession } from '@/lib/streamStore';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -115,22 +116,35 @@ export async function GET() {
     const lastCompletedTest = completedTests.length > 0 ? completedTests[completedTests.length - 1] : precedingTest;
     const cleanLast = lastCompletedTest ? lastCompletedTest.toUpperCase().replace(/[\s\-_]+/g, '') : '';
     const cleanPrev = precedingTest ? precedingTest.toUpperCase().replace(/[\s\-_]+/g, '') : '';
+    const cleanNext = nextTest.toUpperCase().replace(/[\s\-_]+/g, '');
 
     const targetKey = cleanLast || cleanPrev;
     const breakKey = targetKey ? `BREAK_AFTER_${targetKey}` : null;
     const cleanBreakKey = breakKey ? breakKey.replace(/[\s\-_]+/g, '') : '';
+
+    // Check break before the first test
+    const isFirstTest = nextIdx === 0 || completedTests.length === 0;
+    const breakBeforeKey = isFirstTest ? `BREAK_BEFORE_${cleanNext}` : null;
     
     const isTestSpecificallyPaused = Boolean(
-      cleanBreakKey && pausedTestsList.some(pt => {
+      (cleanBreakKey && pausedTestsList.some(pt => {
         const u = pt.toUpperCase().replace(/[\s\-_]+/g, '');
         return u === cleanBreakKey;
-      })
+      })) ||
+      (breakBeforeKey && pausedTestsList.some(pt => {
+        const u = pt.toUpperCase().replace(/[\s\-_]+/g, '');
+        return u === breakBeforeKey.replace(/[\s\-_]+/g, '') || u === 'BREAK_BEFORE_FIRST';
+      }))
     );
     const isTestUnpaused = Boolean(
-      cleanBreakKey && unpausedList.some(ut => {
+      (cleanBreakKey && unpausedList.some(ut => {
         const u = ut.toUpperCase().replace(/[\s\-_]+/g, '');
         return u === cleanBreakKey;
-      })
+      })) ||
+      (breakBeforeKey && unpausedList.some(ut => {
+        const u = ut.toUpperCase().replace(/[\s\-_]+/g, '');
+        return u === breakBeforeKey.replace(/[\s\-_]+/g, '') || u === 'BREAK_BEFORE_FIRST' || u === cleanNext;
+      }))
     );
 
     const shouldPause = isDirectlyPaused || (isTestSpecificallyPaused && !isTestUnpaused);
@@ -143,7 +157,7 @@ export async function GET() {
 
       pausedMessage = participant.test?.pauseMessage || (lastCompletedTest 
         ? `Jeda setelah tes ${lastCompletedTest}. Harap istirahat sejenak dan menunggu arahan pengawas untuk melanjutkan ke tes berikutnya.`
-        : 'Sesi pengerjaan sedang dijeda oleh pengawas. Harap menunggu instruksi selanjutnya.');
+        : `Sesi tes ${nextTest} belum dimulai. Harap menunggu arahan dari pengawas ujian.`);
 
       if (!participant.isPaused || participant.currentTest !== pauseTitle) {
         prisma.testParticipant.update({
@@ -217,6 +231,25 @@ export async function POST(req: Request) {
       where: { id: userId },
       data: { name: sanitizedName }
     });
+
+    // Update real-time stream feed session store if participant exists
+    try {
+      const testPart = await prisma.testParticipant.findFirst({
+        where: { userId },
+        orderBy: { id: 'desc' }
+      });
+      if (testPart) {
+        updateStreamSession({
+          participantId: testPart.id,
+          name: updatedUser.name,
+          username: updatedUser.username,
+          lastActive: Date.now(),
+          cameraFrameUrl: null,
+          screenFrameUrl: null,
+          violationCount: 0
+        });
+      }
+    } catch (e) {}
 
     return NextResponse.json({ success: true, name: updatedUser.name });
   } catch (error: any) {

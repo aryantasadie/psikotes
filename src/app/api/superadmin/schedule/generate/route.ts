@@ -30,6 +30,7 @@ export async function POST(req: Request) {
     const sessionDate = body.sessionDate || body.startDate;
     const clientId = body.clientId;
     const testerId = body.testerId;
+    const psikologId = body.psikologId;
     const prefix = body.prefix;
     const count = body.count;
     const customSequence = Array.isArray(body.customSequence) && body.customSequence.length > 0
@@ -194,12 +195,61 @@ export async function POST(req: Request) {
       }
     }
 
+    // If Psikolog is assigned, add this newTest.id to the psikolog's assignedTestIds
+    if (psikologId) {
+      const psikolog = await prisma.user.findUnique({ where: { id: parseInt(psikologId) } });
+      if (psikolog) {
+        let currentAssigned: number[] = [];
+        if (psikolog.assignedTestIds) {
+          try {
+            currentAssigned = JSON.parse(psikolog.assignedTestIds);
+          } catch (e) {}
+        }
+        if (!currentAssigned.includes(newTest.id)) {
+          currentAssigned.push(newTest.id);
+          await prisma.user.update({
+            where: { id: psikolog.id },
+            data: { assignedTestIds: JSON.stringify(currentAssigned) }
+          });
+        }
+      }
+    }
+
+    const cleanPrefix = prefix.toLowerCase().trim().replace(/_+$/, '');
+
+    // Check if prefix was previously used to continue the sequential numbering seamlessly
+    const existingUsers = await prisma.user.findMany({
+      where: {
+        username: {
+          startsWith: `${cleanPrefix}_`,
+          mode: 'insensitive',
+        },
+        role: 'testee',
+      },
+      select: { username: true },
+    });
+
+    let maxIndex = 0;
+    existingUsers.forEach((u) => {
+      if (u.username.toLowerCase().startsWith(`${cleanPrefix}_`)) {
+        const numPart = u.username.slice(cleanPrefix.length + 1);
+        if (/^\d+$/.test(numPart)) {
+          const num = parseInt(numPart, 10);
+          if (!isNaN(num) && num > maxIndex) {
+            maxIndex = num;
+          }
+        }
+      }
+    });
+
+    const startIndex = maxIndex + 1;
+    const endIndex = maxIndex + count;
     const createdUsers = [];
     const usedPasswords = new Set<string>();
 
-    for (let i = 1; i <= count; i++) {
+    for (let i = startIndex; i <= endIndex; i++) {
       const numStr = i.toString().padStart(3, '0');
-      const username = `${prefix.toLowerCase().trim()}_${numStr}`;
+      const username = `${cleanPrefix}_${numStr}`;
       
       // Ensure unique random password per participant
       let passwordPlain = generateSecurePassword(8);
@@ -213,7 +263,7 @@ export async function POST(req: Request) {
       // Create User
       const user = await prisma.user.create({
         data: {
-          name: `Peserta ${numStr} (${prefix})`,
+          name: `Peserta ${numStr} (${cleanPrefix})`,
           username,
           password: passwordHash,
           role: 'testee',

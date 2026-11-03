@@ -11,7 +11,7 @@ export async function GET() {
   }
 
   try {
-    const [jobPositions, clients, testers] = await Promise.all([
+    const [jobPositions, clients, teamMembers] = await Promise.all([
       prisma.jobPosition.findMany({
         orderBy: { name: 'asc' }
       }),
@@ -27,7 +27,10 @@ export async function GET() {
       })
     ]);
 
-    return NextResponse.json({ jobPositions, clients, testers });
+    const testers = teamMembers.filter(m => m.role === 'tester');
+    const psikologs = teamMembers.filter(m => m.role === 'psikolog');
+
+    return NextResponse.json({ jobPositions, clients, testers, psikologs });
   } catch (error: any) {
     console.error('Error fetching schedule options:', error);
     return NextResponse.json({ error: 'Gagal mengambil data opsi penjadwalan' }, { status: 500 });

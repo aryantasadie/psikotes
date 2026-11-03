@@ -2,12 +2,14 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { signOut } from 'next-auth/react';
+import { usePathname } from 'next/navigation';
 
 interface CbtProctoringGuardProps {
   children: React.ReactNode;
 }
 
 export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps) {
+  const pathname = usePathname();
   const [participantId, setParticipantId] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
   const [consentGranted, setConsentGranted] = useState(false);
@@ -1609,7 +1611,7 @@ export default function CbtProctoringGuard({ children }: CbtProctoringGuardProps
       )}
 
       {/* UJIAN SEDANG DIJEDA MODAL */}
-      {isPaused && !isStopped && (
+      {isPaused && !isStopped && (!pathname || !pathname.includes('/testee/session')) && (
         <div style={{
           position: 'fixed',
           top: 0,

@@ -219,6 +219,14 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
       prisma.testParticipant.delete({ where: { id: participantId } })
     ]);
 
+    // Clean up candidate User record if it has no other participant record
+    const otherPartCount = await prisma.testParticipant.count({
+      where: { userId: participant.userId, id: { not: participantId } }
+    });
+    if (otherPartCount === 0) {
+      await prisma.user.delete({ where: { id: participant.userId } }).catch(() => {});
+    }
+
     return NextResponse.json({ success: true, message: 'Participant deleted successfully' });
   } catch (error: any) {
     console.error("Delete Participant Error:", error);

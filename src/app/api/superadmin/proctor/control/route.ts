@@ -218,7 +218,11 @@ export async function POST(req: Request) {
 
           if (batchSeq.length > 0) {
             const nIdx = batchSeq.findIndex(t => t.toUpperCase().replace(/[\s\-_]+/g, '') === cleanNext);
-            if (nIdx > 0) {
+            if (nIdx === 0) {
+              const bBeforeKey = `BREAK_BEFORE_${cleanNext}`;
+              if (!unpausedList.includes(bBeforeKey)) unpausedList.push(bBeforeKey);
+              if (!unpausedList.includes('BREAK_BEFORE_FIRST')) unpausedList.push('BREAK_BEFORE_FIRST');
+            } else if (nIdx > 0) {
               const prevT = batchSeq[nIdx - 1];
               const cleanPrev = prevT.toUpperCase().replace(/[\s\-_]+/g, '');
               const bKey = `BREAK_AFTER_${cleanPrev}`;
@@ -228,15 +232,26 @@ export async function POST(req: Request) {
         }
 
         if (p.currentTest) {
-          const cleanCurrent = p.currentTest.toUpperCase().replace(/^JEDA\s+(STLH|SETELAH|SEBELUM)\s+/i, '').replace(/[\s\-_]+/g, '');
+          const cleanCurrent = p.currentTest.toUpperCase().replace(/^JEDA\s+(STLH|SETELAH|SBLM|SEBELUM)\s+/i, '').replace(/[\s\-_]+/g, '');
           const breakKey = `BREAK_AFTER_${cleanCurrent}`;
+          const breakBeforeKey = `BREAK_BEFORE_${cleanCurrent}`;
           if (!unpausedList.includes(breakKey)) {
             unpausedList.push(breakKey);
+          }
+          if (!unpausedList.includes(breakBeforeKey)) {
+            unpausedList.push(breakBeforeKey);
+          }
+          if (!unpausedList.includes('BREAK_BEFORE_FIRST')) {
+            unpausedList.push('BREAK_BEFORE_FIRST');
           }
 
           if (batchSeq.length > 0) {
             const cIdx = batchSeq.findIndex(t => t.toUpperCase().replace(/[\s\-_]+/g, '') === cleanCurrent);
-            if (cIdx > 0) {
+            if (cIdx === 0) {
+              const bBeforeKey = `BREAK_BEFORE_${cleanCurrent}`;
+              if (!unpausedList.includes(bBeforeKey)) unpausedList.push(bBeforeKey);
+              if (!unpausedList.includes('BREAK_BEFORE_FIRST')) unpausedList.push('BREAK_BEFORE_FIRST');
+            } else if (cIdx > 0) {
               const prevT = batchSeq[cIdx - 1];
               const cleanPrev = prevT.toUpperCase().replace(/[\s\-_]+/g, '');
               const bKey = `BREAK_AFTER_${cleanPrev}`;
@@ -302,7 +317,11 @@ export async function POST(req: Request) {
 
         if (partSeq.length > 0) {
           const nIdx = partSeq.findIndex(t => t.toUpperCase().replace(/[\s\-_]+/g, '') === cleanNext);
-          if (nIdx > 0) {
+          if (nIdx === 0) {
+            const bBeforeKey = `BREAK_BEFORE_${cleanNext}`;
+            if (!unpausedList.includes(bBeforeKey)) unpausedList.push(bBeforeKey);
+            if (!unpausedList.includes('BREAK_BEFORE_FIRST')) unpausedList.push('BREAK_BEFORE_FIRST');
+          } else if (nIdx > 0) {
             const prevT = partSeq[nIdx - 1];
             const cleanPrev = prevT.toUpperCase().replace(/[\s\-_]+/g, '');
             const bKey = `BREAK_AFTER_${cleanPrev}`;
@@ -312,15 +331,26 @@ export async function POST(req: Request) {
       }
       
       if (p.currentTest) {
-        const cleanCurrent = p.currentTest.toUpperCase().replace(/^JEDA\s+(STLH|SETELAH|SEBELUM)\s+/i, '').replace(/[\s\-_]+/g, '');
+        const cleanCurrent = p.currentTest.toUpperCase().replace(/^JEDA\s+(STLH|SETELAH|SBLM|SEBELUM)\s+/i, '').replace(/[\s\-_]+/g, '');
         const breakKey = `BREAK_AFTER_${cleanCurrent}`;
+        const breakBeforeKey = `BREAK_BEFORE_${cleanCurrent}`;
         if (!unpausedList.includes(breakKey)) {
           unpausedList.push(breakKey);
+        }
+        if (!unpausedList.includes(breakBeforeKey)) {
+          unpausedList.push(breakBeforeKey);
+        }
+        if (!unpausedList.includes('BREAK_BEFORE_FIRST')) {
+          unpausedList.push('BREAK_BEFORE_FIRST');
         }
 
         if (partSeq.length > 0) {
           const cIdx = partSeq.findIndex(t => t.toUpperCase().replace(/[\s\-_]+/g, '') === cleanCurrent);
-          if (cIdx > 0) {
+          if (cIdx === 0) {
+            const bBeforeKey = `BREAK_BEFORE_${cleanCurrent}`;
+            if (!unpausedList.includes(bBeforeKey)) unpausedList.push(bBeforeKey);
+            if (!unpausedList.includes('BREAK_BEFORE_FIRST')) unpausedList.push('BREAK_BEFORE_FIRST');
+          } else if (cIdx > 0) {
             const prevT = partSeq[cIdx - 1];
             const cleanPrev = prevT.toUpperCase().replace(/[\s\-_]+/g, '');
             const bKey = `BREAK_AFTER_${cleanPrev}`;
@@ -357,10 +387,10 @@ export async function POST(req: Request) {
       });
     }
 
-    // 6. TOGGLE PAUSE AFTER A SPECIFIC TEST
+    // 6. TOGGLE PAUSE AFTER A SPECIFIC TEST (OR BEFORE THE FIRST TEST)
     if (action === 'toggle_test_pause') {
       const bId = parseInt(String(batchId), 10);
-      if (isNaN(bId) || (!body.prevTest && !body.nextTest)) {
+      if (isNaN(bId) || (!body.prevTest && !body.nextTest && !body.isBeforeFirst)) {
         return NextResponse.json({ error: 'ID Batch atau prevTest/nextTest tidak valid' }, { status: 400 });
       }
 
@@ -373,21 +403,38 @@ export async function POST(req: Request) {
       // Clean helper — strips spaces/dashes/underscores, uppercase
       const clean = (s: string) => s.toUpperCase().replace(/[\s\-_]+/g, '');
 
+      const isBeforeFirst = Boolean(body.isBeforeFirst) || (!body.prevTest && Boolean(body.nextTest));
       const prevRaw = String(body.prevTest || '').trim();
       const nextRaw = String(body.nextTest || '').trim();
-      const cleanPrev = clean(prevRaw);   // e.g. "WPT" or "PAPIKOSTICK"
+      const cleanPrev = clean(prevRaw);
+      const cleanNext = clean(nextRaw);
 
-      // Canonical key format: "BREAK_AFTER_WPT" — no colons, unambiguous
-      const canonicalKey = `BREAK_AFTER_${cleanPrev}`;
+      // Canonical key format: "BREAK_BEFORE_WPT" or "BREAK_AFTER_WPT"
+      const canonicalKey = isBeforeFirst ? `BREAK_BEFORE_${cleanNext}` : `BREAK_AFTER_${cleanPrev}`;
 
       // Find existing entry for this exact boundary
-      const existingIdx = currentPaused.findIndex(t => t.toUpperCase() === canonicalKey);
+      const existingIdx = currentPaused.findIndex(t => {
+        const u = t.toUpperCase().replace(/[\s\-_]+/g, '');
+        if (isBeforeFirst) {
+          return u === canonicalKey.replace(/[\s\-_]+/g, '') || u === 'BREAK_BEFORE_FIRST' || (cleanNext && u === `BREAK_BEFORE_${cleanNext}`);
+        }
+        return u === canonicalKey.replace(/[\s\-_]+/g, '');
+      });
       const exists = existingIdx !== -1;
 
       let updatedList: string[] = [];
       if (exists) {
-        // Turn OFF: remove only this exact key
-        updatedList = currentPaused.filter((_, i) => i !== existingIdx);
+        // Turn OFF: remove only this exact key (and any alias)
+        updatedList = currentPaused.filter((t, i) => {
+          if (i === existingIdx) return false;
+          if (isBeforeFirst) {
+            const u = t.toUpperCase().replace(/[\s\-_]+/g, '');
+            if (u === canonicalKey.replace(/[\s\-_]+/g, '') || u === 'BREAK_BEFORE_FIRST' || (cleanNext && u === `BREAK_BEFORE_${cleanNext}`)) {
+              return false;
+            }
+          }
+          return true;
+        });
 
         // Auto-unpause participants waiting at this boundary
         const pausedParticipants = await prisma.testParticipant.findMany({
@@ -401,6 +448,10 @@ export async function POST(req: Request) {
 
           if (!unpausedList.includes(canonicalKey)) {
             unpausedList.push(canonicalKey);
+          }
+          if (isBeforeFirst) {
+            if (!unpausedList.includes('BREAK_BEFORE_FIRST')) unpausedList.push('BREAK_BEFORE_FIRST');
+            if (cleanNext && !unpausedList.includes(cleanNext)) unpausedList.push(cleanNext);
           }
 
           await prisma.testParticipant.update({
@@ -432,7 +483,13 @@ export async function POST(req: Request) {
           if (p.unpausedTests) {
             try {
               const uList: string[] = JSON.parse(p.unpausedTests);
-              const filtered = uList.filter(k => k.toUpperCase() !== canonicalKey && k.toUpperCase() !== cleanPrev);
+              const filtered = uList.filter(k => {
+                const u = k.toUpperCase().replace(/[\s\-_]+/g, '');
+                if (isBeforeFirst) {
+                  return u !== canonicalKey.replace(/[\s\-_]+/g, '') && u !== 'BREAK_BEFORE_FIRST' && u !== cleanNext;
+                }
+                return u !== canonicalKey.replace(/[\s\-_]+/g, '') && u !== cleanPrev;
+              });
               if (filtered.length !== uList.length) {
                 await prisma.testParticipant.update({
                   where: { id: p.id },
@@ -451,12 +508,13 @@ export async function POST(req: Request) {
         }
       });
 
+      const boundaryLabel = isBeforeFirst ? `sebelum tes ${nextRaw}` : `setelah tes ${prevRaw}`;
       return NextResponse.json({
         success: true,
         pausedTests: updatedList,
         message: exists 
-          ? `Jeda setelah tes ${prevRaw} berhasil dimatikan.` 
-          : `Jeda setelah tes ${prevRaw} berhasil diaktifkan!`
+          ? `Jeda ${boundaryLabel} berhasil dimatikan.` 
+          : `Jeda ${boundaryLabel} berhasil diaktifkan!`
       });
     }
 
