@@ -225,7 +225,8 @@ export async function POST(req: Request) {
       selectedTools, 
       sessionDate, 
       prefix, 
-      count 
+      count,
+      disableMedia
     } = body;
 
     const n = parseInt(count, 10);
@@ -293,7 +294,7 @@ export async function POST(req: Request) {
         psychographPresetId: finalPresetId,
         startDate: sessionDate ? new Date(sessionDate) : new Date(),
         sequence: JSON.stringify(finalSequence),
-        disableMedia: false,
+        disableMedia: Boolean(disableMedia),
       }
     });
 

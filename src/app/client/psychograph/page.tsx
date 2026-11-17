@@ -84,6 +84,22 @@ export default function ClientPsychographPage() {
     return nameMatch || descMatch;
   });
 
+  // Helper untuk normalisasi nama alat tes utama (menggabungkan subtes/skala ke nama tes induk)
+  const normalizeToolName = (tool: string): string => {
+    const t = tool.trim();
+    if (/PAPI/i.test(t)) return 'PAPI KOSTICK';
+    if (/IST/i.test(t)) return 'IST';
+    if (/CFIT/i.test(t)) return 'CFIT';
+    if (/TIKI/i.test(t)) return 'TIKI';
+    if (/WPT/i.test(t)) return 'WPT';
+    if (/DISC/i.test(t)) return 'DISC';
+    if (/MSDT/i.test(t)) return 'MSDT';
+    if (/Kraepelin|KRAEPELIN/i.test(t)) return 'Kraepelin';
+    if (/Wartegg|WARTEGG/i.test(t)) return 'Wartegg';
+    if (/POWER|Power/i.test(t)) return 'POWER LEADER';
+    return t;
+  };
+
   // Helper untuk parsing mapping dan instrumen
   const parsePresetDetails = (preset: PsychographPreset) => {
     let categories: CategoryMapping[] = [];
@@ -96,7 +112,11 @@ export default function ClientPsychographPage() {
         parsed.forEach(cat => {
           (cat.aspects || []).forEach((asp: any) => {
             if (asp.instruments && Array.isArray(asp.instruments)) {
-              asp.instruments.forEach((inst: string) => instruments.add(inst));
+              asp.instruments.forEach((inst: string) => {
+                if (inst && typeof inst === 'string') {
+                  instruments.add(normalizeToolName(inst));
+                }
+              });
             }
           });
         });
@@ -245,9 +265,6 @@ export default function ClientPsychographPage() {
                     <Sliders className="w-5 h-5 text-teal-600" />
                     <span>Template Baterai Tes: {selectedPreset.name}</span>
                   </DialogTitle>
-                  <Badge variant="outline" className="bg-teal-50 text-teal-800 border-teal-300 text-xs">
-                    Read Only
-                  </Badge>
                 </div>
                 {selectedPreset.description && (
                   <DialogDescription className="text-xs text-slate-500 mt-1">
@@ -317,7 +334,7 @@ export default function ClientPsychographPage() {
                                 )}
                               </div>
                               <div className="flex flex-wrap gap-1 shrink-0">
-                                {(asp.instruments || []).map(tool => (
+                                {Array.from(new Set((asp.instruments || []).map(t => normalizeToolName(t)))).map(tool => (
                                   <span
                                     key={tool}
                                     className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[10px] font-semibold text-slate-700"

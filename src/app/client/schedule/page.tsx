@@ -17,7 +17,8 @@ import {
   Layers, 
   Sliders, 
   Lock, 
-  AlertTriangle 
+  AlertTriangle,
+  VideoOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -107,6 +108,7 @@ export default function ClientSchedulePage() {
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
   const [prefix, setPrefix] = useState('');
   const [count, setCount] = useState('');
+  const [disableMedia, setDisableMedia] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
@@ -216,6 +218,7 @@ export default function ClientSchedulePage() {
           sessionDate,
           prefix: prefix.trim().toLowerCase(),
           count: n,
+          disableMedia,
         }),
       });
 
@@ -529,11 +532,7 @@ export default function ClientSchedulePage() {
                     </div>
                   </div>
 
-                  {/* Row 2, Col 2 & 3: Empty placeholders on desktop */}
-                  <div className="hidden sm:block" />
-                  <div className="hidden sm:block" />
-
-                  {/* Row 3, Col 1: MSDT */}
+                  {/* Row 2, Col 2: MSDT */}
                   <div
                     onClick={() => toggleTool('MSDT')}
                     className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
@@ -553,10 +552,7 @@ export default function ClientSchedulePage() {
                     </div>
                   </div>
 
-                  {/* Row 3, Col 2: Empty placeholder */}
-                  <div className="hidden sm:block" />
-
-                  {/* Row 3, Col 3: Kraepelin */}
+                  {/* Row 2, Col 3: Kraepelin */}
                   <div
                     onClick={() => toggleTool('Kraepelin')}
                     className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
@@ -634,6 +630,32 @@ export default function ClientSchedulePage() {
                     className="h-10 text-xs"
                   />
                 </div>
+              </div>
+
+              {/* 6. Checklist Matikan Kamera & Share Screen (Mode Ringan) */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex flex-col gap-1.5">
+                <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={disableMedia}
+                    onChange={e => setDisableMedia(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded accent-teal-600 cursor-pointer"
+                  />
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs font-bold text-slate-800">
+                      Matikan Kamera & Share Screen (Mode Ringan)
+                    </span>
+                    <span className="text-xs text-slate-500 leading-normal">
+                      Default: Pengawasan kamera aktif. Centang opsi ini jika Anda ingin menonaktifkan kamera & rekam layar peserta agar ujian lebih hemat kuota dan server ringan.
+                    </span>
+                  </div>
+                </label>
+                {disableMedia && (
+                  <Badge variant="outline" className="w-fit bg-amber-50 text-amber-800 border-amber-200 gap-1 text-xs">
+                    <VideoOff className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Mode Ringan Aktif: Peserta tidak diminta izin webcam / kamera pengawas</span>
+                  </Badge>
+                )}
               </div>
 
               {/* Submit Button */}
