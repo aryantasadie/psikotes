@@ -312,7 +312,8 @@ export async function PUT(req: Request) {
       serviceScheme, 
       picName,
       batteryTest,
-      assignedJobPositionIds
+      assignedJobPositionIds,
+      assignedPresetIds
     } = body;
 
     if (!id || !name || !username) {
@@ -336,6 +337,7 @@ export async function PUT(req: Request) {
     let existingScheme = 'SKEMA_2_SAAS';
     let existingBatteryTest = ['WPT', 'Kraepelin', 'DISC', 'PAPI KOSTICK'];
     let existingAssignedJobs = [9];
+    let existingAssignedPresets = [9];
 
     if (target.license) {
       try {
@@ -344,6 +346,7 @@ export async function PUT(req: Request) {
         existingPic = parsed.pic || '';
         if (Array.isArray(parsed.batteryTest)) existingBatteryTest = parsed.batteryTest;
         if (Array.isArray(parsed.assignedJobPositionIds)) existingAssignedJobs = parsed.assignedJobPositionIds;
+        if (Array.isArray(parsed.assignedPresetIds)) existingAssignedPresets = parsed.assignedPresetIds;
       } catch {
         existingScheme = target.license;
       }
@@ -351,12 +354,14 @@ export async function PUT(req: Request) {
 
     const finalBatteryTest = batteryTest !== undefined ? batteryTest : existingBatteryTest;
     const finalAssignedJobs = assignedJobPositionIds !== undefined ? assignedJobPositionIds : existingAssignedJobs;
+    const finalAssignedPresets = assignedPresetIds !== undefined ? assignedPresetIds : existingAssignedPresets;
 
     updateData.license = JSON.stringify({
       scheme: serviceScheme !== undefined ? serviceScheme : existingScheme,
       pic: picName !== undefined ? picName.trim() : existingPic,
       batteryTest: finalBatteryTest,
-      assignedJobPositionIds: finalAssignedJobs
+      assignedJobPositionIds: finalAssignedJobs,
+      assignedPresetIds: finalAssignedPresets
     });
 
     // Update Kuota Total jika disediakan

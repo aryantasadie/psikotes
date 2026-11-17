@@ -30,7 +30,8 @@ import {
   Layers,
   Search,
   Eye,
-  Users
+  Users,
+  Sliders
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,7 +79,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [client, setClient] = useState<any>(null);
   const [flashMsg, setFlashMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // Tab 1: Battery Test State
+  // Tab 1: Battery & Presets State
+  const [presetSearch, setPresetSearch] = useState<string>('');
+  const [presetViewMode, setPresetViewMode] = useState<'grid' | 'table'>('table');
+  const [assignedPresetIds, setAssignedPresetIds] = useState<number[]>([]);
   const [batteryTestId, setBatteryTestId] = useState<number | null>(null);
   const [batteryTitle, setBatteryTitle] = useState<string>('');
   const [batterySequence, setBatterySequence] = useState<string[]>([]);
@@ -138,7 +142,15 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       setAssignedJobIds(data.positions.assignedIds || [9]);
 
       // Presets
-      setPsychographPresets(data.presets || []);
+      if (data.presets) {
+        if (Array.isArray(data.presets.list)) {
+          setPsychographPresets(data.presets.list);
+          setAssignedPresetIds(Array.isArray(data.presets.assignedIds) ? data.presets.assignedIds : [9]);
+        } else if (Array.isArray(data.presets)) {
+          setPsychographPresets(data.presets);
+          setAssignedPresetIds([9]);
+        }
+      }
 
       // Quota
       setTotalQuota(String(data.client.totalQuota || 100));
@@ -228,6 +240,34 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       setBatterySequence(['WPT', 'Kraepelin', 'DISC', 'PAPI KOSTICK']);
     } else if (preset === 'manager') {
       setBatterySequence(['WPT', 'IST 2', 'IST 3', 'Kraepelin', 'DISC', 'PAPI KOSTICK', 'MSDT']);
+    }
+  };
+
+  const toggleAssignedPreset = async (presetId: number) => {
+    const updatedIds = assignedPresetIds.includes(presetId)
+      ? assignedPresetIds.filter(id => id !== presetId)
+      : [...assignedPresetIds, presetId];
+
+    setAssignedPresetIds(updatedIds);
+
+    // Langsung autosave ke client license
+    try {
+      await fetch('/api/superadmin/clients', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: clientId,
+          name: client.name,
+          username: client.username,
+          serviceScheme: client.serviceScheme || 'SKEMA_2_SAAS',
+          batteryTest: batterySequence,
+          assignedJobPositionIds: assignedJobIds,
+          assignedPresetIds: updatedIds,
+          totalQuota: parseInt(totalQuota, 10) || 100
+        })
+      });
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -448,6 +488,67 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     return nameMatch || descMatch || presetMatch || mitraMatch;
   });
 
+  // Helper ekstraksi aspek dan instrumen dari template mapping preset
+  const getPresetSummary = (preset: any) => {
+    let aspectCount = 0;
+    const instrumentsSet = new Set<string>();
+
+    try {
+      const parsed = JSON.parse(preset.mapping || '[]');
+      if (Array.isArray(parsed)) {
+        parsed.forEach((cat: any) => {
+          if (Array.isArray(cat.aspects)) {
+            aspectCount += cat.aspects.length;
+            cat.aspects.forEach((asp: any) => {
+              if (Array.isArray(asp.instruments)) {
+                asp.instruments.forEach((inst: string) => {
+                  if (inst) {
+                    const instLower = inst.toLowerCase().trim();
+                    if (inst === 'WPT') instrumentsSet.add('WPT');
+                    else if (instLower.startsWith('tiki')) instrumentsSet.add(inst);
+                    else if (instLower.startsWith('ist subtes')) instrumentsSet.add(inst.replace(/subtes\s+/i, ''));
+                    else if (instLower.startsWith('ist')) instrumentsSet.add(inst);
+                    else if (instLower.startsWith('papi')) instrumentsSet.add('PAPI KOSTICK');
+                    else if (instLower.startsWith('disc')) instrumentsSet.add('DISC');
+                    else if (instLower.startsWith('cfit')) instrumentsSet.add(inst);
+                    else if (instLower.startsWith('kraepelin') || instLower.startsWith('kreapelin')) instrumentsSet.add('Kraepelin');
+                    else if (instLower.startsWith('wartegg')) instrumentsSet.add('Wartegg');
+                    else instrumentsSet.add(inst);
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+    } catch {}
+
+    return {
+      aspectCount,
+      instruments: Array.from(instrumentsSet)
+    };
+  };
+
+  // Filter Preset Baterai Tes berdasarkan kata kunci pencarian (nama, alat tes, mitra)
+  const filteredPresets = psychographPresets.filter(preset => {
+    if (!presetSearch.trim()) return true;
+    const q = presetSearch.toLowerCase().trim();
+    const nameMatch = (preset.name || '').toLowerCase().includes(q);
+
+    const { instruments } = getPresetSummary(preset);
+    const toolMatch = instruments.some(i => i.toLowerCase().includes(q));
+
+    const isChecked = assignedPresetIds.includes(preset.id);
+    const mitraNames: string[] = [];
+    if (isChecked && client?.name) mitraNames.push(client.name);
+    if (Array.isArray(preset.otherAssignedClients)) {
+      mitraNames.push(...preset.otherAssignedClients);
+    }
+    const mitraMatch = mitraNames.some(m => m.toLowerCase().includes(q));
+
+    return nameMatch || toolMatch || mitraMatch;
+  });
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-slate-500 gap-3">
@@ -529,10 +630,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
-          <Lock className="w-4 h-4" />
+          <Sliders className="w-4 h-4" />
           <span>1. Baterai Tes Mitra</span>
           <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${activeTab === 'battery' ? 'bg-white/20' : 'bg-slate-100'}`}>
-            {batterySequence.length} Modul
+            {psychographPresets.length} Template
           </span>
         </button>
 
@@ -583,161 +684,333 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════════
-          TAB 1: BATERAI TES RESMI MITRA (TAMPILAN BUILDER 2 KOLOM PERSIS SUPERADMIN)
+          TAB 1: BATERAI TES & PROFIL KOMPETENSI MITRA (SISTEM TABEL PERSIS TAB 2)
           ══════════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'battery' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* KOLOM KIRI: Identitas & Urutan Pengerjaan Ujian */}
-          <div className="flex flex-col gap-5">
-            {/* Input Nama Paket */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-              <label className="block text-xs font-bold text-slate-800 mb-2">
-                Nama Paket Baterai Tes Mitra <span className="text-rose-500">*</span>
-              </label>
-              <Input
-                type="text"
-                value={batteryTitle}
-                onChange={(e) => setBatteryTitle(e.target.value)}
-                placeholder="Contoh: Baterai Tes Resmi - PT Maju Jaya"
-                className="text-xs h-10"
-              />
-              <p className="text-[11px] text-slate-400 mt-2">
-                Tersimpan di tabel <code>Test</code> dengan <code>clientId: {clientId}</code>. Rangkaian ini terkunci permanen untuk peserta mitra saat memilih Asesmen Jabatan.
+        <div className="space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">
+                Bank Template Baterai Tes & Profil Kompetensi ({filteredPresets.length} Template)
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Daftar template profil kompetensi dan alokasi rangkaian instrumen alat tes psikologi untuk mitra ini.
               </p>
             </div>
-
-            {/* Urutan Pengerjaan Ujian */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-teal-700" />
-                  <h3 className="text-sm font-bold text-slate-900">
-                    Urutan Pengerjaan Ujian ({batterySequence.length} Modul)
-                  </h3>
-                </div>
-                <span className="text-[11px] text-teal-800 font-semibold">
-                  Dikerjakan berurutan dari atas ke bawah
-                </span>
+            
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              {/* Search Bar Real-time */}
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  type="text"
+                  placeholder="Cari profil, alat tes, mitra..."
+                  value={presetSearch}
+                  onChange={(e) => setPresetSearch(e.target.value)}
+                  className="pl-9 pr-8 h-9 text-xs"
+                />
+                {presetSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setPresetSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
+                    title="Hapus pencarian"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
-              {batterySequence.length === 0 ? (
-                <div className="p-8 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
-                  Belum ada alat tes di dalam rangkaian. Klik salah satu modul di kolom sebelah kanan untuk menambahkan.
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {batterySequence.map((testName, idx) => (
+              {/* View Mode Toggle: Tabel Template atau Kartu */}
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setPresetViewMode('table')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    presetViewMode === 'table'
+                      ? 'bg-white text-teal-800 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Tabel Template
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPresetViewMode('grid')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    presetViewMode === 'grid'
+                      ? 'bg-white text-teal-800 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Kartu
+                </button>
+              </div>
+
+              <Button
+                asChild
+                className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs gap-1.5 h-9 px-4 shrink-0"
+              >
+                <Link href={`/superadmin/psychograph/builder?fromClient=${clientId}`}>
+                  <Plus className="w-4 h-4" />
+                  <span>Buat Template Baru</span>
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          {/* TAMPILAN 1: TABEL PERSIS STANDAR PSIKOGRAM & SUPERADMIN PSYCHOGRAPH */}
+          {presetViewMode === 'table' ? (
+            <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50 border-b border-slate-200">
+                    <TableHead className="font-bold text-xs uppercase text-slate-600 w-12 text-center">Aktif</TableHead>
+                    <TableHead className="font-bold text-xs uppercase text-slate-600">Profil Kompetensi & Alat Tes</TableHead>
+                    <TableHead className="font-bold text-xs uppercase text-slate-600">Perusahaan Mitra</TableHead>
+                    <TableHead className="font-bold text-xs uppercase text-slate-600">Instrumen & Aspek Penilaian</TableHead>
+                    <TableHead className="font-bold text-xs uppercase text-slate-600 text-right pr-6">Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredPresets.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-10 text-slate-400 text-xs">
+                        {presetSearch
+                          ? `Tidak ada template yang cocok dengan "${presetSearch}".`
+                          : 'Belum ada template baterai tes & profil kompetensi yang tersedia.'}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredPresets.map((preset) => {
+                      const isChecked = assignedPresetIds.includes(preset.id);
+                      const { aspectCount, instruments } = getPresetSummary(preset);
+
+                      // Klien mitra yang terhubung: nama klien ini (bila dicentang) + mitra lain
+                      const activeMitraNames: string[] = [];
+                      if (isChecked && client?.name) {
+                        activeMitraNames.push(client.name);
+                      }
+                      if (Array.isArray(preset.otherAssignedClients)) {
+                        preset.otherAssignedClients.forEach((name: string) => {
+                          if (!activeMitraNames.includes(name)) {
+                            activeMitraNames.push(name);
+                          }
+                        });
+                      }
+
+                      return (
+                        <TableRow 
+                          key={preset.id} 
+                          className={`hover:bg-slate-50/80 transition-colors ${
+                            isChecked ? 'bg-teal-50/20' : ''
+                          }`}
+                        >
+                          {/* Checkbox Alokasi ke Mitra */}
+                          <TableCell className="text-center">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => toggleAssignedPreset(preset.id)}
+                              className="w-4 h-4 rounded accent-teal-600 cursor-pointer align-middle"
+                              title="Aktifkan untuk portal mitra"
+                            />
+                          </TableCell>
+
+                          {/* 1. Profil Kompetensi & Alat Tes */}
+                          <TableCell>
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700 shrink-0">
+                                <Sliders className="w-4 h-4" />
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-slate-900">{preset.name}</span>
+                                  {isChecked && (
+                                    <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-800 border-emerald-200 font-bold py-0">
+                                      Aktif di Mitra
+                                    </Badge>
+                                  )}
+                                </div>
+                                <span className="text-xs text-slate-400">
+                                  {instruments.length > 0 ? instruments.join(' • ') : 'Rangkaian Tes Master'}
+                                </span>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          {/* 2. Perusahaan Mitra */}
+                          <TableCell>
+                            {activeMitraNames.length === 0 ? (
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
+                                <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span>Umum / Semua Klien</span>
+                              </div>
+                            ) : (
+                              <div className="inline-flex items-center gap-1.5 flex-wrap">
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 max-w-[170px]">
+                                  <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                  <span className="truncate">
+                                    {activeMitraNames.length === 1
+                                      ? activeMitraNames[0]
+                                      : `${activeMitraNames[0]} (+${activeMitraNames.length - 1})`}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingMitraModal({ positionName: preset.name, mitras: activeMitraNames })}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white hover:bg-slate-100 border border-slate-200 text-xs font-bold text-teal-700 hover:text-teal-900 transition-colors shadow-2xs cursor-pointer shrink-0"
+                                  title="Buka daftar lengkap perusahaan mitra"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-teal-600" />
+                                  <span>Lihat Detail</span>
+                                </button>
+                              </div>
+                            )}
+                          </TableCell>
+
+                          {/* 3. Instrumen & Aspek Penilaian */}
+                          <TableCell>
+                            <div className="flex flex-col gap-1.5">
+                              <Badge variant="outline" className="w-fit text-xs bg-teal-50 text-teal-700 border-teal-200 gap-1 font-semibold py-0.5">
+                                <Layers className="w-3 h-3" />
+                                <span>{aspectCount} Aspek Penilaian</span>
+                              </Badge>
+                              <div className="flex items-center gap-1 flex-wrap max-w-sm">
+                                {instruments.map(inst => (
+                                  <span key={inst} className="text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded-md">
+                                    {inst}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          {/* 4. Aksi: Edit Template */}
+                          <TableCell className="text-right pr-6">
+                            <Button asChild variant="outline" size="sm" className="h-8 px-3 text-xs gap-1.5 font-bold text-teal-700 hover:text-teal-900 hover:bg-teal-50 border-teal-200 shadow-2xs">
+                              <Link href={`/superadmin/psychograph/builder?id=${preset.id}&fromClient=${clientId}`}>
+                                <Pencil className="w-3.5 h-3.5" />
+                                <span>Edit Template</span>
+                              </Link>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            /* TAMPILAN 2: GRID KARTU */
+            filteredPresets.length === 0 ? (
+              <div className="p-10 text-center text-xs text-slate-400 bg-white border border-slate-200 rounded-2xl">
+                {presetSearch
+                  ? `Tidak ada template yang cocok dengan "${presetSearch}".`
+                  : 'Belum ada template baterai tes yang tersedia.'}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredPresets.map((preset) => {
+                  const isChecked = assignedPresetIds.includes(preset.id);
+                  const { aspectCount, instruments } = getPresetSummary(preset);
+
+                  const activeMitraNames: string[] = [];
+                  if (isChecked && client?.name) {
+                    activeMitraNames.push(client.name);
+                  }
+                  if (Array.isArray(preset.otherAssignedClients)) {
+                    preset.otherAssignedClients.forEach((name: string) => {
+                      if (!activeMitraNames.includes(name)) {
+                        activeMitraNames.push(name);
+                      }
+                    });
+                  }
+
+                  const displayMitra = activeMitraNames.length > 0
+                    ? activeMitraNames.join(' | ') + ' |'
+                    : 'Umum / Semua Klien';
+
+                  return (
                     <div
-                      key={`${testName}-${idx}`}
-                      className="flex items-center justify-between p-3 rounded-xl bg-slate-50/80 border border-slate-200 hover:border-teal-300 transition-colors"
+                      key={preset.id}
+                      className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
+                        isChecked
+                          ? 'bg-white border-teal-400 shadow-sm ring-1 ring-teal-400/50'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
                     >
-                      <div className="flex items-center gap-3">
-                        <span className="w-7 h-7 rounded-lg bg-teal-100 text-teal-800 font-black text-xs flex items-center justify-center shrink-0">
-                          {idx + 1}
-                        </span>
-                        <span className="text-xs font-bold text-slate-900">{testName}</span>
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleAssignedPreset(preset.id)}
+                          className="w-4 h-4 rounded accent-teal-600 mt-1 cursor-pointer shrink-0"
+                          title="Aktifkan untuk portal mitra"
+                        />
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-slate-900 text-sm truncate">{preset.name}</span>
+                            {activeMitraNames.length === 0 ? (
+                              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-[10px] font-semibold text-slate-700 shrink-0">
+                                <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span>Umum</span>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setViewingMitraModal({ positionName: preset.name, mitras: activeMitraNames })}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 hover:bg-teal-50 border border-slate-200 hover:border-teal-200 text-[10px] font-semibold text-slate-700 hover:text-teal-900 transition-colors cursor-pointer shrink-0 shadow-2xs"
+                                title="Klik untuk melihat daftar mitra"
+                              >
+                                <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="truncate max-w-[100px]">
+                                  {activeMitraNames.length === 1 ? activeMitraNames[0] : `${activeMitraNames.length} Mitra`}
+                                </span>
+                                <Eye className="w-2.5 h-2.5 text-teal-600 ml-0.5" />
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1 flex-wrap mt-2">
+                            {instruments.slice(0, 4).map(inst => (
+                              <span key={inst} className="text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded-md">
+                                {inst}
+                              </span>
+                            ))}
+                            {instruments.length > 4 && (
+                              <span className="text-[10px] text-slate-400">+{instruments.length - 4}</span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-1 mt-2.5">
+                            <Badge variant="outline" className="w-fit text-[11px] bg-teal-50 text-teal-700 border-teal-200 gap-1 font-semibold py-0.5">
+                              <Layers className="w-3 h-3" />
+                              <span>{aspectCount} Aspek Penilaian</span>
+                            </Badge>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          disabled={idx === 0}
-                          onClick={() => handleMoveTest(idx, 'up')}
-                          className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600 disabled:opacity-30 cursor-pointer"
-                          title="Geser ke Atas"
+                      <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
+                        <span className="text-slate-400 text-[11px]">
+                          {isChecked ? '✓ Aktif di Portal Mitra' : 'Nonaktif'}
+                        </span>
+                        <Link
+                          href={`/superadmin/psychograph/builder?id=${preset.id}&fromClient=${clientId}`}
+                          className="inline-flex items-center gap-1.5 text-teal-700 hover:text-teal-900 font-bold cursor-pointer text-xs transition-colors py-1 px-2.5 rounded-lg hover:bg-teal-50"
                         >
-                          <ArrowUp className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={idx === batterySequence.length - 1}
-                          onClick={() => handleMoveTest(idx, 'down')}
-                          className="p-1.5 rounded-lg hover:bg-slate-200 text-slate-600 disabled:opacity-30 cursor-pointer"
-                          title="Geser ke Bawah"
-                        >
-                          <ArrowDown className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTest(idx)}
-                          className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-600 cursor-pointer ml-1"
-                          title="Hapus dari Urutan"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>Edit Template</span>
+                        </Link>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex justify-end pt-3 border-t border-slate-100">
-                <Button
-                  type="button"
-                  disabled={savingBattery || batterySequence.length === 0}
-                  onClick={handleSaveBatteryTest}
-                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold gap-2 text-xs h-10 px-6"
-                >
-                  {savingBattery && <Loader2 className="w-4 h-4 animate-spin" />}
-                  <span>{savingBattery ? 'Menyimpan...' : 'Simpan Baterai Tes Mitra'}</span>
-                </Button>
+                  );
+                })}
               </div>
-            </div>
-          </div>
-
-          {/* KOLOM KANAN: Bank Alat Tes yang Tersedia */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col gap-4 self-start">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Bank Alat Tes yang Tersedia
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Klik alat tes untuk memasukkannya ke rangkaian ujian di sebelah kiri
-                </p>
-              </div>
-
-              {/* Shortcut Template */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] text-slate-400 font-bold">Template:</span>
-                <button
-                  type="button"
-                  onClick={() => handleApplyBatteryTemplate('operator')}
-                  className="text-[10px] font-bold bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 px-2 py-1 rounded-md cursor-pointer"
-                >
-                  Operator
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleApplyBatteryTemplate('staff')}
-                  className="text-[10px] font-bold bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 px-2 py-1 rounded-md cursor-pointer"
-                >
-                  Staff
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleApplyBatteryTemplate('manager')}
-                  className="text-[10px] font-bold bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 px-2 py-1 rounded-md cursor-pointer"
-                >
-                  Manager
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-              {AVAILABLE_TEST_BATTERY.map((tool) => (
-                <button
-                  key={tool}
-                  type="button"
-                  onClick={() => handleAddTest(tool)}
-                  className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-teal-50 hover:border-teal-300 text-slate-800 hover:text-teal-900 text-xs font-bold transition-all flex items-center justify-between cursor-pointer group shadow-2xs"
-                >
-                  <span>{tool}</span>
-                  <Plus className="w-3.5 h-3.5 text-slate-400 group-hover:text-teal-600 transition-colors" />
-                </button>
-              ))}
-            </div>
-          </div>
+            )
+          )}
         </div>
       )}
 

@@ -66,6 +66,17 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         orderBy: { name: 'asc' }
       }),
       prisma.psychographPreset.findMany({
+        include: {
+          jobPositions: { select: { id: true, name: true } },
+          tests: {
+            where: { participants: { some: {} } },
+            select: {
+              id: true,
+              title: true,
+              client: { select: { id: true, name: true } }
+            }
+          }
+        },
         orderBy: { name: 'asc' }
       }),
       prisma.test.findMany({
@@ -129,6 +140,38 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       });
     };
 
+    // Helper untuk memetakan nama klien mitra lain yang menggunakan preset kompetensi / baterai tes
+    const attachOtherClientsToPresets = (presetList: any[]) => {
+      return presetList.map(preset => {
+        const otherNames = new Set<string>();
+
+        // 1. Dari lisensi mitra lain
+        allClients.forEach(c => {
+          if (c.id === clientId) return;
+          if (c.license) {
+            try {
+              const parsed = JSON.parse(c.license);
+              if (Array.isArray(parsed.assignedPresetIds) && parsed.assignedPresetIds.includes(preset.id)) {
+                if (c.name) otherNames.add(c.name);
+              }
+            } catch {}
+          }
+        });
+
+        // 2. Dari riwayat batch tes mitra lain
+        (preset.tests || []).forEach((t: any) => {
+          if (t.client && t.client.id !== clientId && t.client.name) {
+            otherNames.add(t.client.name);
+          }
+        });
+
+        return {
+          ...preset,
+          otherAssignedClients: Array.from(otherNames)
+        };
+      });
+    };
+
     // Format Baterai Tes resmi klien
     let batteryTest: string[] = ['WPT', 'Kraepelin', 'DISC', 'PAPI KOSTICK'];
     let batteryTitle = `Baterai Tes Resmi - ${client.name}`;
@@ -158,6 +201,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     let serviceScheme = 'SKEMA_2_SAAS';
     let picName = '';
     let assignedJobPositionIds: number[] = [9];
+    let assignedPresetIds: number[] = [9];
 
     if (client.license) {
       try {
@@ -167,6 +211,11 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
           picName = parsed.pic || '';
           if (Array.isArray(parsed.assignedJobPositionIds)) {
             assignedJobPositionIds = parsed.assignedJobPositionIds;
+          }
+          if (Array.isArray(parsed.assignedPresetIds)) {
+            assignedPresetIds = parsed.assignedPresetIds;
+          } else if (Array.isArray(parsed.assignedJobPositionIds)) {
+            assignedPresetIds = parsed.assignedJobPositionIds;
           }
         }
       } catch {}
@@ -238,7 +287,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         general: attachOtherClients(generalPositions),
         assignedIds: assignedJobPositionIds
       },
-      presets: psychographPresets,
+      presets: {
+        list: attachOtherClientsToPresets(psychographPresets),
+        assignedIds: assignedPresetIds
+      },
       batches: formattedBatches
     });
   } catch (error) {

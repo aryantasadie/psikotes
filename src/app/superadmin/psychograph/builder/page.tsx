@@ -178,6 +178,7 @@ export default function PsychographBuilder() {
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState('');
   const [editId, setEditId]     = useState<number | null>(null);
+  const [fromClient, setFromClient] = useState<string | null>(null);
   const router = useRouter();
 
   // Aspect Modal State (Add / Edit)
@@ -206,7 +207,11 @@ export default function PsychographBuilder() {
 
   // Load existing or initialize
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('id');
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    const fc = params.get('fromClient');
+    if (fc) setFromClient(fc);
+
     if (id) {
       setEditId(parseInt(id));
       fetch(`/api/superadmin/psychograph/${id}`)
@@ -451,7 +456,11 @@ export default function PsychographBuilder() {
         body: JSON.stringify({ name: name.trim(), mapping, sequence }) 
       });
       if (res.ok) {
-        router.push('/superadmin/psychograph');
+        if (fromClient) {
+          router.push(`/superadmin/clients/${fromClient}?tab=battery`);
+        } else {
+          router.push('/superadmin/psychograph');
+        }
       } else { 
         const d = await res.json();
         setError(d.error || 'Gagal menyimpan preset.'); 
@@ -469,7 +478,7 @@ export default function PsychographBuilder() {
       {/* Page header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Link href="/superadmin/psychograph"
+          <Link href={fromClient ? `/superadmin/clients/${fromClient}?tab=battery` : "/superadmin/psychograph"}
             className="w-9 h-9 flex items-center justify-center border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 transition-colors shadow-sm">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7"/></svg>
           </Link>
@@ -728,7 +737,7 @@ export default function PsychographBuilder() {
           Total Kategori: <span className="font-bold text-slate-700">{mapping.length}</span> &bull; Total Aspek: <span className="font-bold text-slate-700">{mapping.reduce((acc, c) => acc + c.aspects.length, 0)}</span>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/superadmin/psychograph"
+          <Link href={fromClient ? `/superadmin/clients/${fromClient}?tab=battery` : "/superadmin/psychograph"}
             className="text-[13px] font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2.5 rounded-xl transition-colors">
             Batal
           </Link>
