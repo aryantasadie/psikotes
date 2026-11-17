@@ -187,18 +187,23 @@ export default function ClientSchedulePage() {
       return;
     }
 
-    if (!prefix.trim() || isNaN(n) || n < 1 || n > 200) {
-      setFormError('Prefix username dan jumlah peserta harus valid (1 - 200).');
+    if (selectedCustomTools.length === 0) {
+      setFormError('Belum ada alat tes yang dipilih. Silakan centang minimal 1 alat tes pada pilihan di atas.');
+      return;
+    }
+
+    if (!prefix.trim()) {
+      setFormError('Prefix username wajib diisi.');
+      return;
+    }
+
+    if (isNaN(n) || n < 1 || n > 200) {
+      setFormError('Jumlah akun peserta harus berupa angka valid antara 1 sampai 200.');
       return;
     }
 
     if (remainingQuota < n) {
-      setFormError(`Sisa kuota akun Anda tersisa ${remainingQuota} kandidat. Permintaan: ${n} kandidat. Silakan hubungi Superadmin HR Publik.`);
-      return;
-    }
-
-    if (selectedCustomTools.length === 0) {
-      setFormError('Belum ada alat tes yang dipilih. Silakan centang minimal 1 alat tes.');
+      setFormError(`Jumlah akun yang ingin dibuat (${n} akun) melebihi sisa token yang tersedia (${remainingQuota} token). Silakan kurangi jumlah akun atau hubungi Superadmin untuk penambahan kuota.`);
       return;
     }
 
@@ -631,10 +636,21 @@ export default function ClientSchedulePage() {
                     max="200"
                     placeholder="Max 200"
                     value={count}
-                    onChange={e => setCount(e.target.value)}
+                    onChange={e => {
+                      setCount(e.target.value);
+                      if (formError) setFormError('');
+                    }}
                     required
-                    className="h-10 text-xs"
+                    className={`h-10 text-xs transition-colors ${
+                      parseInt(count, 10) > remainingQuota ? 'border-rose-500 focus-visible:ring-rose-500 bg-rose-50/20' : ''
+                    }`}
                   />
+                  {parseInt(count, 10) > remainingQuota && (
+                    <span className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-0.5 animate-in fade-in duration-200">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>Jumlah akun ({parseInt(count, 10)}) melebihi token tersisa ({remainingQuota} token).</span>
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -664,11 +680,26 @@ export default function ClientSchedulePage() {
                 )}
               </div>
 
+              {/* Alert kecil di atas tombol jika ada syarat belum lengkap */}
+              {selectedCustomTools.length === 0 && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Pilih minimal 1 modul alat tes pada bagian "Pilih Alat Tes yang Diujikan" di atas.</span>
+                </div>
+              )}
+
+              {parseInt(count, 10) > remainingQuota && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Jumlah akun yang diminta ({parseInt(count, 10)}) melebihi sisa token ({remainingQuota} token).</span>
+                </div>
+              )}
+
               {/* Submit Button */}
               <Button
                 type="submit"
-                disabled={submitting || remainingQuota <= 0 || selectedCustomTools.length === 0}
-                className="w-full mt-2 gap-2 bg-teal-600 hover:bg-teal-700 text-white font-bold h-10 shadow-xs"
+                disabled={submitting}
+                className="w-full mt-2 gap-2 bg-teal-600 hover:bg-teal-700 text-white font-bold h-10 shadow-xs cursor-pointer"
               >
                 {submitting ? (
                   <>
