@@ -219,21 +219,20 @@ export default function PsychographPresetList() {
                 <TableHead className="font-bold text-xs uppercase text-slate-500">Profil Kompetensi & Alat Tes</TableHead>
                 <TableHead className="font-bold text-xs uppercase text-slate-500">Perusahaan Mitra</TableHead>
                 <TableHead className="font-bold text-xs uppercase text-slate-500">Dibuat Kapan</TableHead>
-                <TableHead className="font-bold text-xs uppercase text-slate-500">Total Aspek Penilaian</TableHead>
                 <TableHead className="font-bold text-xs uppercase text-slate-500 text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10 text-slate-400 text-sm">
+                  <TableCell colSpan={4} className="text-center py-10 text-slate-400 text-sm">
                     <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600" />
                     Memuat data kompetensi…
                   </TableCell>
                 </TableRow>
               ) : filteredPresets.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10 text-slate-400 text-sm">
+                  <TableCell colSpan={4} className="text-center py-10 text-slate-400 text-sm">
                     {search ? 'Tidak ada data yang sesuai dengan pencarian.' : 'Belum ada template kompetensi yang dibuat.'}
                   </TableCell>
                 </TableRow>
@@ -295,15 +294,7 @@ export default function PsychographPresetList() {
                         </div>
                       </TableCell>
 
-                      {/* 4. Total Aspek */}
-                      <TableCell>
-                        <Badge variant="outline" className="w-fit text-xs bg-teal-50 text-teal-700 border-teal-200 gap-1 font-semibold">
-                          <Layers className="w-3 h-3" />
-                          <span>{aspectCount} Aspek Penilaian</span>
-                        </Badge>
-                      </TableCell>
-
-                      {/* 5. Aksi */}
+                      {/* 4. Aksi */}
                       <TableCell className="text-right">
                         <div className="inline-flex items-center gap-1.5">
                           <Button asChild variant="outline" size="sm" className="h-8 px-2.5 text-xs gap-1">

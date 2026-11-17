@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CalendarPlus, 
   Coins, 
@@ -10,18 +10,14 @@ import {
   Loader2, 
   Users, 
   Eye, 
-  Calendar,
-  AlertCircle,
-  Package,
-  FileCheck2,
-  CheckCircle2,
-  Layers,
-  ChevronRight,
-  Sliders,
-  Briefcase,
-  Lock,
-  LockKeyhole,
-  AlertTriangle
+  Calendar, 
+  AlertCircle, 
+  FileCheck2, 
+  CheckCircle2, 
+  Layers, 
+  Sliders, 
+  Lock, 
+  AlertTriangle 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,20 +42,28 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 
-// Daftar alat tes yang dapat dipilih bebas pada Mode Mandiri (Tanpa Psikogram)
-const AVAILABLE_RAW_TESTS = [
-  { id: 'WPT', name: 'WPT', desc: 'Tes Inteligensi Cepat (12 Menit)' },
-  { id: 'CFIT', name: 'CFIT', desc: 'Tes Inteligensi Non-Verbal' },
-  { id: 'TIKI', name: 'TIKI', desc: 'Tes Inteligensi Kolektif' },
-  { id: 'IST', name: 'IST', desc: 'Struktur Inteligensi & Daya Analisa' },
-  { id: 'DISC', name: 'DISC', desc: 'Gaya Kepribadian & Pola Kerja' },
-  { id: 'PAPI KOSTICK', name: 'PAPI KOSTICK', desc: 'Dinamika Sikap & Motivasi' },
-  { id: 'MSDT', name: 'MSDT', desc: 'Gaya Kepemimpinan Manajerial' },
-  { id: 'Kraepelin', name: 'Kraepelin', desc: 'Ketahanan, Kecepatan & Ketelitian' },
-  { id: 'Wartegg', name: 'Wartegg', desc: 'Eksplorasi Kepribadian Proyektif' },
-];
+// Konfigurasi Subtes IST
+const SUBTEST_CONFIG: Record<string, {
+  name: string;
+  badge: string;
+  desc: string;
+  subtests: { id: string; label: string; desc?: string }[];
+}> = {
+  IST: {
+    name: 'IST (Intelligence Structure Test)',
+    badge: 'IST Subtes',
+    desc: 'Pilih modul subtes IST yang akan diujikan pada sesi ini:',
+    subtests: [
+      { id: 'IST 2', label: 'IST 2', desc: 'WA - Hubungan Kata' },
+      { id: 'IST 3', label: 'IST 3', desc: 'AN - Analogi' },
+      { id: 'IST 6', label: 'IST 6', desc: 'ZR - Deret Angka' },
+      { id: 'IST 7', label: 'IST 7', desc: 'FA - Memilih Bentuk' },
+    ],
+  },
+};
 
 interface BankPsikogramItem {
   id: number;
@@ -96,10 +100,9 @@ export default function ClientSchedulePage() {
   const [batches, setBatches] = useState<ClientBatch[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Form State
+  // Form State matching Image 5
   const [sessionName, setSessionName] = useState('');
-  const [mode, setMode] = useState<'PSIKOGRAM' | 'CUSTOM_TEST'>('PSIKOGRAM');
-  const [selectedJobId, setSelectedJobId] = useState<string>('');
+  const [selectedJobId, setSelectedJobId] = useState<string>(''); // "" = Tanpa Psikogram Jabatan (Pilih Alat Tes Mandiri)
   const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(['WPT', 'Kraepelin']);
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
   const [prefix, setPrefix] = useState('');
@@ -108,18 +111,16 @@ export default function ClientSchedulePage() {
   const [formError, setFormError] = useState('');
   const [formSuccess, setFormSuccess] = useState('');
 
+  // Subtest IST Modal
+  const [activeSubtestModal, setActiveSubtestModal] = useState<string | null>(null);
+
   // Result state
   const [generatedAccounts, setGeneratedAccounts] = useState<any[]>([]);
 
-  // Detail Modal
+  // Detail Batch Modal
   const [selectedBatchModal, setSelectedBatchModal] = useState<ClientBatch | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const fetchData = async () => {
-    setLoading(true);
     try {
       const res = await fetch('/api/client/schedule');
       if (res.ok) {
@@ -131,12 +132,6 @@ export default function ClientSchedulePage() {
         setUsedQuota(d.usedQuota || 0);
         setRemainingQuota(d.remainingQuota || 0);
         setBatches(d.batches || []);
-
-        if (bank.length > 0 && !selectedJobId) {
-          // Cari Standar Umum atau pilih yang pertama
-          const generalJob = bank.find(j => j.id === 9 || j.name.toLowerCase().includes('standar umum')) || bank[0];
-          setSelectedJobId(String(generalJob.id));
-        }
       }
     } catch (e) {
       console.error(e);
@@ -145,20 +140,53 @@ export default function ClientSchedulePage() {
     }
   };
 
-  const toggleCustomTool = (toolId: string) => {
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Tool Toggle Helpers
+  const toggleTool = (toolId: string) => {
     setSelectedCustomTools(prev =>
       prev.includes(toolId) ? prev.filter(t => t !== toolId) : [...prev, toolId]
     );
   };
 
+  const istSubtests = SUBTEST_CONFIG.IST.subtests.map(s => s.id);
+  const selectedIstCount = istSubtests.filter(id => selectedCustomTools.includes(id)).length;
+  const isIstChecked = selectedIstCount > 0;
+
+  const toggleIstGroup = () => {
+    if (isIstChecked) {
+      // Uncheck all IST
+      setSelectedCustomTools(prev => prev.filter(t => !istSubtests.includes(t)));
+    } else {
+      // Check all IST
+      setSelectedCustomTools(prev => Array.from(new Set([...prev, ...istSubtests])));
+    }
+  };
+
+  const selectAllSubtests = (ids: string[]) => {
+    setSelectedCustomTools(prev => Array.from(new Set([...prev, ...ids])));
+  };
+
+  const unselectAllSubtests = (ids: string[]) => {
+    setSelectedCustomTools(prev => prev.filter(t => !ids.includes(t)));
+  };
+
+  // Submit Handler
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
     setFormSuccess('');
 
     const n = parseInt(count, 10);
+    if (!sessionName.trim()) {
+      setFormError('Nama Sesi / Jabatan wajib diisi.');
+      return;
+    }
+
     if (!prefix.trim() || isNaN(n) || n < 1 || n > 200) {
-      setFormError('Prefix dan jumlah peserta harus valid (1 - 200).');
+      setFormError('Prefix username dan jumlah peserta harus valid (1 - 200).');
       return;
     }
 
@@ -167,15 +195,13 @@ export default function ClientSchedulePage() {
       return;
     }
 
-    if (mode === 'PSIKOGRAM' && !selectedJobId) {
-      setFormError('Pilih formasi jabatan dari Bank Psikogram Anda.');
+    if (selectedCustomTools.length === 0) {
+      setFormError('Belum ada alat tes yang dipilih. Silakan centang minimal 1 alat tes.');
       return;
     }
 
-    if (mode === 'CUSTOM_TEST' && selectedCustomTools.length === 0) {
-      setFormError('Pilih minimal satu alat tes untuk mode tes mandiri.');
-      return;
-    }
+    const isMandiri = !selectedJobId;
+    const mode = isMandiri ? 'CUSTOM_TEST' : 'PSIKOGRAM';
 
     setSubmitting(true);
     try {
@@ -185,8 +211,8 @@ export default function ClientSchedulePage() {
         body: JSON.stringify({
           sessionName,
           mode,
-          jobPositionId: mode === 'PSIKOGRAM' ? Number(selectedJobId) : null,
-          selectedTools: mode === 'CUSTOM_TEST' ? selectedCustomTools : batteryTest,
+          jobPositionId: !isMandiri ? Number(selectedJobId) : null,
+          selectedTools: selectedCustomTools,
           sessionDate,
           prefix: prefix.trim().toLowerCase(),
           count: n,
@@ -196,7 +222,7 @@ export default function ClientSchedulePage() {
       const data = await res.json();
       if (res.ok) {
         setGeneratedAccounts(data.accounts || []);
-        setFormSuccess(data.message || 'Sesi ujian berhasil dibuat!');
+        setFormSuccess(data.message || 'Sesi ujian dan akun peserta berhasil dibuat!');
         fetchData();
       } else {
         setFormError(data.error || 'Terjadi kesalahan saat memproses sesi.');
@@ -246,7 +272,7 @@ export default function ClientSchedulePage() {
     return (
       <div className="flex items-center justify-center min-h-[50vh] text-slate-500 text-sm gap-2">
         <Loader2 className="w-5 h-5 animate-spin text-teal-600" />
-        <span>Memuat data konfigurasi akun perusahaan...</span>
+        <span>Memuat data penjadwalan & formasi...</span>
       </div>
     );
   }
@@ -255,45 +281,30 @@ export default function ClientSchedulePage() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-          <CalendarPlus className="w-5 h-5 text-teal-600" />
-          <span>Buat Sesi Ujian & Generate Akun Kandidat</span>
-        </h2>
-        <p className="text-sm text-slate-500">
-          Jadwalkan asesmen menggunakan <strong>Battery Test resmi & Bank Psikogram</strong> perusahaan Anda, atau buat sesi tes mandiri bebas.
-        </p>
-      </div>
-
-      {/* ── 3 INFO CARDS: BATTERY TEST (LOCKED), BANK PSIKOGRAM, SALDO KUOTA ── */}
+      {/* ── 3 INFO CARDS: Sisa Kuota, Formasi Terdaftar, Battery Test ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Card 1: Battery Test Resmi (Locked) */}
+        {/* Card 1: Saldo Kuota Kandidat */}
         <Card className="border-teal-200 bg-teal-50/40">
           <CardContent className="p-4 flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-teal-700" />
-                <span>Battery Test Resmi (Fix)</span>
+                <Coins className="w-3.5 h-3.5 text-teal-700" />
+                <span>Sisa Kuota Kandidat</span>
               </span>
               <Badge variant="outline" className="text-[10px] bg-teal-100 text-teal-800 border-teal-300 font-bold">
-                Terkunci
+                Aktif
               </Badge>
             </div>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {batteryTest.map((t, idx) => (
-                <span key={t} className="bg-white border border-teal-200 text-teal-950 px-2 py-0.5 rounded text-[11px] font-bold shadow-2xs">
-                  {idx + 1}. {t}
-                </span>
-              ))}
-            </div>
-            <span className="text-[10px] text-teal-700 mt-0.5">
-              Standar rangkaian tes resmi yang di-assign oleh HR Publik untuk perusahaan Anda.
+            <h3 className="text-2xl font-black text-teal-950 mt-1">
+              {remainingQuota} <span className="text-xs font-normal text-teal-700">/ {totalQuota} Kuota</span>
+            </h3>
+            <span className="text-[10px] text-teal-700">
+              {usedQuota} kuota telah terpakai. 1 Kuota = 1 Peserta Tuntas (Anti-Ghosting).
             </span>
           </CardContent>
         </Card>
 
-        {/* Card 2: Bank Psikogram */}
+        {/* Card 2: Bank Psikogram Formasi */}
         <Card className="border-slate-200 bg-slate-50/60">
           <CardContent className="p-4 flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -305,47 +316,48 @@ export default function ClientSchedulePage() {
                 {bankPsikogram.length} Formasi
               </Badge>
             </div>
-            <p className="text-xs font-bold text-slate-900 mt-1">
-              {bankPsikogram.length} Formasi Jabatan Terdaftar
+            <p className="text-sm font-bold text-slate-900 mt-1">
+              {bankPsikogram.length} Standar Formasi Tersedia
             </p>
             <span className="text-[10px] text-slate-500">
-              Lengkap dengan target grey area kompetensi per jabatan & Standar Umum (Cukup Semua).
+              Target Gray Area otomatis diaplikasikan bila memilih formasi jabatan.
             </span>
           </CardContent>
         </Card>
 
-        {/* Card 3: Saldo Kuota Kandidat */}
-        <Card className="border-amber-200 bg-amber-50/40">
+        {/* Card 3: Status Baterai Tes */}
+        <Card className="border-slate-200 bg-slate-50/60">
           <CardContent className="p-4 flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Coins className="w-3.5 h-3.5 text-amber-700" />
-                <span>Sisa Kuota Kandidat</span>
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-slate-600" />
+                <span>Baterai Tes Standar</span>
               </span>
-              <Badge variant="outline" className="text-[10px] bg-amber-100 text-amber-800 border-amber-300 font-bold">
-                Aktif
+              <Badge variant="outline" className="text-[10px] bg-white text-slate-700 border-slate-300 font-bold">
+                {batteryTest.length} Alat Tes
               </Badge>
             </div>
-            <h3 className="text-xl font-black text-amber-950 mt-1">
-              {remainingQuota} <span className="text-xs font-normal text-amber-800">/ {totalQuota} Kandidat</span>
-            </h3>
-            <span className="text-[10px] text-amber-700">
-              {usedQuota} kuota telah terpakai. 1 Kuota = 1 Peserta Tuntas (Anti-Ghosting).
-            </span>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {batteryTest.map((t, idx) => (
+                <span key={t} className="bg-white border border-slate-200 text-slate-800 px-2 py-0.5 rounded text-[10px] font-bold shadow-2xs">
+                  {idx + 1}. {t}
+                </span>
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Grid: Form & Result */}
+      {/* ── GRID FORM (MATCHING IMAGE 5) & RESULT ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Left Form Card */}
+        {/* Left Form Card matching Image 5 */}
         <Card className="border-slate-200">
           <CardHeader className="border-b border-slate-100 pb-4">
             <CardTitle className="text-base font-bold text-slate-900">
-              Formulir Penjadwalan Sesi Ujian
+              Buat Sesi & Akun Peserta
             </CardTitle>
             <CardDescription className="text-xs text-slate-500">
-              Tentukan jenis pelaksanaan ujian dan buat akun login untuk kandidat
+              Isi data sesi, psikogram jabatan / modul tes, tanggal, dan tester penanggung jawab
             </CardDescription>
           </CardHeader>
 
@@ -364,225 +376,270 @@ export default function ClientSchedulePage() {
             )}
 
             <form onSubmit={handleGenerate} className="flex flex-col gap-4">
-              {/* Nama Sesi / Batch */}
+              {/* 1. Nama Sesi / Jabatan * */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-700">
-                  Nama Sesi Ujian / Batch Lowongan <span className="text-rose-500">*</span>
+                <label className="text-xs font-bold text-slate-800">
+                  Nama Sesi / Jabatan <span className="text-rose-500">*</span>
                 </label>
                 <Input
                   type="text"
-                  placeholder="Contoh: Rekrutmen Staff HR - Gelombang 1"
+                  placeholder="Contoh: Staff Admin / Tes Mandiri WPT / Batch 1"
                   value={sessionName}
                   onChange={e => setSessionName(e.target.value)}
                   required
+                  className="h-10 text-xs"
                 />
               </div>
 
-              {/* ── PILIHAN MODE PELAKSANAAN SESUAI DIAGRAM ── */}
-              <div className="flex flex-col gap-2">
+              {/* 2. Psikogram Jabatan (Opsional jika tes mandiri) */}
+              <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-bold text-slate-800">
-                  Pilih Mode Pelaksanaan Ujian <span className="text-rose-500">*</span>
+                  Psikogram Jabatan <span className="text-slate-400 font-normal">(Opsional jika tes mandiri)</span>
                 </label>
+                <select
+                  value={selectedJobId}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setSelectedJobId(val);
+                  }}
+                  className="h-10 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 font-medium focus:ring-1 focus:ring-teal-500 focus:outline-none"
+                >
+                  <option value="">— Tanpa Psikogram Jabatan (Pilih Alat Tes Mandiri) —</option>
+                  {bankPsikogram.map(job => (
+                    <option key={job.id} value={job.id}>
+                      {job.name}
+                    </option>
+                  ))}
+                </select>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {/* Opsi 1: Asesmen Jabatan (Dengan Lembar Psikogram) */}
-                  <label
-                    className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex flex-col gap-1.5 ${
-                      mode === 'PSIKOGRAM'
-                        ? 'bg-teal-50/70 border-teal-500 shadow-xs ring-1 ring-teal-500'
-                        : 'bg-white border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="scheduleMode"
-                        value="PSIKOGRAM"
-                        checked={mode === 'PSIKOGRAM'}
-                        onChange={() => setMode('PSIKOGRAM')}
-                        className="accent-teal-600 cursor-pointer"
-                      />
-                      <span className="font-bold text-slate-900 text-xs">Asesmen Jabatan</span>
-                    </div>
-                    <span className="text-[11px] text-teal-800 font-semibold pl-5">
-                      ✓ Termasuk Lembar Psikogram Jabatan
-                    </span>
-                    <span className="text-[10px] text-slate-500 pl-5 leading-tight">
-                      Menggunakan Battery Test resmi perusahaan & dicocokkan dengan target grey area jabatan.
-                    </span>
-                  </label>
-
-                  {/* Opsi 2: Pilih Tes Bebas (Tanpa Lembar Psikogram) */}
-                  <label
-                    className={`p-3 rounded-xl border text-xs cursor-pointer transition-all flex flex-col gap-1.5 ${
-                      mode === 'CUSTOM_TEST'
-                        ? 'bg-amber-50/70 border-amber-500 shadow-xs ring-1 ring-amber-500'
-                        : 'bg-white border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="scheduleMode"
-                        value="CUSTOM_TEST"
-                        checked={mode === 'CUSTOM_TEST'}
-                        onChange={() => setMode('CUSTOM_TEST')}
-                        className="accent-amber-600 cursor-pointer"
-                      />
-                      <span className="font-bold text-slate-900 text-xs">Pilih Tes Bebas</span>
-                    </div>
-                    <span className="text-[11px] text-amber-800 font-semibold pl-5">
-                      ⚠️ Tanpa Lembar Psikogram
-                    </span>
-                    <span className="text-[10px] text-slate-500 pl-5 leading-tight">
-                      Bebas memilih alat tes apa saja. Hasil ujian berupa rekap nilai skor per alat tes.
-                    </span>
-                  </label>
-                </div>
+                {/* Helper / Status Note Matching Image 5 */}
+                {!selectedJobId ? (
+                  <span className="text-xs text-teal-700 font-medium flex items-center gap-1.5 mt-0.5">
+                    <span>💡</span>
+                    <span>Mode Tes Mandiri aktif: Anda dapat memilih alat tes secara mandiri di bawah.</span>
+                  </span>
+                ) : (
+                  <span className="text-xs text-teal-700 font-medium flex items-center gap-1.5 mt-0.5">
+                    <span>💡</span>
+                    <span>Formasi terpilih: Menggunakan standar baterai tes dan acuan Gray Area dari {selectedJobObj?.name}.</span>
+                  </span>
+                )}
               </div>
 
-              {/* ── KONTEN DINAMIS SESUAI MODE YANG DIPILIH ── */}
-              {mode === 'PSIKOGRAM' ? (
-                /* Sub-Pilihan Mode 1: Pilih Jabatan dari Bank Psikogram */
-                <div className="p-3.5 rounded-xl border border-teal-200 bg-teal-50/30 flex flex-col gap-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-teal-950 flex items-center gap-1.5">
-                      <FileCheck2 className="w-3.5 h-3.5 text-teal-700" />
-                      <span>Pilih Formasi Jabatan dari Bank Psikogram Anda <span className="text-rose-500">*</span></span>
-                    </label>
-                    <span className="text-[10px] text-teal-700 font-bold">Grey Area Otomatis Aktif</span>
-                  </div>
+              {/* 3. Pilih Alat Tes yang Diujikan * (Matching Image 5 layout) */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800">
+                    Pilih Alat Tes yang Diujikan <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-xs text-slate-400">Pilih minimal 1 alat tes</span>
+                </div>
 
-                  <select
-                    value={selectedJobId}
-                    onChange={e => setSelectedJobId(e.target.value)}
-                    className="h-9 rounded-md border border-slate-300 bg-white px-2.5 text-xs text-slate-900 font-semibold focus:ring-1 focus:ring-teal-500 focus:outline-none"
-                    required
+                {/* Checkbox Grid 3 Kolom Matching Image 5 */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  {/* Row 1, Col 1: WPT */}
+                  <div
+                    onClick={() => toggleTool('WPT')}
+                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
+                      selectedCustomTools.includes('WPT')
+                        ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
+                        : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
                   >
-                    <option value="">-- Pilih Formasi Jabatan --</option>
-                    {bankPsikogram.map(job => (
-                      <option key={job.id} value={job.id}>
-                        {job.name} (Preset: {job.presetName} - {job.grayAreasCount} Aspek Standar)
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* Info Terkunci Battery Test */}
-                  <div className="bg-white p-2.5 rounded-lg border border-teal-200/90 text-xs flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5 font-bold text-slate-900 text-[11px]">
-                      <Lock className="w-3 h-3 text-teal-700 shrink-0" />
-                      <span>Battery Test Terkunci Otomatis:</span>
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={selectedCustomTools.includes('WPT')}
+                        onChange={() => {}}
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                      />
+                      <span className="text-xs">WPT</span>
                     </div>
-                    <div className="flex flex-wrap gap-1 mt-0.5">
-                      {batteryTest.map((t, idx) => (
-                        <span key={t} className="bg-teal-50 text-teal-900 border border-teal-200 px-2 py-0.5 rounded text-[10px] font-bold">
-                          {idx + 1}. {t}
-                        </span>
-                      ))}
+                  </div>
+
+                  {/* Row 1, Col 2: IST with Pilih ▾ */}
+                  <div
+                    onClick={toggleIstGroup}
+                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
+                      isIstChecked
+                        ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
+                        : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={isIstChecked}
+                        onChange={() => {}}
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                      />
+                      <span className="text-xs">IST</span>
                     </div>
-                    <span className="text-[10px] text-emerald-800 font-medium mt-1">
-                      📋 Hasil ujian kandidat otomatis dikomputasi ke Lembar Psikogram: <strong>{selectedJobObj?.presetName || 'Standar HR Publik'}</strong>
-                    </span>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveSubtestModal('IST');
+                      }}
+                      className="text-[11px] text-slate-500 hover:text-teal-700 font-medium px-1.5 py-0.5 rounded hover:bg-slate-200/50 flex items-center gap-0.5"
+                    >
+                      <span>{selectedIstCount > 0 ? `${selectedIstCount} Subtes` : 'Pilih'}</span>
+                      <span className="text-[9px]">▾</span>
+                    </button>
+                  </div>
+
+                  {/* Row 1, Col 3: PAPI KOSTICK */}
+                  <div
+                    onClick={() => toggleTool('PAPI KOSTICK')}
+                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
+                      selectedCustomTools.includes('PAPI KOSTICK')
+                        ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
+                        : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={selectedCustomTools.includes('PAPI KOSTICK')}
+                        onChange={() => {}}
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                      />
+                      <span className="text-xs">PAPI KOSTICK</span>
+                    </div>
+                  </div>
+
+                  {/* Row 2, Col 1: DISC */}
+                  <div
+                    onClick={() => toggleTool('DISC')}
+                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
+                      selectedCustomTools.includes('DISC')
+                        ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
+                        : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={selectedCustomTools.includes('DISC')}
+                        onChange={() => {}}
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                      />
+                      <span className="text-xs">DISC</span>
+                    </div>
+                  </div>
+
+                  {/* Row 2, Col 2 & 3: Empty placeholders on desktop */}
+                  <div className="hidden sm:block" />
+                  <div className="hidden sm:block" />
+
+                  {/* Row 3, Col 1: MSDT */}
+                  <div
+                    onClick={() => toggleTool('MSDT')}
+                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
+                      selectedCustomTools.includes('MSDT')
+                        ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
+                        : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={selectedCustomTools.includes('MSDT')}
+                        onChange={() => {}}
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                      />
+                      <span className="text-xs">MSDT</span>
+                    </div>
+                  </div>
+
+                  {/* Row 3, Col 2: Empty placeholder */}
+                  <div className="hidden sm:block" />
+
+                  {/* Row 3, Col 3: Kraepelin */}
+                  <div
+                    onClick={() => toggleTool('Kraepelin')}
+                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
+                      selectedCustomTools.includes('Kraepelin')
+                        ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
+                        : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={selectedCustomTools.includes('Kraepelin')}
+                        onChange={() => {}}
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                      />
+                      <span className="text-xs">Kraepelin</span>
+                    </div>
                   </div>
                 </div>
-              ) : (
-                /* Sub-Pilihan Mode 2: Bebas Pilih Alat Tes (Tanpa Psikogram) */
-                <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/30 flex flex-col gap-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                      <Sliders className="w-3.5 h-3.5 text-amber-700" />
-                      <span>Pilih Alat Tes yang Mau Diujikan <span className="text-rose-500">*</span></span>
-                    </label>
-                    <span className="text-[10px] text-amber-800 font-bold">{selectedCustomTools.length} Tes Terpilih</span>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    {AVAILABLE_RAW_TESTS.map(t => {
-                      const isChecked = selectedCustomTools.includes(t.id);
-                      return (
-                        <label
-                          key={t.id}
-                          className={`flex items-start gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
-                            isChecked
-                              ? 'bg-white border-amber-400 text-amber-950 font-bold shadow-2xs ring-1 ring-amber-400'
-                              : 'bg-white/80 border-slate-200 text-slate-600 hover:bg-white'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleCustomTool(t.id)}
-                            className="w-4 h-4 rounded accent-amber-600 mt-0.5 cursor-pointer shrink-0"
-                          />
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-900">{t.name}</span>
-                            <span className="text-[10px] text-slate-500 leading-tight">{t.desc}</span>
-                          </div>
-                        </label>
-                      );
-                    })}
+                {/* Validation message if no tools selected matching Image 5 */}
+                {selectedCustomTools.length === 0 && (
+                  <div className="text-xs text-rose-600 font-medium flex items-center gap-1.5 mt-2">
+                    <span>⚠️</span>
+                    <span>Belum ada alat tes yang dipilih. Silakan centang minimal 1 alat tes.</span>
                   </div>
+                )}
+              </div>
 
-                  <div className="p-2 rounded bg-amber-100/70 border border-amber-200 text-[11px] text-amber-900 flex items-start gap-1.5 mt-1">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
-                    <span>
-                      <strong>Perhatian:</strong> Sesuai ketentuan, sesi dengan pemilihan tes mandiri bebas ini hanya menghasilkan skor nilai per alat tes, dan <strong>tidak menghasilkan lembar psikogram kelayakan jabatan</strong>.
-                    </span>
-                  </div>
-                </div>
-              )}
+              {/* 4. Tanggal Ujian * */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-800">
+                  Tanggal Ujian <span className="text-rose-500">*</span>
+                </label>
+                <Input
+                  type="date"
+                  value={sessionDate}
+                  onChange={e => setSessionDate(e.target.value)}
+                  required
+                  className="h-10 text-xs"
+                />
+              </div>
 
-              {/* Tanggal & Prefix */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* 5. Prefix Username * & Jumlah Akun * (2 Columns matching Image 5) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-slate-700">Tanggal Pelaksanaan</label>
-                  <Input
-                    type="date"
-                    value={sessionDate}
-                    onChange={e => setSessionDate(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-slate-700">
+                  <label className="text-xs font-bold text-slate-800">
                     Prefix Username <span className="text-rose-500">*</span>
                   </label>
                   <Input
                     type="text"
-                    placeholder="Contoh: hrp"
+                    placeholder="Contoh: mandiri"
                     value={prefix}
-                    onChange={e => setPrefix(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase())}
+                    onChange={e => setPrefix(e.target.value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase())}
                     required
+                    className="h-10 text-xs"
                   />
-                  <span className="text-[10px] text-slate-400">
-                    Akun: {prefix || '...'}_001, {prefix || '...'}_002, dst.
+                  <span className="text-[11px] text-slate-400">
+                    Format: {prefix ? `${prefix}_001` : 'mandiri_001'}
                   </span>
                 </div>
-              </div>
 
-              {/* Jumlah Peserta */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-700">
-                  Jumlah Kandidat yang Diuji <span className="text-rose-500">*</span>
-                </label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-800">
+                    Jumlah Akun <span className="text-rose-500">*</span>
+                  </label>
                   <Input
                     type="number"
                     min="1"
                     max="200"
-                    placeholder="Contoh: 25"
+                    placeholder="Max 200"
                     value={count}
                     onChange={e => setCount(e.target.value)}
                     required
+                    className="h-10 text-xs"
                   />
-                  <span className="text-xs text-slate-500 shrink-0 font-medium">Orang</span>
                 </div>
               </div>
 
+              {/* Submit Button */}
               <Button
                 type="submit"
-                disabled={submitting || remainingQuota <= 0}
+                disabled={submitting || remainingQuota <= 0 || selectedCustomTools.length === 0}
                 className="w-full mt-2 gap-2 bg-teal-600 hover:bg-teal-700 text-white font-bold h-10 shadow-xs"
               >
                 {submitting ? (
@@ -593,7 +650,7 @@ export default function ClientSchedulePage() {
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" />
-                    <span>Generate Akun Ujian Kandidat</span>
+                    <span>Buat Sesi & Generate Akun</span>
                   </>
                 )}
               </Button>
@@ -624,7 +681,7 @@ export default function ClientSchedulePage() {
                   </Button>
                   <Button size="sm" variant="outline" onClick={handleCopyNewFormatted} className="h-8 text-xs gap-1">
                     <Copy className="w-3.5 h-3.5 text-teal-600" />
-                    <span>Copy Format WA</span>
+                    <span>Copy WA</span>
                   </Button>
                 </div>
               )}
@@ -637,7 +694,7 @@ export default function ClientSchedulePage() {
                 <Users className="w-10 h-10 text-slate-300 stroke-1" />
                 <p className="text-xs font-medium">Belum ada akun yang baru digenerate pada formulir ini.</p>
                 <p className="text-[11px] text-slate-400 max-w-xs">
-                  Pilih mode ujian dan tentukan jumlah peserta di sebelah kiri, lalu klik tombol generate untuk membuat username dan password ujian secara instan.
+                  Isi nama sesi, tentukan alat tes atau psikogram jabatan, lalu klik tombol generate untuk membuat username dan password ujian secara instan.
                 </p>
               </div>
             ) : (
@@ -676,7 +733,7 @@ export default function ClientSchedulePage() {
         </Card>
       </div>
 
-      {/* History Batches Table */}
+      {/* Main Table: Batches List */}
       <Card className="border-slate-200">
         <CardHeader className="border-b border-slate-100 pb-4">
           <CardTitle className="text-base font-bold text-slate-900">
@@ -748,6 +805,89 @@ export default function ClientSchedulePage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* ── Modal Pemilihan Subtes IST ── */}
+      <Dialog open={!!activeSubtestModal} onOpenChange={(open) => !open && setActiveSubtestModal(null)}>
+        {activeSubtestModal && SUBTEST_CONFIG[activeSubtestModal] && (
+          <DialogContent className="max-w-md p-6">
+            <DialogHeader className="pb-3 border-b border-slate-100">
+              <div className="flex items-center justify-between pr-6">
+                <DialogTitle className="text-base font-bold text-slate-900">
+                  Pilih Subtes {activeSubtestModal}
+                </DialogTitle>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-teal-100 text-teal-800">
+                  {SUBTEST_CONFIG[activeSubtestModal].subtests.filter(s => selectedCustomTools.includes(s.id)).length} Terpilih
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                {SUBTEST_CONFIG[activeSubtestModal].desc}
+              </p>
+            </DialogHeader>
+
+            <div className="py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {SUBTEST_CONFIG[activeSubtestModal].subtests.map((subtest) => {
+                  const isChecked = selectedCustomTools.includes(subtest.id);
+                  return (
+                    <label
+                      key={subtest.id}
+                      className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all text-xs select-none ${
+                        isChecked
+                          ? 'bg-teal-50 border-teal-400 text-teal-900 font-bold shadow-2xs'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleTool(subtest.id)}
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer shrink-0"
+                      />
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate">{subtest.label}</span>
+                        {subtest.desc && (
+                          <span className="text-[10px] text-slate-400 font-normal truncate">{subtest.desc}</span>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <DialogFooter className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => selectAllSubtests(SUBTEST_CONFIG[activeSubtestModal].subtests.map(s => s.id))}
+                  className="text-xs h-8"
+                >
+                  Pilih Semua
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => unselectAllSubtests(SUBTEST_CONFIG[activeSubtestModal].subtests.map(s => s.id))}
+                  className="text-xs h-8 text-slate-500 hover:text-rose-600"
+                >
+                  Kosongkan
+                </Button>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setActiveSubtestModal(null)}
+                className="text-xs h-8 bg-teal-600 hover:bg-teal-700 text-white px-4 font-semibold"
+              >
+                Selesai
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
 
       {/* Modal Detail Akun Batch */}
       <Dialog open={!!selectedBatchModal} onOpenChange={(open) => !open && setSelectedBatchModal(null)}>
