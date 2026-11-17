@@ -11,6 +11,7 @@ import { ASPECT_DESCRIPTIONS } from '../../job-positions/builder/page';
 import { getDiscScale, mapScoreToYPercent } from './discHelpers';
 import { papiScoringKeys } from './papiHelpers';
 import { OFFICIAL_KRAEPELIN_MATRIX } from '@/lib/kraepelinMatrix';
+import PsychographPrintableDocument from '@/components/PsychographPrintableDocument';
 
 const discScoringKeys: Record<number, { most: Record<string, string>, least: Record<string, string> }> = {
   1: { most: { A: 'S', B: 'I', C: 'B', D: 'C' }, least: { A: 'S', B: 'I', C: 'D', D: 'C' } },
@@ -418,312 +419,34 @@ export default function ReportDetailPage() {
   const [signatureUrl, setSignatureUrl] = useState('');
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [generatingPsychographPdf, setGeneratingPsychographPdf] = useState(false);
+  const [isBundling, setIsBundling] = useState(false);
+  const [bundlingStep, setBundlingStep] = useState(0);
+  const [bundlingTotal, setBundlingTotal] = useState(0);
+  const [bundlingMessage, setBundlingMessage] = useState('');
+  const [bundlingDetails, setBundlingDetails] = useState<{ name: string; status: 'pending' | 'loading' | 'done' | 'error' }[]>([]);
 
-  const handleDownloadTestResultPdf = async () => {
-    setGeneratingPdf(true);
+  const captureSubtestPdf = async (testName: string): Promise<Blob | null> => {
+    // @ts-ignore
+    const { jsPDF } = await import('jspdf');
+    let html2canvas: any;
     try {
       // @ts-ignore
-      const { jsPDF } = await import('jspdf');
-      let html2canvas: any;
-      try {
-        // @ts-ignore
-        html2canvas = (await import('html2canvas-pro')).default;
-      } catch {
-        // @ts-ignore
-        html2canvas = (await import('html2canvas')).default;
-      }
+      html2canvas = (await import('html2canvas-pro')).default;
+    } catch {
+      // @ts-ignore
+      html2canvas = (await import('html2canvas')).default;
+    }
 
-      const cleanCandidate = (participant.user?.name || 'Peserta').replace(/[^a-zA-Z0-9_-]/g, '_');
-      const cleanTest = selectedTest.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const normUpper = testName.toUpperCase();
 
-      // 1. KRAEPELIN: 2 Halaman Portrait (Page 1 Metrik & Interpretasi, Page 2 Kurva 50 Kolom)
-      if (selectedTest.toUpperCase().includes('KRAEPELIN') || selectedTest.toUpperCase().includes('KREAPELIN')) {
-        const page1Elem = document.getElementById('printable-kraepelin-page-1');
-        const page2Elem = document.getElementById('printable-kraepelin-page-2');
+    // 1. KRAEPELIN: 2 Halaman (Page 1 Metrik Portrait, Page 2 Kurva 50 Kolom Landscape)
+    if (normUpper.includes('KRAEPELIN') || normUpper.includes('KREAPELIN')) {
+      const page1Elem = document.getElementById('printable-kraepelin-page-1');
+      const page2Elem = document.getElementById('printable-kraepelin-page-2');
 
-        if (!page1Elem || !page2Elem) {
-          alert('Elemen hasil Kraepelin tidak ditemukan untuk diunduh.');
-          return;
-        }
+      if (!page1Elem || !page2Elem) return null;
 
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4',
-          compress: true
-        });
-
-        const pageWidth = 210;
-        const pageHeight = 297;
-        const margin = 10;
-        const usableWidth = pageWidth - (margin * 2);
-        const usableHeight = pageHeight - (margin * 2);
-
-        // Halaman 1: Portrait (Metrik & Standar Norma)
-        const canvas1 = await html2canvas(page1Elem, {
-          scale: 2.2,
-          useCORS: true,
-          backgroundColor: '#FFFFFF',
-          logging: false,
-          windowWidth: 1200
-        });
-        const img1 = canvas1.toDataURL('image/jpeg', 0.95);
-        const ratio1 = canvas1.height / canvas1.width;
-        let printW1 = usableWidth;
-        let printH1 = usableWidth * ratio1;
-        if (printH1 > usableHeight) {
-          printH1 = usableHeight;
-          printW1 = usableHeight / ratio1;
-        }
-        const xOff1 = margin + (usableWidth - printW1) / 2;
-        const yOff1 = margin + (usableHeight - printH1) / 2;
-        pdf.addImage(img1, 'JPEG', xOff1, yOff1, printW1, printH1);
-
-        // Halaman 2: Landscape Khusus Grafik Kurva 50 Kolom (Pas 1 Lembar Penuh, Tidak Terpotong)
-        pdf.addPage('a4', 'landscape');
-        const pageWidthL = 297;
-        const pageHeightL = 210;
-        const marginL = 8;
-        const usableWidthL = pageWidthL - (marginL * 2);
-        const usableHeightL = pageHeightL - (marginL * 2);
-
-        const canvas2 = await html2canvas(page2Elem, {
-          scale: 2.2,
-          useCORS: true,
-          backgroundColor: '#FFFFFF',
-          logging: false,
-          windowWidth: 1350,
-          onclone: (clonedDoc: Document) => {
-            const el2 = clonedDoc.getElementById('printable-kraepelin-page-2');
-            if (el2) {
-              el2.style.width = '1280px';
-              el2.style.maxWidth = 'none';
-              const overflowDivs = el2.querySelectorAll('div');
-              overflowDivs.forEach((d) => {
-                if (d.style.overflowX === 'auto' || d.style.overflow === 'auto') {
-                  d.style.overflowX = 'visible';
-                  d.style.overflow = 'visible';
-                }
-              });
-            }
-          }
-        });
-        const img2 = canvas2.toDataURL('image/jpeg', 0.95);
-        const ratio2 = canvas2.height / canvas2.width;
-        let printW2 = usableWidthL;
-        let printH2 = usableWidthL * ratio2;
-        if (printH2 > usableHeightL) {
-          printH2 = usableHeightL;
-          printW2 = usableHeightL / ratio2;
-        }
-        const xOff2 = marginL + (usableWidthL - printW2) / 2;
-        const yOff2 = marginL + (usableHeightL - printH2) / 2;
-        pdf.addImage(img2, 'JPEG', xOff2, yOff2, printW2, printH2);
-
-        pdf.save(`Hasil_${cleanTest}_${cleanCandidate}.pdf`);
-        return;
-      }
-
-      // 2. PAPI KOSTICK: 2 Halaman Portrait (Page 1 Diagram Cakram, Page 2 Detail Skor 7 Klaster)
-      if (selectedTest.startsWith('PAPI')) {
-        const page1Elem = document.getElementById('printable-papi-page-1');
-        const page2Elem = document.getElementById('printable-papi-page-2');
-
-        if (!page1Elem || !page2Elem) {
-          alert('Elemen hasil PAPI Kostick tidak ditemukan untuk diunduh.');
-          return;
-        }
-
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4',
-          compress: true
-        });
-
-        const pageWidth = 210;
-        const pageHeight = 297;
-        const margin = 10;
-        const usableWidth = pageWidth - (margin * 2);
-        const usableHeight = pageHeight - (margin * 2);
-
-        // Halaman 1: Identitas & Cakram PAPI
-        const canvas1 = await html2canvas(page1Elem, {
-          scale: 2.2,
-          useCORS: true,
-          backgroundColor: '#FFFFFF',
-          logging: false,
-          windowWidth: 1200
-        });
-        const img1 = canvas1.toDataURL('image/jpeg', 0.95);
-        const ratio1 = canvas1.height / canvas1.width;
-        let printW1 = usableWidth;
-        let printH1 = usableWidth * ratio1;
-        if (printH1 > usableHeight) {
-          printH1 = usableHeight;
-          printW1 = usableHeight / ratio1;
-        }
-        const xOff1 = margin + (usableWidth - printW1) / 2;
-        const yOff1 = margin + (usableHeight - printH1) / 2;
-        pdf.addImage(img1, 'JPEG', xOff1, yOff1, printW1, printH1);
-
-        // Halaman 2: Detail Skor 7 Klaster
-        pdf.addPage('a4', 'portrait');
-        const canvas2 = await html2canvas(page2Elem, {
-          scale: 2.2,
-          useCORS: true,
-          backgroundColor: '#FFFFFF',
-          logging: false,
-          windowWidth: 1200
-        });
-        const img2 = canvas2.toDataURL('image/jpeg', 0.95);
-        const ratio2 = canvas2.height / canvas2.width;
-        let printW2 = usableWidth;
-        let printH2 = usableWidth * ratio2;
-        if (printH2 > usableHeight) {
-          printH2 = usableHeight;
-          printW2 = usableHeight / ratio2;
-        }
-        const xOff2 = margin + (usableWidth - printW2) / 2;
-        const yOff2 = margin + (usableHeight - printH2) / 2;
-        pdf.addImage(img2, 'JPEG', xOff2, yOff2, printW2, printH2);
-
-        pdf.save(`Hasil_${cleanTest}_${cleanCandidate}.pdf`);
-        return;
-      }
-
-      // 3. DISC: 1 Halaman Portrait (Cuma Grafiknya Doang, Pas Sesuai Ukuran Web & Tidak Terbelah)
-      if (selectedTest === 'DISC') {
-        const discElem = document.getElementById('printable-disc-graphs');
-        if (!discElem) {
-          alert('Elemen grafik DISC tidak ditemukan untuk diunduh.');
-          return;
-        }
-
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'mm',
-          format: 'a4',
-          compress: true
-        });
-
-        const pageWidth = 210;
-        const pageHeight = 297;
-        const margin = 8;
-        const usableWidth = pageWidth - (margin * 2);
-        const usableHeight = pageHeight - (margin * 2);
-
-        const canvas = await html2canvas(discElem, {
-          scale: 2.2,
-          useCORS: true,
-          backgroundColor: '#FFFFFF',
-          logging: false,
-          windowWidth: 1320,
-          onclone: (clonedDoc: Document) => {
-            // Replace each SVG in clonedDoc with a high-res HTML5 2D canvas
-            // to guarantee identical, distortion-free lines and dots in the PDF export
-            const svgs = clonedDoc.querySelectorAll<SVGElement>('svg.disc-trend-svg');
-            svgs.forEach((svg) => {
-              const parent = svg.parentElement;
-              if (!parent) return;
-
-              const rect = parent.getBoundingClientRect();
-              const w = (rect.width && rect.width > 50) ? rect.width : (parent.clientWidth && parent.clientWidth > 50) ? parent.clientWidth : 340.6;
-              const h = (rect.height && rect.height > 50) ? rect.height : (parent.clientHeight && parent.clientHeight > 50) ? parent.clientHeight : 820;
-
-              const dataPointsStr = svg.getAttribute('data-points') || '';
-              const strokeColor = svg.getAttribute('data-color') || '#2563EB';
-
-              if (!dataPointsStr) return;
-
-              const pts = dataPointsStr.split(' ').filter(Boolean).map((p) => {
-                const [xPercent, yPercent] = p.split(',').map(Number);
-                return {
-                  x: ((isNaN(xPercent) ? 0 : xPercent) / 100) * w,
-                  y: ((isNaN(yPercent) ? 50 : yPercent) / 100) * h
-                };
-              });
-
-              if (pts.length === 0) return;
-
-              // Create high-resolution canvas matching the plot area
-              const cv = clonedDoc.createElement('canvas');
-              cv.width = w * 2;
-              cv.height = h * 2;
-              cv.style.position = 'absolute';
-              cv.style.top = '0';
-              cv.style.left = '0';
-              cv.style.width = '100%';
-              cv.style.height = '100%';
-              cv.style.zIndex = '10';
-
-              const ctx = cv.getContext('2d');
-              if (ctx) {
-                ctx.scale(2, 2);
-
-                // Draw connecting trendlines
-                ctx.strokeStyle = strokeColor;
-                ctx.lineWidth = 3;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                ctx.beginPath();
-                ctx.moveTo(pts[0].x, pts[0].y);
-                for (let i = 1; i < pts.length; i++) {
-                  ctx.lineTo(pts[i].x, pts[i].y);
-                }
-                ctx.stroke();
-
-                // Draw dots (circles)
-                pts.forEach((pt) => {
-                  ctx.beginPath();
-                  ctx.arc(pt.x, pt.y, 6.5, 0, Math.PI * 2);
-                  ctx.fillStyle = strokeColor;
-                  ctx.fill();
-                  ctx.lineWidth = 2.5;
-                  ctx.strokeStyle = '#FFFFFF';
-                  ctx.stroke();
-                });
-              }
-
-              parent.replaceChild(cv, svg);
-            });
-          }
-        });
-
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        const ratio = canvas.height / canvas.width;
-        let printWidth = usableWidth;
-        let printHeight = usableWidth * ratio;
-
-        if (printHeight > usableHeight) {
-          printHeight = usableHeight;
-          printWidth = usableHeight / ratio;
-        }
-
-        const xOffset = margin + (usableWidth - printWidth) / 2;
-        const yOffset = margin + (usableHeight - printHeight) / 2;
-
-        pdf.addImage(imgData, 'JPEG', xOffset, yOffset, printWidth, printHeight);
-        pdf.save(`Hasil_${cleanTest}_${cleanCandidate}.pdf`);
-        return;
-      }
-
-      // 4. Test IQ & Modul Lainnya (WPT, CFIT, IST, TIKI, MSDT): Single Page Portrait
-      const cardElem = document.getElementById('printable-test-card');
-      if (!cardElem) {
-        alert('Elemen hasil tes tidak ditemukan untuk diunduh.');
-        return;
-      }
-
-      const canvas = await html2canvas(cardElem, {
-        scale: 2.2,
-        useCORS: true,
-        backgroundColor: '#FFFFFF',
-        logging: false,
-        windowWidth: 1200
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -737,6 +460,224 @@ export default function ReportDetailPage() {
       const usableWidth = pageWidth - (margin * 2);
       const usableHeight = pageHeight - (margin * 2);
 
+      // Halaman 1: Portrait
+      const canvas1 = await html2canvas(page1Elem, {
+        scale: 2.2,
+        useCORS: true,
+        backgroundColor: '#FFFFFF',
+        logging: false,
+        windowWidth: 1200
+      });
+      const img1 = canvas1.toDataURL('image/jpeg', 0.95);
+      const ratio1 = canvas1.height / canvas1.width;
+      let printW1 = usableWidth;
+      let printH1 = usableWidth * ratio1;
+      if (printH1 > usableHeight) {
+        printH1 = usableHeight;
+        printW1 = usableHeight / ratio1;
+      }
+      const xOff1 = margin + (usableWidth - printW1) / 2;
+      const yOff1 = margin + (usableHeight - printH1) / 2;
+      pdf.addImage(img1, 'JPEG', xOff1, yOff1, printW1, printH1);
+
+      // Halaman 2: Landscape
+      pdf.addPage('a4', 'landscape');
+      const pageWidthL = 297;
+      const pageHeightL = 210;
+      const marginL = 8;
+      const usableWidthL = pageWidthL - (marginL * 2);
+      const usableHeightL = pageHeightL - (marginL * 2);
+
+      const canvas2 = await html2canvas(page2Elem, {
+        scale: 2.2,
+        useCORS: true,
+        backgroundColor: '#FFFFFF',
+        logging: false,
+        windowWidth: 1350,
+        onclone: (clonedDoc: Document) => {
+          const el2 = clonedDoc.getElementById('printable-kraepelin-page-2');
+          if (el2) {
+            el2.style.width = '1280px';
+            el2.style.maxWidth = 'none';
+            const overflowDivs = el2.querySelectorAll('div');
+            overflowDivs.forEach((d) => {
+              if (d.style.overflowX === 'auto' || d.style.overflow === 'auto') {
+                d.style.overflowX = 'visible';
+                d.style.overflow = 'visible';
+              }
+            });
+          }
+        }
+      });
+      const img2 = canvas2.toDataURL('image/jpeg', 0.95);
+      const ratio2 = canvas2.height / canvas2.width;
+      let printW2 = usableWidthL;
+      let printH2 = usableWidthL * ratio2;
+      if (printH2 > usableHeightL) {
+        printH2 = usableHeightL;
+        printW2 = usableHeightL / ratio2;
+      }
+      const xOff2 = marginL + (usableWidthL - printW2) / 2;
+      const yOff2 = marginL + (usableHeightL - printH2) / 2;
+      pdf.addImage(img2, 'JPEG', xOff2, yOff2, printW2, printH2);
+
+      return pdf.output('blob');
+    }
+
+    // 2. PAPI KOSTICK: 2 Halaman Portrait (Page 1 Diagram Cakram, Page 2 Detail Skor 7 Klaster)
+    if (normUpper.startsWith('PAPI')) {
+      const page1Elem = document.getElementById('printable-papi-page-1');
+      const page2Elem = document.getElementById('printable-papi-page-2');
+
+      if (!page1Elem || !page2Elem) return null;
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
+
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const margin = 10;
+      const usableWidth = pageWidth - (margin * 2);
+      const usableHeight = pageHeight - (margin * 2);
+
+      // Halaman 1
+      const canvas1 = await html2canvas(page1Elem, {
+        scale: 2.2,
+        useCORS: true,
+        backgroundColor: '#FFFFFF',
+        logging: false,
+        windowWidth: 1200
+      });
+      const img1 = canvas1.toDataURL('image/jpeg', 0.95);
+      const ratio1 = canvas1.height / canvas1.width;
+      let printW1 = usableWidth;
+      let printH1 = usableWidth * ratio1;
+      if (printH1 > usableHeight) {
+        printH1 = usableHeight;
+        printW1 = usableHeight / ratio1;
+      }
+      const xOff1 = margin + (usableWidth - printW1) / 2;
+      const yOff1 = margin + (usableHeight - printH1) / 2;
+      pdf.addImage(img1, 'JPEG', xOff1, yOff1, printW1, printH1);
+
+      // Halaman 2
+      pdf.addPage('a4', 'portrait');
+      const canvas2 = await html2canvas(page2Elem, {
+        scale: 2.2,
+        useCORS: true,
+        backgroundColor: '#FFFFFF',
+        logging: false,
+        windowWidth: 1200
+      });
+      const img2 = canvas2.toDataURL('image/jpeg', 0.95);
+      const ratio2 = canvas2.height / canvas2.width;
+      let printW2 = usableWidth;
+      let printH2 = usableWidth * ratio2;
+      if (printH2 > usableHeight) {
+        printH2 = usableHeight;
+        printW2 = usableHeight / ratio2;
+      }
+      const xOff2 = margin + (usableWidth - printW2) / 2;
+      const yOff2 = margin + (usableHeight - printH2) / 2;
+      pdf.addImage(img2, 'JPEG', xOff2, yOff2, printW2, printH2);
+
+      return pdf.output('blob');
+    }
+
+    // 3. DISC: 1 Halaman Portrait (Grafik Kepribadian 3 Cermin)
+    if (normUpper === 'DISC') {
+      const discElem = document.getElementById('printable-disc-graphs');
+      if (!discElem) return null;
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
+
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const margin = 8;
+      const usableWidth = pageWidth - (margin * 2);
+      const usableHeight = pageHeight - (margin * 2);
+
+      const canvas = await html2canvas(discElem, {
+        scale: 2.2,
+        useCORS: true,
+        backgroundColor: '#FFFFFF',
+        logging: false,
+        windowWidth: 1320,
+        onclone: (clonedDoc: Document) => {
+          const svgs = clonedDoc.querySelectorAll<SVGElement>('svg.disc-trend-svg');
+          svgs.forEach((svg) => {
+            const parent = svg.parentElement;
+            if (!parent) return;
+
+            const rect = parent.getBoundingClientRect();
+            const w = (rect.width && rect.width > 50) ? rect.width : (parent.clientWidth && parent.clientWidth > 50) ? parent.clientWidth : 340.6;
+            const h = (rect.height && rect.height > 50) ? rect.height : (parent.clientHeight && parent.clientHeight > 50) ? parent.clientHeight : 820;
+
+            const dataPointsStr = svg.getAttribute('data-points') || '';
+            const strokeColor = svg.getAttribute('data-color') || '#2563EB';
+
+            if (!dataPointsStr) return;
+
+            const pts = dataPointsStr.split(' ').filter(Boolean).map((p) => {
+              const [xPercent, yPercent] = p.split(',').map(Number);
+              return {
+                x: ((isNaN(xPercent) ? 0 : xPercent) / 100) * w,
+                y: ((isNaN(yPercent) ? 50 : yPercent) / 100) * h
+              };
+            });
+
+            if (pts.length === 0) return;
+
+            const cv = clonedDoc.createElement('canvas');
+            cv.width = w * 2;
+            cv.height = h * 2;
+            cv.style.position = 'absolute';
+            cv.style.top = '0';
+            cv.style.left = '0';
+            cv.style.width = '100%';
+            cv.style.height = '100%';
+            cv.style.zIndex = '10';
+
+            const ctx = cv.getContext('2d');
+            if (ctx) {
+              ctx.scale(2, 2);
+              ctx.strokeStyle = strokeColor;
+              ctx.lineWidth = 3;
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              ctx.beginPath();
+              ctx.moveTo(pts[0].x, pts[0].y);
+              for (let i = 1; i < pts.length; i++) {
+                ctx.lineTo(pts[i].x, pts[i].y);
+              }
+              ctx.stroke();
+
+              pts.forEach((pt) => {
+                ctx.beginPath();
+                ctx.arc(pt.x, pt.y, 6.5, 0, Math.PI * 2);
+                ctx.fillStyle = strokeColor;
+                ctx.fill();
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.stroke();
+              });
+            }
+
+            parent.replaceChild(cv, svg);
+          });
+        }
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const ratio = canvas.height / canvas.width;
       let printWidth = usableWidth;
       let printHeight = usableWidth * ratio;
@@ -750,12 +691,309 @@ export default function ReportDetailPage() {
       const yOffset = margin + (usableHeight - printHeight) / 2;
 
       pdf.addImage(imgData, 'JPEG', xOffset, yOffset, printWidth, printHeight);
-      pdf.save(`Hasil_${cleanTest}_${cleanCandidate}.pdf`);
+      return pdf.output('blob');
+    }
+
+    // 4. Test IQ & Modul Lainnya (WPT, CFIT, IST, TIKI, MSDT): Single Page Portrait
+    const cardElem = document.getElementById('printable-test-card');
+    if (!cardElem) return null;
+
+    const canvas = await html2canvas(cardElem, {
+      scale: 2.2,
+      useCORS: true,
+      backgroundColor: '#FFFFFF',
+      logging: false,
+      windowWidth: 1200
+    });
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true
+    });
+
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = 10;
+    const usableWidth = pageWidth - (margin * 2);
+    const usableHeight = pageHeight - (margin * 2);
+
+    const ratio = canvas.height / canvas.width;
+    let printWidth = usableWidth;
+    let printHeight = usableWidth * ratio;
+
+    if (printHeight > usableHeight) {
+      printHeight = usableHeight;
+      printWidth = usableHeight / ratio;
+    }
+
+    const xOffset = margin + (usableWidth - printWidth) / 2;
+    const yOffset = margin + (usableHeight - printHeight) / 2;
+
+    pdf.addImage(imgData, 'JPEG', xOffset, yOffset, printWidth, printHeight);
+    return pdf.output('blob');
+  };
+
+  const capturePsychographPdf = async (): Promise<Blob | null> => {
+    // @ts-ignore
+    const { jsPDF } = await import('jspdf');
+    let html2canvas: any;
+    try {
+      // @ts-ignore
+      html2canvas = (await import('html2canvas-pro')).default;
+    } catch {
+      // @ts-ignore
+      html2canvas = (await import('html2canvas')).default;
+    }
+
+    const page1Elem = document.getElementById('printable-psychograph-page-1');
+    const page2Elem = document.getElementById('printable-psychograph-page-2');
+
+    if (!page1Elem || !page2Elem) {
+      console.error('Psychograph printable elements not found');
+      return null;
+    }
+
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true
+    });
+
+    // Page 1
+    const canvas1 = await html2canvas(page1Elem, {
+      scale: 2.2,
+      useCORS: true,
+      backgroundColor: '#FFFFFF',
+      logging: false,
+      windowWidth: 1024
+    });
+    const img1 = canvas1.toDataURL('image/jpeg', 0.95);
+    pdf.addImage(img1, 'JPEG', 0, 0, 210, 297);
+
+    // Page 2
+    pdf.addPage('a4', 'portrait');
+    const canvas2 = await html2canvas(page2Elem, {
+      scale: 2.2,
+      useCORS: true,
+      backgroundColor: '#FFFFFF',
+      logging: false,
+      windowWidth: 1024
+    });
+    const img2 = canvas2.toDataURL('image/jpeg', 0.95);
+    pdf.addImage(img2, 'JPEG', 0, 0, 210, 297);
+
+    return pdf.output('blob');
+  };
+
+  // Unduh Single Subtest PDF
+  const handleDownloadTestResultPdf = async () => {
+    setGeneratingPdf(true);
+    try {
+      const cleanCandidate = (participant.user?.name || 'Peserta').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const cleanTest = selectedTest.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const blob = await captureSubtestPdf(selectedTest);
+      if (!blob) {
+        alert('Elemen hasil tes tidak ditemukan untuk diunduh.');
+        return;
+      }
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `Hasil_${cleanTest}_${cleanCandidate}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 3000);
     } catch (err) {
       console.error('Error generating PDF:', err);
       alert('Terjadi kesalahan saat memproses file PDF.');
     } finally {
       setGeneratingPdf(false);
+    }
+  };
+
+  // Unduh Single Psikogram PDF
+  const handleDownloadSinglePsychographPdf = async () => {
+    setGeneratingPsychographPdf(true);
+    try {
+      const cleanCandidate = (participant.user?.name || 'Kandidat').replace(/[^a-zA-Z0-9_-]/g, '_');
+      await new Promise(r => setTimeout(r, 250));
+      const blob = await capturePsychographPdf();
+      if (!blob) {
+        alert('Gagal memproses dokumen cetak Psikogram.');
+        return;
+      }
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `01_Laporan_Psikogram_${cleanCandidate}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 3000);
+    } catch (err) {
+      console.error('Error generating Psychograph PDF:', err);
+      alert('Terjadi kesalahan saat memproses PDF Psikogram.');
+    } finally {
+      setGeneratingPsychographPdf(false);
+    }
+  };
+
+  // 1-Click All-Bundle Downloader (ZIP)
+  const handleDownloadAllBundleZip = async () => {
+    if (isBundling) return;
+
+    const cleanCandidate = (participant.user?.name || 'Kandidat').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const subtests: string[] = Array.isArray(sequence) ? sequence : [];
+    const totalItems = 2 + subtests.length;
+
+    setIsBundling(true);
+    setBundlingTotal(totalItems + 1);
+    setBundlingStep(1);
+    setBundlingMessage('Menyiapkan berkas unduhan...');
+
+    const items: { name: string; status: 'pending' | 'loading' | 'done' | 'error' }[] = [
+      { name: 'Psikogram (Word .docx)', status: 'pending' },
+      { name: 'Psikogram (PDF Resmi)', status: 'pending' },
+      ...subtests.map(s => ({ name: `Hasil Subtes ${s} (PDF)`, status: 'pending' as const })),
+      { name: 'Kompresi Berkas ZIP', status: 'pending' },
+    ];
+    setBundlingDetails(items);
+
+    const originalTab = selectedTest;
+
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      // 1. Download Psikogram Word (.docx)
+      setBundlingStep(1);
+      setBundlingMessage('Mengunduh Laporan Psikogram Word (.docx)...');
+      items[0].status = 'loading';
+      setBundlingDetails([...items]);
+
+      try {
+        const docxRes = await fetch(`/api/superadmin/reports/${id}/export-docx`);
+        if (docxRes.ok) {
+          const docxBlob = await docxRes.blob();
+          zip.file(`01_Laporan_Psikogram_${cleanCandidate}.docx`, docxBlob);
+          items[0].status = 'done';
+        } else {
+          items[0].status = 'error';
+        }
+      } catch (err) {
+        console.error('Error fetching docx:', err);
+        items[0].status = 'error';
+      }
+      setBundlingDetails([...items]);
+
+      // 2. Generate Psikogram PDF (2 Pages)
+      setBundlingStep(2);
+      setBundlingMessage('Membuat dokumen Psikogram PDF resmi...');
+      items[1].status = 'loading';
+      setBundlingDetails([...items]);
+
+      await new Promise(r => setTimeout(r, 300));
+
+      try {
+        const psychoBlob = await capturePsychographPdf();
+        if (psychoBlob) {
+          zip.file(`01_Laporan_Psikogram_${cleanCandidate}.pdf`, psychoBlob);
+          items[1].status = 'done';
+        } else {
+          items[1].status = 'error';
+        }
+      } catch (err) {
+        console.error('Error generating psychograph pdf:', err);
+        items[1].status = 'error';
+      }
+      setBundlingDetails([...items]);
+
+      // 3. Process each completed subtest in sequence
+      for (let i = 0; i < subtests.length; i++) {
+        const testName = subtests[i];
+        const stepIdx = 2 + i;
+        setBundlingStep(stepIdx + 1);
+        setBundlingMessage(`Memproses Lembar Hasil ${testName} (PDF)...`);
+        items[stepIdx].status = 'loading';
+        setBundlingDetails([...items]);
+
+        try {
+          setSelectedTest(testName);
+
+          const normType = testName === 'PAPI KOSTICK' ? 'PAPI_KOSTICK' : testName;
+          try {
+            const qRes = await fetch(`/api/superadmin/questions?testType=${encodeURIComponent(normType)}`);
+            const qData = await qRes.json();
+            if (qData?.questions) {
+              setQuestions(qData.questions.sort((a: any, b: any) => a.id - b.id));
+            }
+          } catch (e) {}
+
+          for (let retry = 0; retry < 6; retry++) {
+            await new Promise(r => setTimeout(r, 200));
+            if (
+              document.getElementById('printable-kraepelin-page-1') ||
+              document.getElementById('printable-papi-page-1') ||
+              document.getElementById('printable-disc-graphs') ||
+              document.getElementById('printable-test-card')
+            ) {
+              break;
+            }
+          }
+
+          const subtestBlob = await captureSubtestPdf(testName);
+          if (subtestBlob) {
+            const pad = String(i + 2).padStart(2, '0');
+            const cleanTestName = testName.replace(/[^a-zA-Z0-9_-]/g, '_');
+            zip.file(`${pad}_Hasil_Subtes_${cleanTestName}_${cleanCandidate}.pdf`, subtestBlob);
+            items[stepIdx].status = 'done';
+          } else {
+            items[stepIdx].status = 'error';
+          }
+        } catch (err) {
+          console.error(`Error processing subtest ${testName}:`, err);
+          items[stepIdx].status = 'error';
+        }
+        setBundlingDetails([...items]);
+      }
+
+      // 4. Compress ZIP archive
+      setBundlingStep(totalItems + 1);
+      setBundlingMessage('Mengompresi seluruh dokumen menjadi satu paket ZIP...');
+      items[totalItems].status = 'loading';
+      setBundlingDetails([...items]);
+
+      const zipBlob = await zip.generateAsync({
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 },
+      });
+
+      items[totalItems].status = 'done';
+      setBundlingDetails([...items]);
+
+      const downloadUrl = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `Berkas_Lengkap_Psikotes_${cleanCandidate}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
+
+      setBundlingMessage('Selesai! Seluruh berkas berhasil diunduh.');
+      await new Promise(r => setTimeout(r, 600));
+    } catch (err: any) {
+      console.error('Fatal bundle error:', err);
+      alert('Terjadi kendala saat memproses paket berkas: ' + (err?.message || err));
+    } finally {
+      setSelectedTest(originalTab);
+      setIsBundling(false);
     }
   };
 
@@ -1399,19 +1637,59 @@ export default function ReportDetailPage() {
           </p>
         </div>
         
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.9rem', color: '#64748B', fontWeight: 500 }}>Lihat Modul:</span>
-            <select 
-              value={selectedTest}
-              onChange={(e) => setSelectedTest(e.target.value)}
-              style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none', background: '#fff', fontWeight: 500, color: '#1E293B', cursor: 'pointer' }}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleDownloadAllBundleZip}
+              disabled={isBundling}
+              style={{
+                background: isBundling ? '#94A3B8' : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '0.5rem 1.1rem',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                cursor: isBundling ? 'wait' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                transition: 'all 0.2s',
+              }}
+              title="Unduh 1 Paket Lengkap Berisi Psikogram (PDF & Word) serta Lembar Hasil Seluruh Subtes"
             >
-              <option value="Psikogram">Psikogram</option>
-              {sequence.map((testName: string) => (
-                <option key={testName} value={testName}>{testName}</option>
-              ))}
-              <option value="Proctoring">Log Pengawasan & Keamanan</option>
-            </select>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+              </svg>
+              <span>{isBundling ? 'Menyiapkan Paket ZIP...' : 'Unduh Semua Berkas (ZIP)'}</span>
+              <span style={{
+                background: 'rgba(255,255,255,0.22)',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: 700,
+              }}>
+                Psikogram (PDF &amp; Word) + {sequence.length} Subtes
+              </span>
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.9rem', color: '#64748B', fontWeight: 500 }}>Lihat Modul:</span>
+              <select 
+                value={selectedTest}
+                onChange={(e) => setSelectedTest(e.target.value)}
+                style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none', background: '#fff', fontWeight: 500, color: '#1E293B', cursor: 'pointer' }}
+              >
+                <option value="Psikogram">Psikogram</option>
+                {sequence.map((testName: string) => (
+                  <option key={testName} value={testName}>{testName}</option>
+                ))}
+                <option value="Proctoring">Log Pengawasan & Keamanan</option>
+              </select>
+            </div>
           </div>
       </div>
 
@@ -1782,6 +2060,32 @@ export default function ReportDetailPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', position: 'relative' }}>
                         {saveMessage && <span style={{ fontSize: '14px', color: '#047857', fontWeight: 600 }}>{saveMessage}</span>}
                         
+                        {/* Tombol Unduh Semua Berkas (ZIP) */}
+                        <button
+                            type="button"
+                            onClick={handleDownloadAllBundleZip}
+                            disabled={isBundling}
+                            style={{
+                                background: isBundling ? '#94A3B8' : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                                color: 'white',
+                                padding: '10px 18px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                fontWeight: 700,
+                                fontSize: '14px',
+                                cursor: isBundling ? 'wait' : 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                                transition: 'all 0.2s',
+                            }}
+                            title="Unduh 1 Paket Lengkap Berisi Psikogram (PDF & Word) serta Lembar Hasil Seluruh Subtes"
+                        >
+                            <span>📦</span>
+                            <span>{isBundling ? 'Menyiapkan Paket ZIP...' : 'Unduh Semua Berkas (ZIP)'}</span>
+                        </button>
+
                         {/* 1 Tombol Unduh Laporan dengan Opsi Bersih */}
                         <div style={{ position: 'relative' }}>
                             <button
@@ -1801,7 +2105,7 @@ export default function ReportDetailPage() {
                                     gap: '8px'
                                 }}
                             >
-                                <span>Unduh Laporan</span>
+                                <span>Unduh Psikogram</span>
                                 <span style={{ fontSize: '10px' }}>▼</span>
                             </button>
 
@@ -1811,20 +2115,79 @@ export default function ReportDetailPage() {
                                     right: 0,
                                     bottom: '100%',
                                     marginBottom: '8px',
-                                    width: '180px',
+                                    width: '230px',
                                     background: 'white',
                                     border: '1px solid #CBD5E1',
-                                    borderRadius: '8px',
-                                    boxShadow: '0 8px 16px rgba(0,0,0,0.1)',
+                                    borderRadius: '10px',
+                                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
                                     zIndex: 50,
                                     overflow: 'hidden'
                                 }}>
-                                    <Link
-                                        href={`/report-pdf/${id}`}
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowDownloadMenu(false);
+                                            handleDownloadAllBundleZip();
+                                        }}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            width: '100%',
+                                            padding: '12px 16px',
+                                            fontSize: '13px',
+                                            fontWeight: 700,
+                                            color: '#4F46E5',
+                                            background: '#EEF2FF',
+                                            border: 'none',
+                                            borderBottom: '1px solid #E0E7FF',
+                                            cursor: 'pointer',
+                                            textAlign: 'left'
+                                        }}
+                                    >
+                                        <span>📦</span>
+                                        <span>Unduh Semua Berkas (ZIP)</span>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowDownloadMenu(false);
+                                            handleDownloadSinglePsychographPdf();
+                                        }}
+                                        disabled={generatingPsychographPdf}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            width: '100%',
+                                            padding: '10px 16px',
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            color: '#1E293B',
+                                            background: 'white',
+                                            border: 'none',
+                                            borderBottom: '1px solid #F1F5F9',
+                                            cursor: 'pointer',
+                                            textAlign: 'left'
+                                        }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = '#F8FAFC')}
+                                        onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
+                                    >
+                                        <span>📄</span>
+                                        <span>{generatingPsychographPdf ? 'Memproses PDF...' : 'Unduh Psikogram PDF'}</span>
+                                    </button>
+
+                                    <a
+                                        href={`/api/superadmin/reports/${id}/export-docx`}
                                         target="_blank"
+                                        rel="noopener noreferrer"
+                                        download={`Laporan_Psikotes_${(participant.user?.name || 'Kandidat').replace(/\s+/g, '_')}.docx`}
                                         onClick={() => setShowDownloadMenu(false)}
                                         style={{
-                                            display: 'block',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
                                             padding: '10px 16px',
                                             fontSize: '13px',
                                             fontWeight: 600,
@@ -1835,27 +2198,30 @@ export default function ReportDetailPage() {
                                         onMouseEnter={(e) => (e.currentTarget.style.background = '#F8FAFC')}
                                         onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
                                     >
-                                        Unduh PDF
-                                    </Link>
-                                    <a
-                                        href={`/api/superadmin/reports/${id}/export-docx`}
+                                        <span>📝</span>
+                                        <span>Unduh Psikogram Word (.docx)</span>
+                                    </a>
+
+                                    <Link
+                                        href={`/report-pdf/${id}`}
                                         target="_blank"
-                                        rel="noopener noreferrer"
-                                        download={`Laporan_Psikotes_${(participant.user?.name || 'Kandidat').replace(/\s+/g, '_')}.docx`}
                                         onClick={() => setShowDownloadMenu(false)}
                                         style={{
-                                            display: 'block',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
                                             padding: '10px 16px',
                                             fontSize: '13px',
                                             fontWeight: 600,
-                                            color: '#1E293B',
+                                            color: '#64748B',
                                             textDecoration: 'none'
                                         }}
                                         onMouseEnter={(e) => (e.currentTarget.style.background = '#F8FAFC')}
                                         onMouseLeave={(e) => (e.currentTarget.style.background = 'white')}
                                     >
-                                        Unduh Word (.docx)
-                                    </a>
+                                        <span>🖨️</span>
+                                        <span>Buka Halaman Cetak (A4)</span>
+                                    </Link>
                                 </div>
                             )}
                         </div>
@@ -3536,6 +3902,133 @@ export default function ReportDetailPage() {
             {renderQuestionAnswersGrid()}
           </div>
         )}
+        </div>
+      )}
+
+      {/* Hidden Psychograph Mount for Direct PDF Capture */}
+      <div
+        id="printable-psychograph-hidden-mount"
+        style={{
+          position: 'fixed',
+          left: (isBundling || generatingPsychographPdf) ? 0 : -99999,
+          top: 0,
+          width: '210mm',
+          zIndex: isBundling ? 10 : -100,
+          opacity: (isBundling || generatingPsychographPdf) ? 1 : 0,
+          pointerEvents: 'none',
+          background: '#FFFFFF',
+        }}
+      >
+        <PsychographPrintableDocument
+          participant={participant}
+          modifiedScoresOverride={modifiedScores}
+          dinamikaOverride={reviewDinamika}
+          recommendationOverride={reviewRekomendasi}
+          kelebihanOverride={reviewKelebihan}
+          kelemahanOverride={reviewKelemahan}
+          psychologistNameOverride={psychologistName}
+          psychologistSippOverride={psychologistSipp}
+          signatureUrlOverride={signatureUrl}
+          idPrefix="printable-psychograph"
+        />
+      </div>
+
+      {/* 1-Click All-Bundle Progress Modal */}
+      {isBundling && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 99999,
+          background: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '20px',
+            padding: '32px 28px',
+            maxWidth: '480px',
+            width: '100%',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+            textAlign: 'center',
+            animation: 'fadeIn 0.25s ease-out',
+          }}>
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)',
+              color: '#4F46E5',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 18px auto',
+              fontSize: '28px',
+            }}>
+              📦
+            </div>
+
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>
+              Mengemas Seluruh Berkas Psikotes
+            </h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#64748B', lineHeight: '1.4' }}>
+              Mengunduh Psikogram (PDF &amp; Word) dan seluruh lembar hasil subtes untuk <strong>{participant.user?.name || 'Kandidat'}</strong>
+            </p>
+
+            {/* Progress Bar */}
+            <div style={{ background: '#F1F5F9', borderRadius: '10px', height: '10px', overflow: 'hidden', marginBottom: '12px' }}>
+              <div style={{
+                height: '100%',
+                width: `${Math.round(((bundlingStep) / (bundlingTotal || 1)) * 100)}%`,
+                background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
+                transition: 'width 0.3s ease',
+                borderRadius: '10px'
+              }}></div>
+            </div>
+
+            {/* Status Label */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#475569', marginBottom: '18px' }}>
+              <span style={{ fontWeight: 600 }}>{bundlingMessage}</span>
+              <span style={{ fontWeight: 800, color: '#4F46E5' }}>
+                {Math.min(bundlingStep, bundlingTotal)} / {bundlingTotal}
+              </span>
+            </div>
+
+            {/* Checklist items */}
+            <div style={{
+              maxHeight: '180px',
+              overflowY: 'auto',
+              background: '#F8FAFC',
+              border: '1px solid #E2E8F0',
+              borderRadius: '12px',
+              padding: '12px 14px',
+              textAlign: 'left',
+              fontSize: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px'
+            }}>
+              {bundlingDetails.map((item, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{
+                    color: item.status === 'done' ? '#047857' : item.status === 'loading' ? '#4F46E5' : item.status === 'error' ? '#DC2626' : '#94A3B8',
+                    fontWeight: item.status === 'loading' || item.status === 'done' ? 700 : 500
+                  }}>
+                    {item.name}
+                  </span>
+                  <span style={{ fontSize: '12px' }}>
+                    {item.status === 'done' && '✅'}
+                    {item.status === 'loading' && '⏳'}
+                    {item.status === 'pending' && '⚪'}
+                    {item.status === 'error' && '⚠️'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
