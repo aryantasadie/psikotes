@@ -17,7 +17,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       return NextResponse.json({ error: 'ID klien tidak valid' }, { status: 400 });
     }
 
-    const [client, clientTests, clientJobPositions, generalPositions, psychographPresets, clientBatches] = await Promise.all([
+    const [client, clientTests, clientJobPositions, generalPositions, psychographPresets, clientBatches, allClients] = await Promise.all([
       prisma.user.findUnique({
         where: { id: clientId, role: 'client' },
         select: {
@@ -43,7 +43,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         where: { clientId },
         include: {
           psychographPreset: true,
-          grayAreas: true
+          grayAreas: true,
+          tests: {
+            select: {
+              client: { select: { id: true, name: true } }
+            }
+          }
         },
         orderBy: { name: 'asc' }
       }),
@@ -51,7 +56,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         where: { clientId: null },
         include: {
           psychographPreset: true,
-          grayAreas: true
+          grayAreas: true,
+          tests: {
+            select: {
+              client: { select: { id: true, name: true } }
+            }
+          }
         },
         orderBy: { name: 'asc' }
       }),
@@ -73,12 +83,51 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
           }
         },
         orderBy: { id: 'desc' }
+      }),
+      prisma.user.findMany({
+        where: { role: 'client' },
+        select: { id: true, name: true, license: true }
       })
     ]);
 
     if (!client) {
       return NextResponse.json({ error: 'Klien tidak ditemukan' }, { status: 404 });
     }
+
+    // Helper untuk memetakan nama klien mitra lain yang menggunakan / terhubung dengan standar jabatan
+    const attachOtherClients = (posList: any[]) => {
+      return posList.map(pos => {
+        const otherNames = new Set<string>();
+
+        // 1. Dari lisensi mitra lain
+        allClients.forEach(c => {
+          if (c.id === clientId) return;
+          if (c.license) {
+            try {
+              const parsed = JSON.parse(c.license);
+              if (Array.isArray(parsed.assignedJobPositionIds) && parsed.assignedJobPositionIds.includes(pos.id)) {
+                if (c.name) otherNames.add(c.name);
+              }
+            } catch {}
+          }
+          if (pos.clientId === c.id && c.name) {
+            otherNames.add(c.name);
+          }
+        });
+
+        // 2. Dari riwayat batch tes mitra lain
+        (pos.tests || []).forEach((t: any) => {
+          if (t.client && t.client.id !== clientId && t.client.name) {
+            otherNames.add(t.client.name);
+          }
+        });
+
+        return {
+          ...pos,
+          otherAssignedClients: Array.from(otherNames)
+        };
+      });
+    };
 
     // Format Baterai Tes resmi klien
     let batteryTest: string[] = ['WPT', 'Kraepelin', 'DISC', 'PAPI KOSTICK'];
@@ -185,8 +234,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         sequence: batteryTest
       },
       positions: {
-        clientCustom: clientJobPositions,
-        general: generalPositions,
+        clientCustom: attachOtherClients(clientJobPositions),
+        general: attachOtherClients(generalPositions),
         assignedIds: assignedJobPositionIds
       },
       presets: psychographPresets,

@@ -150,7 +150,9 @@ export default function JobPositionList() {
     const q = search.toLowerCase();
     const nameMatch = (pos.name || '').toLowerCase().includes(q);
     const presetMatch = (pos.psychographPreset?.name || '').toLowerCase().includes(q);
-    const clientMatch = (pos.tests || []).some((t: any) => (t.client?.name || '').toLowerCase().includes(q));
+    const clientMatch = 
+      (pos.assignedClientNames || []).some((n: string) => n.toLowerCase().includes(q)) ||
+      (pos.tests || []).some((t: any) => (t.client?.name || '').toLowerCase().includes(q));
     return nameMatch || presetMatch || clientMatch;
   });
 
@@ -228,14 +230,16 @@ export default function JobPositionList() {
                 </TableRow>
               ) : (
                 filteredPositions.map(pos => {
-                  const clientNames = Array.from(
-                    new Set(
-                      (pos.tests || [])
-                        .map((t: any) => t.client?.name)
-                        .filter(Boolean)
-                    )
-                  );
-                  const displayClient = clientNames.length > 0 ? clientNames.join(', ') : 'Umum / Semua Klien';
+                  const clientNames = Array.isArray(pos.assignedClientNames) && pos.assignedClientNames.length > 0
+                    ? pos.assignedClientNames
+                    : Array.from(
+                        new Set(
+                          (pos.tests || [])
+                            .map((t: any) => t.client?.name)
+                            .filter(Boolean)
+                        )
+                      );
+                  const displayClient = clientNames.length > 0 ? clientNames.join(' | ') + ' |' : 'Umum / Semua Klien';
 
                   const dateStr = pos.createdAt
                     ? new Date(pos.createdAt).toLocaleDateString('id-ID', {

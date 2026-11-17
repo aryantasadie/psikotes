@@ -30,36 +30,65 @@ export async function GET(request: Request) {
       }
     }
 
-    const jobPositions = await prisma.jobPosition.findMany({
-      where: whereClause,
-      include: {
-        psychographPreset: true,
-        grayAreas: true,
-        client: {
-          select: { id: true, name: true, username: true }
-        },
-        tests: {
-          where: {
-            participants: { some: {} }
+    const [jobPositions, allClients] = await Promise.all([
+      prisma.jobPosition.findMany({
+        where: whereClause,
+        include: {
+          psychographPreset: true,
+          grayAreas: true,
+          client: {
+            select: { id: true, name: true, username: true }
           },
-          select: {
-            id: true,
-            title: true,
-            startDate: true,
-            client: { select: { id: true, name: true } },
-            _count: { select: { participants: true } }
+          tests: {
+            where: {
+              participants: { some: {} }
+            },
+            select: {
+              id: true,
+              title: true,
+              startDate: true,
+              client: { select: { id: true, name: true } },
+              _count: { select: { participants: true } }
+            }
+          },
+          _count: {
+            select: {
+              tests: true,
+              testParticipants: true
+            }
           }
         },
-        _count: {
-          select: {
-            tests: true,
-            testParticipants: true
-          }
+        orderBy: { id: 'desc' }
+      }),
+      prisma.user.findMany({
+        where: { role: 'client' },
+        select: { id: true, name: true, license: true }
+      })
+    ]);
+
+    const enrichedPositions = jobPositions.map(pos => {
+      const names = new Set<string>();
+      if (pos.client?.name) names.add(pos.client.name);
+      (pos.tests || []).forEach((t: any) => {
+        if (t.client?.name) names.add(t.client.name);
+      });
+      allClients.forEach(c => {
+        if (c.license) {
+          try {
+            const parsed = JSON.parse(c.license);
+            if (Array.isArray(parsed.assignedJobPositionIds) && parsed.assignedJobPositionIds.includes(pos.id)) {
+              if (c.name) names.add(c.name);
+            }
+          } catch {}
         }
-      },
-      orderBy: { id: 'desc' }
+      });
+      return {
+        ...pos,
+        assignedClientNames: Array.from(names)
+      };
     });
-    return NextResponse.json(jobPositions);
+
+    return NextResponse.json(enrichedPositions);
   } catch (error) {
     console.error('Error fetching job positions:', error);
     return NextResponse.json({ error: 'Failed to fetch' }, { status: 500 });
