@@ -109,7 +109,8 @@ export async function GET() {
       let serviceScheme = 'SKEMA_1_MANAGED';
       let picName = '';
       let batteryTest: string[] = ['WPT', 'Kraepelin', 'DISC', 'PAPI KOSTICK'];
-      let assignedJobPositionIds: number[] = [9]; // default ada Standar Umum (Cukup Semua)
+      let assignedJobPositionIds: number[] = [];
+      let assignedPresetIds: number[] = [];
 
       if (c.license) {
         try {
@@ -121,7 +122,10 @@ export async function GET() {
               batteryTest = parsed.batteryTest;
             }
             if (Array.isArray(parsed.assignedJobPositionIds)) {
-              assignedJobPositionIds = parsed.assignedJobPositionIds;
+              assignedJobPositionIds = parsed.assignedJobPositionIds.map(Number).filter((id: number) => !isNaN(id) && id > 0);
+            }
+            if (Array.isArray(parsed.assignedPresetIds)) {
+              assignedPresetIds = parsed.assignedPresetIds.map(Number).filter((id: number) => !isNaN(id) && id > 0);
             }
           } else {
             serviceScheme = c.license;
@@ -173,6 +177,7 @@ export async function GET() {
         picName,
         batteryTest,
         assignedJobPositionIds,
+        assignedPresetIds,
         totalQuota,
         usedQuota,
         totalBatches: clientBatches.length,
@@ -336,8 +341,8 @@ export async function PUT(req: Request) {
     let existingPic = '';
     let existingScheme = 'SKEMA_2_SAAS';
     let existingBatteryTest = ['WPT', 'Kraepelin', 'DISC', 'PAPI KOSTICK'];
-    let existingAssignedJobs = [9];
-    let existingAssignedPresets = [9];
+    let existingAssignedJobs: number[] = [];
+    let existingAssignedPresets: number[] = [];
 
     if (target.license) {
       try {
@@ -345,16 +350,24 @@ export async function PUT(req: Request) {
         existingScheme = parsed.scheme || target.license;
         existingPic = parsed.pic || '';
         if (Array.isArray(parsed.batteryTest)) existingBatteryTest = parsed.batteryTest;
-        if (Array.isArray(parsed.assignedJobPositionIds)) existingAssignedJobs = parsed.assignedJobPositionIds;
-        if (Array.isArray(parsed.assignedPresetIds)) existingAssignedPresets = parsed.assignedPresetIds;
+        if (Array.isArray(parsed.assignedJobPositionIds)) {
+          existingAssignedJobs = parsed.assignedJobPositionIds.map(Number).filter((id: number) => !isNaN(id) && id > 0);
+        }
+        if (Array.isArray(parsed.assignedPresetIds)) {
+          existingAssignedPresets = parsed.assignedPresetIds.map(Number).filter((id: number) => !isNaN(id) && id > 0);
+        }
       } catch {
         existingScheme = target.license;
       }
     }
 
     const finalBatteryTest = batteryTest !== undefined ? batteryTest : existingBatteryTest;
-    const finalAssignedJobs = assignedJobPositionIds !== undefined ? assignedJobPositionIds : existingAssignedJobs;
-    const finalAssignedPresets = assignedPresetIds !== undefined ? assignedPresetIds : existingAssignedPresets;
+    const finalAssignedJobs = Array.isArray(assignedJobPositionIds)
+      ? assignedJobPositionIds.map(Number).filter((id: number) => !isNaN(id) && id > 0)
+      : (assignedJobPositionIds !== undefined ? [] : existingAssignedJobs);
+    const finalAssignedPresets = Array.isArray(assignedPresetIds)
+      ? assignedPresetIds.map(Number).filter((id: number) => !isNaN(id) && id > 0)
+      : (assignedPresetIds !== undefined ? [] : existingAssignedPresets);
 
     updateData.license = JSON.stringify({
       scheme: serviceScheme !== undefined ? serviceScheme : existingScheme,

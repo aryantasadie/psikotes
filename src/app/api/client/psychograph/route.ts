@@ -24,21 +24,20 @@ export async function GET() {
       try {
         const parsed = JSON.parse(clientUser.license);
         if (Array.isArray(parsed.assignedPresetIds)) {
-          assignedPresetIds = parsed.assignedPresetIds.map(Number).filter(Boolean);
+          assignedPresetIds = parsed.assignedPresetIds.map(Number).filter((id: number) => !isNaN(id) && id > 0);
         }
       } catch {}
     }
 
-    // Ambil presets:
-    let whereClause: any = {};
-    if (assignedPresetIds.length > 0) {
-      whereClause = {
-        id: { in: assignedPresetIds }
-      };
+    // Jika klien tidak memiliki preset kompetensi yang dialokasikan/dicentang oleh superadmin, kembalikan array kosong
+    if (assignedPresetIds.length === 0) {
+      return NextResponse.json([]);
     }
 
     const presets = await prisma.psychographPreset.findMany({
-      where: whereClause,
+      where: {
+        id: { in: assignedPresetIds }
+      },
       include: {
         jobPositions: {
           select: { id: true, name: true }

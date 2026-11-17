@@ -200,8 +200,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     // Parse license
     let serviceScheme = 'SKEMA_2_SAAS';
     let picName = '';
-    let assignedJobPositionIds: number[] = [9];
-    let assignedPresetIds: number[] = [9];
+    let assignedJobPositionIds: number[] = [];
+    let assignedPresetIds: number[] = [];
 
     if (client.license) {
       try {
@@ -210,12 +210,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
           serviceScheme = parsed.scheme || 'SKEMA_2_SAAS';
           picName = parsed.pic || '';
           if (Array.isArray(parsed.assignedJobPositionIds)) {
-            assignedJobPositionIds = parsed.assignedJobPositionIds;
+            assignedJobPositionIds = parsed.assignedJobPositionIds.map(Number).filter((id: number) => !isNaN(id) && id > 0);
           }
           if (Array.isArray(parsed.assignedPresetIds)) {
-            assignedPresetIds = parsed.assignedPresetIds;
-          } else if (Array.isArray(parsed.assignedJobPositionIds)) {
-            assignedPresetIds = parsed.assignedJobPositionIds;
+            assignedPresetIds = parsed.assignedPresetIds.map(Number).filter((id: number) => !isNaN(id) && id > 0);
           }
         }
       } catch {}

@@ -139,16 +139,16 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       ];
       const validPositions = rawPositions.filter(p => (p.grayAreas && p.grayAreas.length > 0) || p.psychographPresetId);
       setClientJobPositions(validPositions);
-      setAssignedJobIds(data.positions.assignedIds || [9]);
+      setAssignedJobIds(Array.isArray(data.positions?.assignedIds) ? data.positions.assignedIds : []);
 
       // Presets
       if (data.presets) {
         if (Array.isArray(data.presets.list)) {
           setPsychographPresets(data.presets.list);
-          setAssignedPresetIds(Array.isArray(data.presets.assignedIds) ? data.presets.assignedIds : [9]);
+          setAssignedPresetIds(Array.isArray(data.presets.assignedIds) ? data.presets.assignedIds : []);
         } else if (Array.isArray(data.presets)) {
           setPsychographPresets(data.presets);
-          setAssignedPresetIds([9]);
+          setAssignedPresetIds([]);
         }
       }
 
@@ -306,6 +306,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
             username: client.username,
             batteryTest: batterySequence,
             assignedJobPositionIds: assignedJobIds,
+            assignedPresetIds: assignedPresetIds,
             totalQuota: parseInt(totalQuota, 10) || 100
           })
         });
@@ -339,8 +340,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           id: clientId,
           name: client.name,
           username: client.username,
+          serviceScheme: client.serviceScheme || 'SKEMA_2_SAAS',
           batteryTest: batterySequence,
           assignedJobPositionIds: updatedIds,
+          assignedPresetIds: assignedPresetIds,
           totalQuota: parseInt(totalQuota, 10) || 100
         })
       });
@@ -451,6 +454,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           serviceScheme: client.serviceScheme || 'SKEMA_2_SAAS',
           batteryTest: batterySequence,
           assignedJobPositionIds: assignedJobIds,
+          assignedPresetIds: assignedPresetIds,
           totalQuota: qNum
         })
       });

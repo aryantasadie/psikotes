@@ -31,7 +31,7 @@ export async function GET() {
     }
 
     let batteryTest: string[] = ['WPT', 'Kraepelin', 'DISC', 'PAPI KOSTICK'];
-    let assignedJobPositionIds: number[] = [9]; // Default Standar Umum (Cukup Semua)
+    let assignedJobPositionIds: number[] = [];
 
     // Cek Baterai Tes resmi klien langsung dari tabel Test (clientId = clientId)
     const clientBatteryRecord = await prisma.test.findFirst({
@@ -54,23 +54,25 @@ export async function GET() {
         if ((!clientBatteryRecord || batteryTest.length === 0) && Array.isArray(parsed.batteryTest) && parsed.batteryTest.length > 0) {
           batteryTest = parsed.batteryTest;
         }
-        if (Array.isArray(parsed.assignedJobPositionIds) && parsed.assignedJobPositionIds.length > 0) {
-          assignedJobPositionIds = parsed.assignedJobPositionIds;
+        if (Array.isArray(parsed.assignedJobPositionIds)) {
+          assignedJobPositionIds = parsed.assignedJobPositionIds.map(Number).filter((id: number) => !isNaN(id) && id > 0);
         }
       } catch {}
     }
 
     // Ambil detail Bank Psikogram yang diizinkan untuk klien ini:
-    // Mencakup jabatan yang dibuat khusus untuk klien ini (clientId: clientId),
-    // atau Standar Umum (id: 9 atau clientId: null),
-    // atau ID yang tercatat di assignedJobPositionIds
+    // HANYA mencakup jabatan yang dibuat khusus untuk klien ini (clientId: clientId),
+    // atau ID formasi jabatan yang dicentang aktif di assignedJobPositionIds (Tab 2 Superadmin)
+    const orConditions: any[] = [
+      { clientId }
+    ];
+    if (assignedJobPositionIds.length > 0) {
+      orConditions.push({ id: { in: assignedJobPositionIds } });
+    }
+
     const bankPsikogram = await prisma.jobPosition.findMany({
       where: {
-        OR: [
-          { clientId },
-          { id: 9 },
-          { id: { in: assignedJobPositionIds } }
-        ]
+        OR: orConditions
       },
       include: {
         psychographPreset: { select: { id: true, name: true } },
