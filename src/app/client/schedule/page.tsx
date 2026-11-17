@@ -104,7 +104,7 @@ export default function ClientSchedulePage() {
   // Form State matching Image 5
   const [sessionName, setSessionName] = useState('');
   const [selectedJobId, setSelectedJobId] = useState<string>(''); // "" = Tanpa Psikogram Jabatan (Pilih Alat Tes Mandiri)
-  const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(['WPT', 'Kraepelin']);
+  const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>([]);
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
   const [prefix, setPrefix] = useState('');
   const [count, setCount] = useState('');
@@ -230,7 +230,7 @@ export default function ClientSchedulePage() {
         setPrefix('');
         setCount('');
         setSelectedJobId('');
-        setSelectedCustomTools(['WPT', 'Kraepelin']);
+        setSelectedCustomTools([]);
         setDisableMedia(false);
         fetchData();
       } else {

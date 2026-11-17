@@ -174,7 +174,7 @@ export default function SchedulePage() {
 
   // Custom Test Tools Override State
   const [useCustomTools, setUseCustomTools] = useState(false);
-  const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>(['WPT', 'Kraepelin']);
+  const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>([]);
   const [activeSubtestModal, setActiveSubtestModal] = useState<string | null>(null);
 
   // Result State
@@ -655,7 +655,7 @@ export default function SchedulePage() {
                       checked={useCustomTools}
                       onChange={e => {
                         setUseCustomTools(e.target.checked);
-                        if (!e.target.checked) setSelectedCustomTools(['WPT', 'Kraepelin']);
+                        if (!e.target.checked) setSelectedCustomTools([]);
                       }}
                       className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
                     />
