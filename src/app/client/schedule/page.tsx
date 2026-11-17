@@ -226,6 +226,12 @@ export default function ClientSchedulePage() {
       if (res.ok) {
         setGeneratedAccounts(data.accounts || []);
         setFormSuccess(data.message || 'Sesi ujian dan akun peserta berhasil dibuat!');
+        setSessionName('');
+        setPrefix('');
+        setCount('');
+        setSelectedJobId('');
+        setSelectedCustomTools(['WPT', 'Kraepelin']);
+        setDisableMedia(false);
         fetchData();
       } else {
         setFormError(data.error || 'Terjadi kesalahan saat memproses sesi.');
@@ -453,8 +459,8 @@ export default function ClientSchedulePage() {
                       <input
                         type="checkbox"
                         checked={selectedCustomTools.includes('WPT')}
-                        onChange={() => {}}
-                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                        readOnly
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
                       />
                       <span className="text-xs">WPT</span>
                     </div>
@@ -473,8 +479,8 @@ export default function ClientSchedulePage() {
                       <input
                         type="checkbox"
                         checked={isIstChecked}
-                        onChange={() => {}}
-                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                        readOnly
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
                       />
                       <span className="text-xs">IST</span>
                     </div>
@@ -505,8 +511,8 @@ export default function ClientSchedulePage() {
                       <input
                         type="checkbox"
                         checked={selectedCustomTools.includes('PAPI KOSTICK')}
-                        onChange={() => {}}
-                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                        readOnly
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
                       />
                       <span className="text-xs">PAPI KOSTICK</span>
                     </div>
@@ -525,8 +531,8 @@ export default function ClientSchedulePage() {
                       <input
                         type="checkbox"
                         checked={selectedCustomTools.includes('DISC')}
-                        onChange={() => {}}
-                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                        readOnly
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
                       />
                       <span className="text-xs">DISC</span>
                     </div>
@@ -545,8 +551,8 @@ export default function ClientSchedulePage() {
                       <input
                         type="checkbox"
                         checked={selectedCustomTools.includes('MSDT')}
-                        onChange={() => {}}
-                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                        readOnly
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
                       />
                       <span className="text-xs">MSDT</span>
                     </div>
@@ -565,8 +571,8 @@ export default function ClientSchedulePage() {
                       <input
                         type="checkbox"
                         checked={selectedCustomTools.includes('Kraepelin')}
-                        onChange={() => {}}
-                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                        readOnly
+                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
                       />
                       <span className="text-xs">Kraepelin</span>
                     </div>
