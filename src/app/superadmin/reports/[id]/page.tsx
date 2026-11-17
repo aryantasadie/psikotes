@@ -1643,37 +1643,34 @@ export default function ReportDetailPage() {
               onClick={handleDownloadAllBundleZip}
               disabled={isBundling}
               style={{
-                background: isBundling ? '#94A3B8' : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-                color: 'white',
+                background: isBundling ? '#CBD5E1' : '#0D9488',
+                color: isBundling ? '#64748B' : '#FFFFFF',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '0.5rem 1.1rem',
+                padding: '0.5rem 1rem',
                 fontSize: '0.85rem',
-                fontWeight: 700,
+                fontWeight: 600,
                 cursor: isBundling ? 'wait' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
-                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
-                transition: 'all 0.2s',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                transition: 'background-color 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!isBundling) e.currentTarget.style.backgroundColor = '#0F766E';
+              }}
+              onMouseLeave={(e) => {
+                if (!isBundling) e.currentTarget.style.backgroundColor = '#0D9488';
               }}
               title="Unduh 1 Paket Lengkap Berisi Psikogram (PDF & Word) serta Lembar Hasil Seluruh Subtes"
             >
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
               </svg>
               <span>{isBundling ? 'Menyiapkan Paket ZIP...' : 'Unduh Semua Berkas (ZIP)'}</span>
-              <span style={{
-                background: 'rgba(255,255,255,0.22)',
-                padding: '2px 8px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 700,
-              }}>
-                Psikogram (PDF &amp; Word) + {sequence.length} Subtes
-              </span>
             </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -2066,23 +2063,39 @@ export default function ReportDetailPage() {
                             onClick={handleDownloadAllBundleZip}
                             disabled={isBundling}
                             style={{
-                                background: isBundling ? '#94A3B8' : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-                                color: 'white',
-                                padding: '10px 18px',
+                                background: isBundling ? '#F8FAFC' : '#FFFFFF',
+                                color: isBundling ? '#94A3B8' : '#1E293B',
+                                padding: '10px 16px',
                                 borderRadius: '8px',
-                                border: 'none',
-                                fontWeight: 700,
+                                border: '1px solid #CBD5E1',
+                                fontWeight: 600,
                                 fontSize: '14px',
                                 cursor: isBundling ? 'wait' : 'pointer',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '8px',
-                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
-                                transition: 'all 0.2s',
+                                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                                transition: 'all 0.15s ease',
+                            }}
+                            onMouseEnter={(e) => {
+                                if (!isBundling) {
+                                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                                    e.currentTarget.style.borderColor = '#94A3B8';
+                                }
+                            }}
+                            onMouseLeave={(e) => {
+                                if (!isBundling) {
+                                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                                    e.currentTarget.style.borderColor = '#CBD5E1';
+                                }
                             }}
                             title="Unduh 1 Paket Lengkap Berisi Psikogram (PDF & Word) serta Lembar Hasil Seluruh Subtes"
                         >
-                            <span>📦</span>
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                                <line x1="12" y1="22.08" x2="12" y2="12" />
+                            </svg>
                             <span>{isBundling ? 'Menyiapkan Paket ZIP...' : 'Unduh Semua Berkas (ZIP)'}</span>
                         </button>
 
@@ -2134,18 +2147,24 @@ export default function ReportDetailPage() {
                                             alignItems: 'center',
                                             gap: '8px',
                                             width: '100%',
-                                            padding: '12px 16px',
+                                            padding: '11px 16px',
                                             fontSize: '13px',
-                                            fontWeight: 700,
-                                            color: '#4F46E5',
-                                            background: '#EEF2FF',
+                                            fontWeight: 600,
+                                            color: '#0F766E',
+                                            background: '#F0FDFA',
                                             border: 'none',
-                                            borderBottom: '1px solid #E0E7FF',
+                                            borderBottom: '1px solid #CCFBF1',
                                             cursor: 'pointer',
                                             textAlign: 'left'
                                         }}
+                                        onMouseEnter={(e) => (e.currentTarget.style.background = '#E6FFFA')}
+                                        onMouseLeave={(e) => (e.currentTarget.style.background = '#F0FDFA')}
                                     >
-                                        <span>📦</span>
+                                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                                            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                                            <line x1="12" y1="22.08" x2="12" y2="12" />
+                                        </svg>
                                         <span>Unduh Semua Berkas (ZIP)</span>
                                     </button>
 
@@ -3939,91 +3958,111 @@ export default function ReportDetailPage() {
           position: 'fixed',
           inset: 0,
           zIndex: 99999,
-          background: 'rgba(15, 23, 42, 0.75)',
-          backdropFilter: 'blur(6px)',
+          background: 'rgba(15, 23, 42, 0.55)',
+          backdropFilter: 'blur(3px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '20px',
+          padding: '16px',
         }}>
           <div style={{
             background: '#FFFFFF',
-            borderRadius: '20px',
-            padding: '32px 28px',
-            maxWidth: '480px',
+            borderRadius: '16px',
+            border: '1px solid #E2E8F0',
+            padding: '24px 28px',
+            maxWidth: '460px',
             width: '100%',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
-            textAlign: 'center',
-            animation: 'fadeIn 0.25s ease-out',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.04)',
+            textAlign: 'left',
+            animation: 'fadeIn 0.2s ease-out',
           }}>
-            <div style={{
-              width: '64px',
-              height: '64px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)',
-              color: '#4F46E5',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 18px auto',
-              fontSize: '28px',
-            }}>
-              📦
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '16px' }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: '#F0FDFA',
+                border: '1px solid #CCFBF1',
+                color: '#0D9488',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                  <line x1="12" y1="22.08" x2="12" y2="12" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 700, color: '#0F172A' }}>
+                  Mengemas Seluruh Berkas Psikotes
+                </h3>
+                <p style={{ margin: 0, fontSize: '12.5px', color: '#64748B', lineHeight: '1.4' }}>
+                  Menyiapkan Psikogram (PDF &amp; Word) serta lembar hasil subtes untuk <strong>{participant.user?.name || 'Kandidat'}</strong>
+                </p>
+              </div>
             </div>
 
-            <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>
-              Mengemas Seluruh Berkas Psikotes
-            </h3>
-            <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#64748B', lineHeight: '1.4' }}>
-              Mengunduh Psikogram (PDF &amp; Word) dan seluruh lembar hasil subtes untuk <strong>{participant.user?.name || 'Kandidat'}</strong>
-            </p>
-
             {/* Progress Bar */}
-            <div style={{ background: '#F1F5F9', borderRadius: '10px', height: '10px', overflow: 'hidden', marginBottom: '12px' }}>
+            <div style={{ background: '#F1F5F9', borderRadius: '9999px', height: '7px', overflow: 'hidden', marginBottom: '10px' }}>
               <div style={{
                 height: '100%',
                 width: `${Math.round(((bundlingStep) / (bundlingTotal || 1)) * 100)}%`,
-                background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
-                transition: 'width 0.3s ease',
-                borderRadius: '10px'
+                background: '#0D9488',
+                transition: 'width 0.25s ease',
+                borderRadius: '9999px'
               }}></div>
             </div>
 
             {/* Status Label */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#475569', marginBottom: '18px' }}>
-              <span style={{ fontWeight: 600 }}>{bundlingMessage}</span>
-              <span style={{ fontWeight: 800, color: '#4F46E5' }}>
-                {Math.min(bundlingStep, bundlingTotal)} / {bundlingTotal}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', marginBottom: '14px' }}>
+              <span style={{ fontWeight: 600, color: '#475569' }}>{bundlingMessage}</span>
+              <span style={{ fontWeight: 700, color: '#0D9488' }}>
+                {Math.min(bundlingStep, bundlingTotal)} / {bundlingTotal} Berkas
               </span>
             </div>
 
             {/* Checklist items */}
             <div style={{
-              maxHeight: '180px',
+              maxHeight: '170px',
               overflowY: 'auto',
               background: '#F8FAFC',
               border: '1px solid #E2E8F0',
-              borderRadius: '12px',
-              padding: '12px 14px',
-              textAlign: 'left',
+              borderRadius: '10px',
+              padding: '10px 14px',
               fontSize: '12px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '8px'
+              gap: '7px'
             }}>
               {bundlingDetails.map((item, idx) => (
                 <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{
-                    color: item.status === 'done' ? '#047857' : item.status === 'loading' ? '#4F46E5' : item.status === 'error' ? '#DC2626' : '#94A3B8',
-                    fontWeight: item.status === 'loading' || item.status === 'done' ? 700 : 500
+                    color: item.status === 'done' ? '#0F766E' : item.status === 'loading' ? '#0D9488' : item.status === 'error' ? '#DC2626' : '#94A3B8',
+                    fontWeight: item.status === 'loading' || item.status === 'done' ? 600 : 500
                   }}>
                     {item.name}
                   </span>
-                  <span style={{ fontSize: '12px' }}>
-                    {item.status === 'done' && '✅'}
-                    {item.status === 'loading' && '⏳'}
-                    {item.status === 'pending' && '⚪'}
-                    {item.status === 'error' && '⚠️'}
+                  <span style={{ display: 'flex', alignItems: 'center', fontSize: '12px' }}>
+                    {item.status === 'done' && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0D9488" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                    {item.status === 'loading' && (
+                      <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0D9488" strokeWidth="2.5">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" strokeOpacity="0.25" />
+                        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                      </svg>
+                    )}
+                    {item.status === 'pending' && (
+                      <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#CBD5E1', display: 'inline-block' }} />
+                    )}
+                    {item.status === 'error' && (
+                      <span style={{ color: '#DC2626', fontWeight: 700 }}>!</span>
+                    )}
                   </span>
                 </div>
               ))}
