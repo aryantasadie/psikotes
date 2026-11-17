@@ -273,7 +273,9 @@ export async function POST(req: Request) {
 
       finalJobPositionId = jobPos.id;
       finalPresetId = jobPos.psychographPresetId;
-      finalSequence = batteryTest; // Menggunakan Battery Test resmi yang dikunci oleh Superadmin!
+      finalSequence = (Array.isArray(selectedTools) && selectedTools.length > 0)
+        ? selectedTools
+        : batteryTest; // Jika tidak ada alat tes manual, gunakan Baterai Tes resmi mitra!
       finalSpecName = jobPos.name;
     }
 
