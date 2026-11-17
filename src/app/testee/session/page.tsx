@@ -190,7 +190,7 @@ export default function TesteeSession() {
       await fetch('/api/testee/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() })
+        body: JSON.stringify({ name: name.trim(), dob })
       });
     } catch (err) {
       console.error('Failed to sync name to database:', err);

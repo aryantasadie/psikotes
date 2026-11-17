@@ -220,7 +220,7 @@ export async function POST(req: Request) {
     }
 
     const userId = parseInt((session.user as any).id);
-    const { name } = await req.json();
+    const { name, dob } = await req.json();
 
     const sanitizedName = String(name || '').replace(/[<>]/g, '').trim();
 
