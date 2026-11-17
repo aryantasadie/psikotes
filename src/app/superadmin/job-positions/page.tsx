@@ -16,7 +16,8 @@ import {
   AlertTriangle,
   Users,
   FolderOpen,
-  Info
+  Info,
+  Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +50,10 @@ export default function JobPositionList() {
   const [positions, setPositions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [viewingMitraModal, setViewingMitraModal] = useState<{
+    positionName: string;
+    mitras: string[];
+  } | null>(null);
 
   // Dialog State: Keamanan Relasi Data & Konfirmasi Hapus
   const [blockedData, setBlockedData] = useState<{
@@ -268,10 +273,32 @@ export default function JobPositionList() {
 
                       {/* 2. Perusahaan */}
                       <TableCell>
-                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
-                          <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                          <span>{displayClient}</span>
-                        </div>
+                        {clientNames.length === 0 ? (
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>Umum / Semua Klien</span>
+                          </div>
+                        ) : (
+                          <div className="inline-flex items-center gap-1.5 flex-wrap">
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-700 max-w-[170px]">
+                              <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <span className="truncate">
+                                {clientNames.length === 1
+                                  ? clientNames[0]
+                                  : `${clientNames[0]} (+${clientNames.length - 1})`}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setViewingMitraModal({ positionName: pos.name, mitras: clientNames })}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white hover:bg-slate-100 border border-slate-200 text-xs font-bold text-teal-700 hover:text-teal-900 transition-colors shadow-2xs cursor-pointer shrink-0"
+                              title="Buka daftar lengkap perusahaan mitra"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-teal-600" />
+                              <span>Lihat Detail</span>
+                            </button>
+                          </div>
+                        )}
                       </TableCell>
 
                       {/* 3. Dibuat kapan */}
@@ -434,6 +461,71 @@ export default function JobPositionList() {
               ) : (
                 'Ya, Hapus'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── MODAL POPUP: DAFTAR PERUSAHAAN MITRA LENGKAP ── */}
+      <Dialog open={!!viewingMitraModal} onOpenChange={(open) => !open && setViewingMitraModal(null)}>
+        <DialogContent className="max-w-md p-6 rounded-2xl">
+          <DialogHeader className="pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700 shrink-0">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-slate-900">
+                  Perusahaan Mitra Pengguna
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                  Standar Formasi: <strong className="text-slate-800">{viewingMitraModal?.positionName}</strong>
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="py-3 flex flex-col gap-2 max-h-[380px] overflow-y-auto">
+            {(!viewingMitraModal?.mitras || viewingMitraModal.mitras.length === 0) ? (
+              <div className="p-6 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                Standar ini belum dialokasikan secara khusus ke mitra manapun (berstatus Umum).
+              </div>
+            ) : (
+              viewingMitraModal.mitras.map((mitraName, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50/80 transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-6 h-6 rounded-lg text-[11px] font-bold flex items-center justify-center shrink-0 border bg-white text-slate-600 border-slate-200">
+                      {idx + 1}
+                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-slate-900">{mitraName}</span>
+                      <span className="text-[10px] text-slate-400">Perusahaan Mitra B2B</span>
+                    </div>
+                  </div>
+
+                  <Badge variant="outline" className="text-[10px] bg-slate-100 text-slate-600 border-slate-200 font-medium py-0.5">
+                    Mitra Terdaftar
+                  </Badge>
+                </div>
+              ))
+            )}
+          </div>
+
+          <DialogFooter className="pt-3 border-t border-slate-100 flex items-center justify-between sm:justify-between">
+            <span className="text-xs text-slate-500 font-medium">
+              Total <strong>{viewingMitraModal?.mitras.length || 0}</strong> Mitra Perusahaan
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setViewingMitraModal(null)}
+              className="h-8 px-4 text-xs font-bold"
+            >
+              Tutup
             </Button>
           </DialogFooter>
         </DialogContent>
