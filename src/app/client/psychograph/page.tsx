@@ -56,6 +56,7 @@ interface PsychographPreset {
   mapping: string;
   createdAt: string;
   jobPositions?: Array<{ id: number; name: string }>;
+  sequence?: string[];
 }
 
 export default function ClientPsychographPage() {
@@ -103,29 +104,38 @@ export default function ClientPsychographPage() {
   // Helper untuk parsing mapping dan instrumen
   const parsePresetDetails = (preset: PsychographPreset) => {
     let categories: CategoryMapping[] = [];
-    const instruments = new Set<string>();
 
     try {
       const parsed = JSON.parse(preset.mapping || '[]');
       if (Array.isArray(parsed)) {
         categories = parsed;
-        parsed.forEach(cat => {
-          (cat.aspects || []).forEach((asp: any) => {
-            if (asp.instruments && Array.isArray(asp.instruments)) {
-              asp.instruments.forEach((inst: string) => {
-                if (inst && typeof inst === 'string') {
-                  instruments.add(normalizeToolName(inst));
-                }
-              });
-            }
-          });
-        });
       }
     } catch {}
 
+    // Urutan modul baterai tes sesuai urutan resmi preset di builder (Image 2)
+    let instruments: string[] = [];
+    if (Array.isArray(preset.sequence) && preset.sequence.length > 0) {
+      instruments = preset.sequence;
+    } else {
+      // Fallback jika belum tersimpan sequence di test: ambil dari instrumen aspek
+      const fallbackSet = new Set<string>();
+      categories.forEach(cat => {
+        (cat.aspects || []).forEach((asp: any) => {
+          if (asp.instruments && Array.isArray(asp.instruments)) {
+            asp.instruments.forEach((inst: string) => {
+              if (inst && typeof inst === 'string') {
+                fallbackSet.add(normalizeToolName(inst));
+              }
+            });
+          }
+        });
+      });
+      instruments = Array.from(fallbackSet);
+    }
+
     return {
       categories,
-      instruments: Array.from(instruments),
+      instruments,
     };
   };
 

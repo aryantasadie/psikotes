@@ -30,7 +30,6 @@ export async function GET() {
     }
 
     // Ambil presets:
-    // Jika ada assignedPresetIds, ambil yang di-assign ATAU yang umum. Jika kosong, ambil semua preset yang tersedia.
     let whereClause: any = {};
     if (assignedPresetIds.length > 0) {
       whereClause = {
@@ -43,12 +42,38 @@ export async function GET() {
       include: {
         jobPositions: {
           select: { id: true, name: true }
+        },
+        tests: {
+          select: { id: true, sequence: true },
+          orderBy: { id: 'desc' }
         }
       },
       orderBy: { id: 'desc' }
     });
 
-    return NextResponse.json(presets);
+    const formattedPresets = presets.map(p => {
+      let sequenceArr: string[] = [];
+      const testWithSeq = p.tests.find(t => t.sequence && t.sequence.length > 2);
+      if (testWithSeq?.sequence) {
+        try {
+          const parsed = JSON.parse(testWithSeq.sequence);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            sequenceArr = parsed;
+          }
+        } catch {}
+      }
+
+      return {
+        id: p.id,
+        name: p.name,
+        mapping: p.mapping,
+        createdAt: p.createdAt,
+        jobPositions: p.jobPositions,
+        sequence: sequenceArr,
+      };
+    });
+
+    return NextResponse.json(formattedPresets);
   } catch (error) {
     console.error('Error fetching client psychograph presets:', error);
     return NextResponse.json({ error: 'Gagal mengambil data template kompetensi' }, { status: 500 });
