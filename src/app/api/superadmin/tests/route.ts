@@ -3,18 +3,29 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 
-
-export async function GET() {
+export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session || (session.user as any).role !== 'superadmin') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
+    const { searchParams } = new URL(req.url);
+    const clientIdParam = searchParams.get('clientId');
+
+    const whereClause: any = {};
+    if (clientIdParam) {
+      whereClause.clientId = parseInt(clientIdParam);
+    }
+
     const tests = await prisma.test.findMany({
+      where: whereClause,
       orderBy: { id: 'desc' },
       include: {
         jobPosition: true,
+        client: {
+          select: { id: true, name: true, username: true }
+        },
         _count: {
           select: { participants: true }
         }
@@ -34,14 +45,19 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { title, jobPositionId, sequence } = body;
+    const { title, jobPositionId, sequence, clientId } = body;
 
     const test = await prisma.test.create({
       data: {
         title,
         jobPositionId: jobPositionId || null,
+        clientId: clientId ? parseInt(clientId) : null,
         sequence: JSON.stringify(sequence),
         startDate: new Date(),
+      },
+      include: {
+        jobPosition: true,
+        client: { select: { id: true, name: true } }
       }
     });
 

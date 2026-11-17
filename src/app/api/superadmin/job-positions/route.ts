@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
   if (!session || !['superadmin', 'tester', 'psikolog'].includes(role)) {
@@ -11,10 +11,33 @@ export async function GET() {
   }
 
   try {
+    const { searchParams } = new URL(request.url);
+    const clientIdParam = searchParams.get('clientId');
+    const onlyClient = searchParams.get('onlyClient') === 'true';
+
+    let whereClause: any = {};
+    if (clientIdParam) {
+      const cId = parseInt(clientIdParam);
+      if (onlyClient) {
+        whereClause = { clientId: cId };
+      } else {
+        whereClause = {
+          OR: [
+            { clientId: cId },
+            { clientId: null }
+          ]
+        };
+      }
+    }
+
     const jobPositions = await prisma.jobPosition.findMany({
+      where: whereClause,
       include: {
         psychographPreset: true,
         grayAreas: true,
+        client: {
+          select: { id: true, name: true, username: true }
+        },
         tests: {
           where: {
             participants: { some: {} }
@@ -52,7 +75,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name, description, psychographPresetId, grayAreas } = body;
+    const { name, description, psychographPresetId, grayAreas, clientId } = body;
 
     if (!name || !psychographPresetId) {
       return NextResponse.json({ error: 'Name and psychographPresetId are required' }, { status: 400 });
@@ -63,12 +86,18 @@ export async function POST(request: Request) {
         name,
         description,
         psychographPresetId: parseInt(psychographPresetId),
+        clientId: clientId ? parseInt(clientId) : null,
         grayAreas: {
           create: (grayAreas || []).map((ga: any) => ({
             parameter: ga.parameter,
             targetScore: ga.targetScore
           }))
         }
+      },
+      include: {
+        psychographPreset: true,
+        grayAreas: true,
+        client: { select: { id: true, name: true } }
       }
     });
 

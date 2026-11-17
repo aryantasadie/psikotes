@@ -10,7 +10,8 @@ import {
   Loader2, 
   Calendar,
   Layers,
-  Award
+  Award,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -216,20 +217,21 @@ export default function ClientReportsPage() {
                 <TableHead className="text-xs font-bold uppercase text-slate-500">Sesi Ujian</TableHead>
                 <TableHead className="text-xs font-bold uppercase text-slate-500">Status Pengerjaan</TableHead>
                 <TableHead className="text-xs font-bold uppercase text-slate-500">Ringkasan Skor Tes</TableHead>
-                <TableHead className="text-xs font-bold uppercase text-slate-500 text-right">Rekomendasi Asesmen</TableHead>
+                <TableHead className="text-xs font-bold uppercase text-slate-500 text-center">Rekomendasi</TableHead>
+                <TableHead className="text-xs font-bold uppercase text-slate-500 text-right">Laporan</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10 text-slate-400 text-sm">
+                  <TableCell colSpan={7} className="text-center py-10 text-slate-400 text-sm">
                     <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600" />
                     Memuat data hasil asesmen...
                   </TableCell>
                 </TableRow>
               ) : allFilteredCandidates.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-10 text-slate-400 text-sm">
+                  <TableCell colSpan={7} className="text-center py-10 text-slate-400 text-sm">
                     Belum ada data kandidat yang sesuai.
                   </TableCell>
                 </TableRow>
@@ -272,8 +274,8 @@ export default function ClientReportsPage() {
                     </TableCell>
 
                     {/* Rekomendasi */}
-                    <TableCell className="text-right">
-                      {c.recommendation && c.recommendation !== 'Dalam Penilaian' ? (
+                    <TableCell className="text-center">
+                      {c.recommendation && !['Belum Mulai', 'Sedang Mengerjakan'].includes(c.recommendation) ? (
                         <Badge 
                           variant={
                             c.recommendation.toLowerCase().includes('disarankan') && !c.recommendation.toLowerCase().includes('tidak')
@@ -287,7 +289,24 @@ export default function ClientReportsPage() {
                           {c.recommendation}
                         </Badge>
                       ) : (
-                        <span className="text-xs text-slate-400 italic">Dalam Penilaian</span>
+                        <span className="text-xs text-slate-400 italic">{c.recommendation || 'Belum Mulai'}</span>
+                      )}
+                    </TableCell>
+
+                    {/* Aksi Cetak PDF */}
+                    <TableCell className="text-right">
+                      {c.status === 'completed' ? (
+                        <a
+                          href={`/report-pdf/${c.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-200 transition-colors"
+                        >
+                          <FileText className="w-3.5 h-3.5 text-teal-600" />
+                          <span>PDF</span>
+                        </a>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">-</span>
                       )}
                     </TableCell>
                   </TableRow>

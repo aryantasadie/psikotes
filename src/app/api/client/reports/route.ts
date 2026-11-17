@@ -195,6 +195,21 @@ export async function GET(req: Request) {
 
         const isCompleted = p.status === 'completed' || Object.keys(testScores).length > 0;
 
+        // Auto recommendation untuk B2B SaaS mandiri jika belum di-review psikolog manual
+        let rec = p.psychoResults?.recommendation;
+        if (!rec) {
+          if (isCompleted) {
+            const wptScore = testScores['WPT']?.score || 0;
+            if (wptScore >= 28) rec = 'DISARANKAN';
+            else if (wptScore >= 20 || Object.keys(testScores).length >= 2) rec = 'DIPERTIMBANGKAN';
+            else rec = 'TIDAK DISARANKAN';
+          } else if (p.status === 'in_progress') {
+            rec = 'Sedang Mengerjakan';
+          } else {
+            rec = 'Belum Mulai';
+          }
+        }
+
         return {
           id: p.id,
           name: p.user.name,
@@ -203,7 +218,7 @@ export async function GET(req: Request) {
           startTime: p.startTime,
           endTime: p.endTime,
           scores: testScores,
-          recommendation: p.psychoResults?.status === 'RELEASED' ? p.psychoResults.recommendation : 'Dalam Penilaian',
+          recommendation: rec,
         };
       })
     }));

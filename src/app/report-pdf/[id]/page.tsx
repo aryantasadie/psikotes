@@ -29,7 +29,7 @@ export default function ReportPdfPage() {
       router.replace(`/?callbackUrl=/report-pdf/${id}`);
     } else if (session?.user) {
       const userRole = (session.user as any)?.role;
-      if (!['superadmin', 'psikolog'].includes(userRole)) {
+      if (!['superadmin', 'psikolog', 'client'].includes(userRole)) {
         router.replace('/');
       }
     }

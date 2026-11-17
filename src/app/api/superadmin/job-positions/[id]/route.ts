@@ -41,24 +41,35 @@ export async function PUT(request: Request, context: { params: Promise<{ id: str
   const { id } = await context.params;
   try {
     const body = await request.json();
-    const { name, description, psychographPresetId, grayAreas } = body;
+    const { name, description, psychographPresetId, grayAreas, clientId } = body;
 
     await prisma.psychographGrayArea.deleteMany({
       where: { jobPositionId: parseInt(id) }
     });
 
+    const updateData: any = {
+      name,
+      description,
+      psychographPresetId: parseInt(psychographPresetId),
+      grayAreas: {
+        create: (grayAreas || []).map((ga: any) => ({
+          parameter: ga.parameter,
+          targetScore: ga.targetScore
+        }))
+      }
+    };
+
+    if (clientId !== undefined) {
+      updateData.clientId = clientId ? parseInt(clientId) : null;
+    }
+
     const updated = await prisma.jobPosition.update({
       where: { id: parseInt(id) },
-      data: {
-        name,
-        description,
-        psychographPresetId: parseInt(psychographPresetId),
-        grayAreas: {
-          create: (grayAreas || []).map((ga: any) => ({
-            parameter: ga.parameter,
-            targetScore: ga.targetScore
-          }))
-        }
+      data: updateData,
+      include: {
+        psychographPreset: true,
+        grayAreas: true,
+        client: { select: { id: true, name: true } }
       }
     });
 

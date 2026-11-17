@@ -13,7 +13,8 @@ import {
   ArrowRight, 
   Loader2,
   Calendar,
-  Sparkles
+  Sparkles,
+  Eye
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -123,6 +124,13 @@ export default function ClientDashboardPage() {
           </Button>
 
           <Button asChild variant="outline" className="border-white/30 text-white hover:bg-white/10 font-bold gap-2">
+            <Link href="/client/proctor">
+              <Eye className="w-4 h-4" />
+              <span>Live Monitor</span>
+            </Link>
+          </Button>
+
+          <Button asChild variant="outline" className="border-white/30 text-white hover:bg-white/10 font-bold gap-2">
             <Link href="/client/reports">
               <FileSpreadsheet className="w-4 h-4" />
               <span>Lihat Hasil Nilai</span>
@@ -139,7 +147,7 @@ export default function ClientDashboardPage() {
             <h2 className="text-base font-bold text-slate-900">Alokasi Saldo Kuota Alat Tes</h2>
           </div>
           <span className="text-xs text-slate-400">
-            Kuota terpotong otomatis saat membuat akun ujian kandidat
+            Kuota hanya terpotong saat kandidat mulai mengerjakan ujian (anti-ghosting)
           </span>
         </div>
 

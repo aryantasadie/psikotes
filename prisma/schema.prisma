@@ -31,6 +31,7 @@ model User {
   participants TestParticipant[]
   psychographReviews TestResultPsychograph[]
   clientTests Test[] @relation("ClientTests")
+  clientJobPositions JobPosition[] @relation("ClientJobPositions")
 }
 
 model JobPosition {
@@ -38,9 +39,11 @@ model JobPosition {
   name        String
   description String?
   psychographPresetId Int?
+  clientId    Int?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 
+  client      User?    @relation("ClientJobPositions", fields: [clientId], references: [id])
   tests       Test[]
   grayAreas   PsychographGrayArea[]
   psychographResults TestResultPsychograph[]

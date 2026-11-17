@@ -1,3 +1,4 @@
+import { markParticipantStarted } from '@/lib/b2bQuota';
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -232,12 +233,15 @@ export async function POST(req: Request) {
       data: { name: sanitizedName }
     });
 
-    // Update real-time stream feed session store if participant exists
+    // Update real-time stream feed session store if participant exists & mark started (deduct B2B quota anti-ghosting)
     try {
       const testPart = await prisma.testParticipant.findFirst({
         where: { userId },
         orderBy: { id: 'desc' }
       });
+      if (testPart && testPart.status === 'pending') {
+        await markParticipantStarted(testPart.id);
+      }
       if (testPart) {
         updateStreamSession({
           participantId: testPart.id,

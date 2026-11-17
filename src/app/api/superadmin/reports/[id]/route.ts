@@ -63,7 +63,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 
     // Client authorization check
     if (userRole === 'client') {
-      if (participant.test.clientId !== (session.user as any).id) {
+      const clientId = parseInt((session.user as any).id, 10);
+      if (participant.test?.clientId !== clientId) {
         return NextResponse.json({ error: 'Akses ditolak: Batch bukan milik akun Anda' }, { status: 403 });
       }
     }

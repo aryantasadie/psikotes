@@ -1,3 +1,4 @@
+import { markParticipantStarted } from '@/lib/b2bQuota';
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -36,11 +37,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Ujian sudah diselesaikan dan tidak dapat diubah lagi' }, { status: 400 });
     }
 
-    if (!participant.startTime) {
-      await prisma.testParticipant.update({
-        where: { id: participant.id },
-        data: { startTime: new Date() }
-      });
+    if (!participant.startTime || participant.status === 'pending') {
+      await markParticipantStarted(participant.id);
     }
 
     if (testType === 'KRAEPELIN' || testType === 'KREAPELIN') {

@@ -14,7 +14,7 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
     const params = await context.params;
     const testId = parseInt(params.id);
     const body = await req.json();
-    const { title, sequence } = body;
+    const { title, sequence, clientId } = body;
 
     if (!title) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
@@ -24,10 +24,17 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
     if (sequence) {
       dataToUpdate.sequence = JSON.stringify(sequence);
     }
+    if (clientId !== undefined) {
+      dataToUpdate.clientId = clientId ? parseInt(clientId) : null;
+    }
 
     const updatedTest = await prisma.test.update({
       where: { id: testId },
-      data: dataToUpdate
+      data: dataToUpdate,
+      include: {
+        jobPosition: true,
+        client: { select: { id: true, name: true } }
+      }
     });
 
     return NextResponse.json(updatedTest);

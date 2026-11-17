@@ -11,7 +11,8 @@ import {
   FileSpreadsheet, 
   LogOut, 
   Loader2, 
-  ShieldCheck 
+  ShieldCheck,
+  Eye 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +56,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       href: '/client/schedule',
       icon: CalendarPlus,
       active: pathname === '/client/schedule',
+    },
+    {
+      label: 'Live Monitor',
+      href: '/client/proctor',
+      icon: Eye,
+      active: pathname === '/client/proctor',
     },
     {
       label: 'Rekap & Hasil Asesmen',
