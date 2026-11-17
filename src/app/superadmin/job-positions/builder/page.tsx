@@ -124,7 +124,49 @@ export default function JobPositionBuilder() {
         if (!d?.name) return;
         setName(d.name);
         setDescription(d.description || '');
-        setPresetId(d.psychographPresetId?.toString() || '');
+        if (d.psychographPresetId) {
+          setPresetId(d.psychographPresetId.toString());
+        } else if (d.grayAreas && d.grayAreas.length > 0) {
+          setPresetId('custom');
+          const aspectList = d.grayAreas.map((ga: any) => ga.parameter);
+          setFlatAspects(aspectList);
+
+          const catMap: Record<string, string[]> = {
+            'KEMAMPUAN KOGNITIF': [],
+            'SISI AFEKTIF': [],
+            'HUBUNGAN ANTAR MANUSIA': [],
+            'SIKAP KERJA': []
+          };
+
+          const KOGNITIF = ['IQ / Kapasitas Intelektual', 'Daya Analisa', 'Logika Berpikir', 'Daya Abstraksi', 'Problem Solving'];
+          const AFEKTIF = ['Stabilitas Emosi', 'Kepekaan Emosi / Sosial', 'Kepercayaan Diri'];
+          const RELASI = ['Sosiabilitas', 'Adaptasi', 'Komunikasi'];
+
+          aspectList.forEach((asp: string) => {
+            if (KOGNITIF.includes(asp) || asp.toLowerCase().includes('intelegensi') || asp.toLowerCase().includes('inteligensi') || asp.toLowerCase().includes('iq') || asp.toLowerCase().includes('analisa') || asp.toLowerCase().includes('logika')) {
+              catMap['KEMAMPUAN KOGNITIF'].push(asp);
+            } else if (AFEKTIF.includes(asp) || asp.toLowerCase().includes('emosi') || asp.toLowerCase().includes('percaya diri')) {
+              catMap['SISI AFEKTIF'].push(asp);
+            } else if (RELASI.includes(asp) || asp.toLowerCase().includes('sosial') || asp.toLowerCase().includes('adaptasi') || asp.toLowerCase().includes('komunikasi') || asp.toLowerCase().includes('sosiabilitas')) {
+              catMap['HUBUNGAN ANTAR MANUSIA'].push(asp);
+            } else {
+              catMap['SIKAP KERJA'].push(asp);
+            }
+          });
+
+          const builtCats: ActiveCategory[] = [];
+          Object.entries(catMap).forEach(([cName, asps]) => {
+            if (asps.length > 0) {
+              builtCats.push({
+                category: cName,
+                aspects: asps.map(a => ({ name: a, description: ASPECT_DESCRIPTIONS[a] || '' }))
+              });
+            }
+          });
+          setActiveCategories(builtCats);
+        } else {
+          setPresetId('');
+        }
         if (d.clientId) {
           setFromClientId(d.clientId);
           if (!fromClient) {
@@ -155,7 +197,13 @@ export default function JobPositionBuilder() {
 
   // Parse aspects when preset changes
   useEffect(() => {
-    if (!presetId) { setActiveCategories([]); setFlatAspects([]); return; }
+    if (!presetId || presetId === 'custom') {
+      if (!presetId) {
+        setActiveCategories([]);
+        setFlatAspects([]);
+      }
+      return;
+    }
     const preset = presets.find(p => p.id.toString() === presetId);
     if (!preset?.mapping) return;
     try {
@@ -192,15 +240,16 @@ export default function JobPositionBuilder() {
   }, [presetId, presets]);
 
   const handleSave = async () => {
-    if (!name) return setError('Nama Standar Jabatan harus diisi.');
-    if (!presetId) return setError('Template Psikogram harus dipilih.');
+    if (!name.trim()) return setError('Nama Standar Jabatan harus diisi.');
+    if (!presetId && flatAspects.length === 0) return setError('Template Psikogram harus dipilih.');
     setSaving(true); setError('');
     const url    = editId ? `/api/superadmin/job-positions/${editId}` : '/api/superadmin/job-positions';
     const method = editId ? 'PUT' : 'POST';
+    const finalPresetId = presetId && presetId !== 'custom' ? parseInt(presetId) : null;
     const payload: any = {
-      name, 
-      description, 
-      psychographPresetId: presetId,
+      name: name.trim(), 
+      description: description.trim(), 
+      psychographPresetId: finalPresetId,
       grayAreas: flatAspects.map(a => ({ parameter: a, targetScore: grayAreas[a]?.targetScore || 3 })),
     };
     if (fromClientId && !editId) {
@@ -272,6 +321,9 @@ export default function JobPositionBuilder() {
               className="w-full max-w-sm px-4 py-2.5 border border-slate-200 rounded-xl text-[13px] text-slate-900 focus:outline-none focus:border-teal-400 transition-colors bg-white"
             >
               <option value="">— Pilih Template —</option>
+              {editId && presetId === 'custom' && (
+                <option value="custom">Paket Kustom ({flatAspects.length} Aturan Aspek Terkonfigurasi)</option>
+              )}
               {presets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
             <p className="text-[11px] text-slate-400 mt-1.5">
