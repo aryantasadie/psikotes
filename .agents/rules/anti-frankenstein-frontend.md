@@ -1,7 +1,6 @@
 ---
 description: Anti-Frankenstein Frontend guardrails to prevent patchwork UI, component duplication, inconsistent styling, and library bloat.
-globs: ["**/*.{tsx,jsx,ts,js,css,html}"]
-alwaysApply: true
+globs: "**/*.{tsx,jsx,ts,js,css,html}"
 ---
 
 # Anti-Frankenstein Frontend Guardrails
