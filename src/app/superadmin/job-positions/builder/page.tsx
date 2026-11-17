@@ -62,6 +62,8 @@ export default function JobPositionBuilder() {
   const [saving, setSaving]                 = useState(false);
   const [error, setError]                   = useState('');
   const [editId, setEditId]                 = useState<number | null>(null);
+  const [fromClientId, setFromClientId]     = useState<number | null>(null);
+  const [returnUrl, setReturnUrl]           = useState<string>('/superadmin/job-positions');
   const [updatedAt, setUpdatedAt]           = useState<string | null>(null);
   const router = useRouter();
 
@@ -104,7 +106,16 @@ export default function JobPositionBuilder() {
 
   // Load existing position if editing
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('id');
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    const fromClient = params.get('fromClient');
+
+    if (fromClient) {
+      setFromClientId(parseInt(fromClient));
+      setReturnUrl(`/superadmin/clients/${fromClient}?tab=psychograph`);
+    }
+
     if (!id) return;
     setEditId(parseInt(id));
     fetch(`/api/superadmin/job-positions/${id}`)
@@ -114,6 +125,12 @@ export default function JobPositionBuilder() {
         setName(d.name);
         setDescription(d.description || '');
         setPresetId(d.psychographPresetId?.toString() || '');
+        if (d.clientId) {
+          setFromClientId(d.clientId);
+          if (!fromClient) {
+            setReturnUrl(`/superadmin/clients/${d.clientId}?tab=psychograph`);
+          }
+        }
         if (d.updatedAt) {
           setUpdatedAt(new Date(d.updatedAt).toLocaleString('id-ID', { dateStyle: 'long', timeStyle: 'short' }));
         }
@@ -180,15 +197,21 @@ export default function JobPositionBuilder() {
     setSaving(true); setError('');
     const url    = editId ? `/api/superadmin/job-positions/${editId}` : '/api/superadmin/job-positions';
     const method = editId ? 'PUT' : 'POST';
+    const payload: any = {
+      name, 
+      description, 
+      psychographPresetId: presetId,
+      grayAreas: flatAspects.map(a => ({ parameter: a, targetScore: grayAreas[a]?.targetScore || 3 })),
+    };
+    if (fromClientId && !editId) {
+      payload.clientId = fromClientId;
+    }
     const res    = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name, description, psychographPresetId: presetId,
-        grayAreas: flatAspects.map(a => ({ parameter: a, targetScore: grayAreas[a]?.targetScore || 3 })),
-      }),
+      body: JSON.stringify(payload),
     });
-    if (res.ok) router.push('/superadmin/job-positions');
+    if (res.ok) router.push(returnUrl);
     else { const d = await res.json(); setError(d.error || 'Gagal menyimpan.'); setSaving(false); }
   };
 
@@ -198,7 +221,7 @@ export default function JobPositionBuilder() {
       {/* Page header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <Link href="/superadmin/job-positions"
+          <Link href={returnUrl}
             className="w-9 h-9 flex items-center justify-center border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 transition-colors">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7"/>
@@ -356,7 +379,7 @@ export default function JobPositionBuilder() {
 
       {/* ── Sticky save bar ── */}
       <div className="sticky bottom-4 bg-white/95 backdrop-blur-md border border-slate-200 px-6 py-4 rounded-2xl flex justify-end gap-3 z-40 shadow-xl">
-        <Link href="/superadmin/job-positions"
+        <Link href={returnUrl}
           className="text-[13px] font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2.5 rounded-xl transition-colors">
           Batal
         </Link>

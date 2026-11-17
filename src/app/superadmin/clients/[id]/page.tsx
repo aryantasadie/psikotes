@@ -721,12 +721,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   </p>
                 </div>
                 <Button
-                  type="button"
-                  onClick={handleStartCreateJob}
+                  asChild
                   className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs gap-1.5 h-10 px-5 self-start sm:self-auto"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Buat Standar Jabatan Baru</span>
+                  <Link href={`/superadmin/job-positions/builder?fromClient=${clientId}`}>
+                    <Plus className="w-4 h-4" />
+                    <span>Buat Standar Jabatan Baru</span>
+                  </Link>
                 </Button>
               </div>
 
@@ -779,14 +780,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         <span className="text-slate-400 text-[11px]">
                           {isChecked ? '✓ Aktif di Portal Mitra' : 'Nonaktif'}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditJob(pos)}
-                          className="text-teal-700 hover:text-teal-900 font-bold flex items-center gap-1 cursor-pointer text-xs"
+                        <Link
+                          href={`/superadmin/job-positions/builder?id=${pos.id}&fromClient=${clientId}`}
+                          className="text-teal-700 hover:text-teal-900 font-bold flex items-center gap-1 cursor-pointer text-xs transition-colors"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                           <span>Edit Standar Gray Area</span>
-                        </button>
+                        </Link>
                       </div>
                     </div>
                   );
