@@ -1,0 +1,20 @@
+# Anti-Frankenstein Frontend Guardrails
+
+You are strictly prohibited from building "Frankenstein" frontends—patchwork UI, inconsistent styling, duplicate components, or cobbled-together libraries. Every frontend modification must adhere to these rules:
+
+1. Zero Duplicate Primitives & Component Reuse (The "Check First" Rule)
+- Before creating any new UI component, modal, table, card, button, or badge, always inspect existing components in `src/components/`.
+- If an approved primitive exists, reuse or extend it. Never rewrite a duplicate version.
+
+2. Design System & Styling Discipline
+- Stick to established project tokens and colors: Primary Teal (#0d9488), Dark Slate (#0F172A), Neutral Slate (#64748B, #E2E8F0), Accent Indigo (#4F46E5), Status Emerald/Amber/Rose.
+- Avoid random conflicting inline styles when Tailwind utilities or existing classes are available.
+- Maintain consistent border-radius (rounded-xl / 12px), shadows, and typography.
+
+3. Dependency Discipline
+- Never install random npm packages for trivial tasks. Use native APIs or existing libraries.
+- Use unified icons (lucide-react or established clean inline SVGs).
+
+4. Clean Architecture & Refactoring
+- Keep 'use client' minimal.
+- Remove orphaned imports, dead variables, and commented-out code blocks immediately.
