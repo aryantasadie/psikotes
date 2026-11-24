@@ -10,6 +10,7 @@ import {
   Coins,
   History,
   Plus,
+  Minus,
   ArrowUp,
   ArrowDown,
   X,
@@ -115,6 +116,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [savingQuota, setSavingQuota] = useState(false);
   const [clientLedger, setClientLedger] = useState<any[]>([]);
   const [topUpForm, setTopUpForm] = useState({
+    actionType: 'TOPUP' as 'TOPUP' | 'REDUCE',
     quotaType: 'PACKAGE' as 'PACKAGE' | 'SINGLE',
     amount: '50',
     referenceDoc: '',
@@ -464,15 +466,24 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     return '—';
   };
 
-  // ─── TAB 3: DUAL-WALLET & TOP-UP HANDLERS (SPESIFIKASI B2B TICKETING) ──────
+  // ─── TAB 3: DUAL-WALLET & TOP-UP / REDUCE HANDLERS (SPESIFIKASI B2B TICKETING) ──────
   const handleExecuteTopUp = async () => {
     if (!topUpForm.referenceDoc.trim()) {
       alert('Nomor PO / Dokumen Referensi Kontrak administratif wajib diisi.');
       return;
     }
-    const n = parseInt(topUpForm.amount, 10);
-    if (isNaN(n) || n <= 0) {
-      alert('Jumlah kuota top-up harus berupa angka positif (> 0).');
+    const rawN = parseInt(topUpForm.amount, 10);
+    if (isNaN(rawN) || rawN === 0) {
+      alert('Jumlah kuota harus berupa angka dan tidak boleh 0.');
+      return;
+    }
+
+    const isReduce = topUpForm.actionType === 'REDUCE' || rawN < 0;
+    const absN = Math.abs(rawN);
+    const curBal = topUpForm.quotaType === 'PACKAGE' ? (client.quotaPackage || 0) : (client.quotaSingle || 0);
+
+    if (isReduce && absN > curBal) {
+      alert(`Jumlah pengurangan (${absN}) melebihi sisa saldo ${topUpForm.quotaType === 'PACKAGE' ? 'Paket Asesmen' : 'Single Test'} klien saat ini (${curBal}). Saldo tidak boleh bernilai negatif.`);
       return;
     }
 
@@ -483,8 +494,9 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          actionType: isReduce ? 'REDUCE' : 'TOPUP',
           quotaType: topUpForm.quotaType,
-          amount: n,
+          amount: isReduce ? -absN : absN,
           referenceDoc: topUpForm.referenceDoc.trim(),
           expiredAt: topUpForm.expiredAt,
           notes: topUpForm.notes.trim(),
@@ -493,11 +505,11 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
 
       const d = await res.json();
       if (res.ok) {
-        setFlashMsg({ text: d.message || 'Top-up kuota berhasil disimpan ke Buku Besar!', type: 'success' });
-        setTopUpForm(prev => ({ ...prev, referenceDoc: '', notes: '' }));
+        setFlashMsg({ text: d.message || 'Mutasi kuota berhasil dicatat!', type: 'success' });
+        setTopUpForm(prev => ({ ...prev, referenceDoc: '', notes: '', amount: '10' }));
         await fetchClientData();
       } else {
-        setFlashMsg({ text: d.error || 'Gagal memproses top-up kuota.', type: 'error' });
+        setFlashMsg({ text: d.error || 'Gagal memproses mutasi kuota.', type: 'error' });
       }
     } catch {
       setFlashMsg({ text: 'Terjadi kesalahan jaringan.', type: 'error' });
@@ -1711,17 +1723,51 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               </div>
             </div>
 
-            {/* Card 2: Form Top-Up Resmi (PO / Kontrak & Rollover) */}
+            {/* Card 2: Form Top-Up & Pengurangan Resmi (PO / Kontrak & Rollover) */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
-              <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-                <Coins className="w-5 h-5 text-teal-600" />
-                <h3 className="text-sm font-bold text-slate-900 uppercase">
-                  Top-Up Kuota Resmi (Buku Kas Non-Finansial)
-                </h3>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <Coins className="w-5 h-5 text-teal-600" />
+                  <h3 className="text-sm font-bold text-slate-900 uppercase">
+                    Alokasi & Mutasi Kuota (Buku Kas Non-Finansial)
+                  </h3>
+                </div>
               </div>
 
               <div className="flex flex-col gap-3 text-xs">
-                {/* Pilihan Dompet */}
+                {/* 1. Pilih Jenis Operasi Kuota */}
+                <div className="flex flex-col gap-1">
+                  <label className="font-bold text-slate-700">Jenis Operasi Kuota *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTopUpForm(prev => ({ ...prev, actionType: 'TOPUP' }))}
+                      className={`p-2.5 rounded-xl border text-center flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        topUpForm.actionType === 'TOPUP'
+                          ? 'border-teal-500 bg-teal-50 text-teal-950 font-bold ring-1 ring-teal-500 shadow-2xs'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Plus className="w-4 h-4 text-teal-600" />
+                      <span>Tambah Kuota (Top-Up)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setTopUpForm(prev => ({ ...prev, actionType: 'REDUCE' }))}
+                      className={`p-2.5 rounded-xl border text-center flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        topUpForm.actionType === 'REDUCE'
+                          ? 'border-rose-500 bg-rose-50 text-rose-950 font-bold ring-1 ring-rose-500 shadow-2xs'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <Minus className="w-4 h-4 text-rose-600" />
+                      <span>Kurangi Kuota (Minus)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Pilihan Dompet Kuota */}
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-slate-700">Pilih Dompet Kuota *</label>
                   <div className="grid grid-cols-2 gap-2">
@@ -1734,10 +1780,13 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      <span className="flex items-center gap-1.5 font-bold">
-                        <Package className="w-3.5 h-3.5 text-teal-600" />
-                        <span>Paket Asesmen</span>
-                      </span>
+                      <div className="flex flex-col min-w-0">
+                        <span className="flex items-center gap-1.5 font-bold">
+                          <Package className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                          <span>Paket Asesmen</span>
+                        </span>
+                        <span className="text-[10px] text-slate-500 mt-0.5">Saldo: {client.quotaPackage || 0} Sesi</span>
+                      </div>
                     </button>
 
                     <button
@@ -1749,30 +1798,59 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                           : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                       }`}
                     >
-                      <span className="flex items-center gap-1.5 font-bold">
-                        <Target className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Single Test</span>
-                      </span>
+                      <div className="flex flex-col min-w-0">
+                        <span className="flex items-center gap-1.5 font-bold">
+                          <Target className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                          <span>Single Test</span>
+                        </span>
+                        <span className="text-[10px] text-slate-500 mt-0.5">Saldo: {client.quotaSingle || 0} Tes</span>
+                      </div>
                     </button>
                   </div>
                 </div>
 
-                {/* Jumlah & PO */}
+                {/* 3. Jumlah & Tanggal Kedaluwarsa */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="font-bold text-slate-700">Jumlah Kuota *</label>
+                    <label className="font-bold text-slate-700">
+                      {topUpForm.actionType === 'REDUCE' ? 'Jumlah Kuota Dikurangi (-)' : 'Jumlah Kuota Ditambah (+)'} *
+                    </label>
                     <Input
                       type="number"
-                      min="1"
                       value={topUpForm.amount}
                       onChange={(e) => setTopUpForm(prev => ({ ...prev, amount: e.target.value }))}
-                      placeholder="50"
-                      className="h-9 text-xs font-bold"
+                      placeholder={topUpForm.actionType === 'REDUCE' ? 'Contoh: 5' : '50'}
+                      className={`h-9 text-xs font-bold ${
+                        topUpForm.actionType === 'REDUCE' ? 'text-rose-700 border-rose-300 focus-visible:ring-rose-400' : 'text-teal-900'
+                      }`}
                     />
+                    {/* Live Preview Saldo */}
+                    {(() => {
+                      const curBal = topUpForm.quotaType === 'PACKAGE' ? (client.quotaPackage || 0) : (client.quotaSingle || 0);
+                      const rawN = parseInt(topUpForm.amount, 10);
+                      const absN = isNaN(rawN) ? 0 : Math.abs(rawN);
+                      if (topUpForm.actionType === 'REDUCE') {
+                        const isOver = absN > curBal;
+                        return (
+                          <span className={`text-[10px] leading-tight ${isOver ? 'text-rose-600 font-bold' : 'text-slate-500'}`}>
+                            {isOver
+                              ? `⚠️ Melebihi saldo klien (${curBal})!`
+                              : `Saldo: ${curBal} → ${curBal - absN} (${-absN})`}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className="text-[10px] text-slate-500 leading-tight">
+                          Saldo: {curBal} → {curBal + absN} (+{absN})
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="font-bold text-slate-700">Tanggal Kedaluwarsa *</label>
+                    <label className="font-bold text-slate-700">
+                      Tanggal Kedaluwarsa {topUpForm.actionType === 'REDUCE' ? '(Opsional)' : '*'}
+                    </label>
                     <Input
                       type="date"
                       value={topUpForm.expiredAt}
@@ -1782,14 +1860,34 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                   </div>
                 </div>
 
-                {/* Nomor Dokumen PO / SPK */}
+                {/* 4. Nomor Dokumen PO / SPK */}
                 <div className="flex flex-col gap-1">
                   <label className="font-bold text-slate-700">No. PO / Referensi Kontrak Administratif *</label>
                   <Input
                     type="text"
                     value={topUpForm.referenceDoc}
                     onChange={(e) => setTopUpForm(prev => ({ ...prev, referenceDoc: e.target.value }))}
-                    placeholder="Contoh: PO-HRP-2026-089 atau KONTRAK-SPK-09"
+                    placeholder={
+                      topUpForm.actionType === 'REDUCE'
+                        ? 'Contoh: KOREKSI-SPK-01 atau REFUND-01'
+                        : 'Contoh: PO-HRP-2026-089 atau KONTRAK-SPK-09'
+                    }
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                {/* 5. Catatan / Alasan Mutasi */}
+                <div className="flex flex-col gap-1">
+                  <label className="font-bold text-slate-700">Catatan / Alasan Mutasi (Opsional)</label>
+                  <Input
+                    type="text"
+                    value={topUpForm.notes}
+                    onChange={(e) => setTopUpForm(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder={
+                      topUpForm.actionType === 'REDUCE'
+                        ? 'Alasan pengurangan token (koreksi kuota, pembatalan, penyesuaian)'
+                        : 'Catatan tambahan top-up kuota'
+                    }
                     className="h-9 text-xs"
                   />
                 </div>
@@ -1797,12 +1895,36 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                 <div className="flex justify-end pt-2 border-t border-slate-100">
                   <Button
                     type="button"
-                    disabled={submittingTopUp}
+                    disabled={
+                      submittingTopUp ||
+                      (topUpForm.actionType === 'REDUCE' && (
+                        (parseInt(topUpForm.amount, 10) || 0) > (topUpForm.quotaType === 'PACKAGE' ? (client.quotaPackage || 0) : (client.quotaSingle || 0)) ||
+                        (topUpForm.quotaType === 'PACKAGE' ? (client.quotaPackage || 0) : (client.quotaSingle || 0)) <= 0
+                      ))
+                    }
                     onClick={handleExecuteTopUp}
-                    className="bg-teal-600 hover:bg-teal-700 text-white font-bold gap-2 text-xs"
+                    className={`font-bold gap-2 text-xs text-white ${
+                      topUpForm.actionType === 'REDUCE'
+                        ? 'bg-rose-600 hover:bg-rose-700'
+                        : 'bg-teal-600 hover:bg-teal-700'
+                    }`}
                   >
-                    {submittingTopUp && <Loader2 className="w-4 h-4 animate-spin" />}
-                    <span>{submittingTopUp ? 'Memproses Top-Up...' : 'Simpan & Top-Up Kuota'}</span>
+                    {submittingTopUp ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Memproses Mutasi...</span>
+                      </>
+                    ) : topUpForm.actionType === 'REDUCE' ? (
+                      <>
+                        <Minus className="w-4 h-4" />
+                        <span>Simpan & Kurangi Kuota (-)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4" />
+                        <span>Simpan & Top-Up Kuota (+)</span>
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -1863,6 +1985,8 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                               ? 'bg-blue-50 text-blue-800 border-blue-200'
                               : item.transactionType === 'CONVERT'
                               ? 'bg-purple-50 text-purple-800 border-purple-200'
+                              : item.transactionType === 'ADJUSTMENT'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200'
                               : 'bg-rose-50 text-rose-800 border-rose-200'
                           }`}
                         >
@@ -1873,7 +1997,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
                         {item.quotaType === 'PACKAGE' ? 'Paket Asesmen' : 'Single Test'}
                       </TableCell>
                       <TableCell className="text-right font-black">
-                        <span className={item.amount > 0 ? 'text-emerald-700' : 'text-slate-800'}>
+                        <span className={item.amount > 0 ? 'text-emerald-700 font-bold' : item.amount < 0 ? 'text-rose-600 font-bold' : 'text-slate-800'}>
                           {item.amount > 0 ? `+${item.amount}` : item.amount}
                         </span>
                       </TableCell>

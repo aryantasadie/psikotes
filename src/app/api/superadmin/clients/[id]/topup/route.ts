@@ -10,7 +10,7 @@ export async function POST(
   try {
     const session = await getServerSession(authOptions);
     if (!session || (session.user as any).role !== 'superadmin') {
-      return NextResponse.json({ error: 'Akses ditolak. Hanya Superadmin yang dapat melakukan top-up kuota.' }, { status: 403 });
+      return NextResponse.json({ error: 'Akses ditolak. Hanya Superadmin yang dapat mengelola kuota.' }, { status: 403 });
     }
 
     const { id } = await context.params;
@@ -20,28 +20,33 @@ export async function POST(
     }
 
     const body = await reqBody(request);
-    const { quotaType, amount, referenceDoc, expiredAt, notes } = body;
+    const { quotaType, amount, referenceDoc, expiredAt, notes, actionType } = body;
 
     if (!['PACKAGE', 'SINGLE'].includes(quotaType)) {
       return NextResponse.json({ error: 'Tipe kuota harus PACKAGE atau SINGLE.' }, { status: 400 });
     }
 
-    const nAmount = parseInt(amount, 10);
-    if (isNaN(nAmount) || nAmount <= 0) {
-      return NextResponse.json({ error: 'Jumlah kuota top-up harus berupa angka positif.' }, { status: 400 });
+    const rawAmount = parseInt(amount, 10);
+    if (isNaN(rawAmount) || rawAmount === 0) {
+      return NextResponse.json({ error: 'Jumlah kuota tidak boleh 0 atau kosong.' }, { status: 400 });
     }
+
+    // Tentukan operasi: apakah TOPUP (tambah) atau REDUCE (kurangi/minus)
+    const isReduce = actionType === 'REDUCE' || rawAmount < 0;
+    const absAmount = Math.abs(rawAmount);
 
     if (!referenceDoc || !referenceDoc.trim()) {
       return NextResponse.json({ error: 'Nomor PO / Referensi Kontrak administratif wajib diisi.' }, { status: 400 });
     }
 
-    if (!expiredAt) {
-      return NextResponse.json({ error: 'Tanggal kedaluwarsa paket wajib diisi.' }, { status: 400 });
-    }
-
-    const newExpiredDate = new Date(expiredAt);
-    if (isNaN(newExpiredDate.getTime())) {
-      return NextResponse.json({ error: 'Format tanggal kedaluwarsa tidak valid.' }, { status: 400 });
+    let newExpiredDate: Date | null = null;
+    if (expiredAt) {
+      newExpiredDate = new Date(expiredAt);
+      if (isNaN(newExpiredDate.getTime())) {
+        return NextResponse.json({ error: 'Format tanggal kedaluwarsa tidak valid.' }, { status: 400 });
+      }
+    } else if (!isReduce) {
+      return NextResponse.json({ error: 'Tanggal kedaluwarsa paket wajib diisi untuk top-up.' }, { status: 400 });
     }
 
     // Eksekusi transaksi atomik di DB
@@ -63,10 +68,6 @@ export async function POST(
         throw new Error('Klien tidak ditemukan.');
       }
 
-      const now = new Date();
-      const currentExpired = client.quotaExpiredAt ? new Date(client.quotaExpiredAt) : null;
-      const isExpired = currentExpired !== null && currentExpired < now;
-
       let currentPackage = client.quotaPackage ?? 0;
       let currentSingle = client.quotaSingle ?? 0;
 
@@ -84,56 +85,86 @@ export async function POST(
         } catch {}
       }
 
-      let prevBalance = quotaType === 'PACKAGE' ? currentPackage : currentSingle;
+      const prevBalance = quotaType === 'PACKAGE' ? currentPackage : currentSingle;
       let newBalance = 0;
 
-      if (isExpired && prevBalance > 0) {
-        // KASUS B: Top-up setelah kedaluwarsa - Hangus Kaku (Reset saldo lama)
-        await tx.quotaLedger.create({
-          data: {
-            clientId: client.id,
-            quotaType,
-            transactionType: 'EXPIRED',
-            amount: -prevBalance,
-            balanceAfter: 0,
-            referenceDoc: referenceDoc.trim(),
-            notes: `Sisa saldo hangus otomatis karena melewati batas kedaluwarsa (${currentExpired?.toLocaleDateString('id-ID')}).`,
-          }
-        });
+      if (isReduce) {
+        // OPERASI PENGURANGAN KUOTA (MINUS / ADJUSTMENT)
+        if (absAmount > prevBalance) {
+          throw new Error(
+            `Jumlah pengurangan (${absAmount}) melebihi sisa saldo ${quotaType === 'PACKAGE' ? 'Paket Asesmen' : 'Single Test'} klien (${prevBalance} kuota). Saldo tidak boleh bernilai negatif.`
+          );
+        }
 
-        // Top up saldo murni dari awal
-        newBalance = nAmount;
+        newBalance = prevBalance - absAmount;
+
+        // Catat mutasi di Buku Besar (QuotaLedger) sebagai ADJUSTMENT dengan amount negatif
         await tx.quotaLedger.create({
           data: {
             clientId: client.id,
             quotaType,
-            transactionType: 'TOPUP',
-            amount: nAmount,
+            transactionType: 'ADJUSTMENT',
+            amount: -absAmount,
             balanceAfter: newBalance,
             referenceDoc: referenceDoc.trim(),
-            notes: notes?.trim() || 'Top-up baru setelah masa aktif kedaluwarsa.',
+            notes: notes?.trim() || `Pengurangan/koreksi kuota ${quotaType === 'PACKAGE' ? 'Paket Asesmen' : 'Single Test'} oleh Superadmin (-${absAmount} kuota).`,
           }
         });
       } else {
-        // KASUS A: Top-up sebelum kedaluwarsa / Fresh - Rollover Aktif (Akumulasi)
-        newBalance = prevBalance + nAmount;
-        await tx.quotaLedger.create({
-          data: {
-            clientId: client.id,
-            quotaType,
-            transactionType: 'TOPUP',
-            amount: nAmount,
-            balanceAfter: newBalance,
-            referenceDoc: referenceDoc.trim(),
-            notes: notes?.trim() || (prevBalance > 0 ? 'Top-up rollover akumulatif.' : 'Alokasi kuota awal.'),
-          }
-        });
+        // OPERASI PENAMBAHAN KUOTA (TOPUP / ROLLOVER)
+        const now = new Date();
+        const currentExpired = client.quotaExpiredAt ? new Date(client.quotaExpiredAt) : null;
+        const isExpired = currentExpired !== null && currentExpired < now;
+
+        if (isExpired && prevBalance > 0) {
+          // KASUS B: Top-up setelah kedaluwarsa - Hangus Kaku (Reset saldo lama)
+          await tx.quotaLedger.create({
+            data: {
+              clientId: client.id,
+              quotaType,
+              transactionType: 'EXPIRED',
+              amount: -prevBalance,
+              balanceAfter: 0,
+              referenceDoc: referenceDoc.trim(),
+              notes: `Sisa saldo hangus otomatis karena melewati batas kedaluwarsa (${currentExpired?.toLocaleDateString('id-ID')}).`,
+            }
+          });
+
+          // Top up saldo murni dari awal
+          newBalance = absAmount;
+          await tx.quotaLedger.create({
+            data: {
+              clientId: client.id,
+              quotaType,
+              transactionType: 'TOPUP',
+              amount: absAmount,
+              balanceAfter: newBalance,
+              referenceDoc: referenceDoc.trim(),
+              notes: notes?.trim() || 'Top-up baru setelah masa aktif kedaluwarsa.',
+            }
+          });
+        } else {
+          // KASUS A: Top-up sebelum kedaluwarsa / Fresh - Rollover Aktif (Akumulasi)
+          newBalance = prevBalance + absAmount;
+          await tx.quotaLedger.create({
+            data: {
+              clientId: client.id,
+              quotaType,
+              transactionType: 'TOPUP',
+              amount: absAmount,
+              balanceAfter: newBalance,
+              referenceDoc: referenceDoc.trim(),
+              notes: notes?.trim() || (prevBalance > 0 ? 'Top-up rollover akumulatif.' : 'Alokasi kuota awal.'),
+            }
+          });
+        }
       }
 
       // Update data User
-      const updateData: any = {
-        quotaExpiredAt: newExpiredDate,
-      };
+      const updateData: any = {};
+      if (newExpiredDate) {
+        updateData.quotaExpiredAt = newExpiredDate;
+      }
 
       if (quotaType === 'PACKAGE') {
         updateData.quotaPackage = newBalance;
@@ -165,17 +196,22 @@ export async function POST(
         }
       });
 
-      return updatedUser;
+      return { updatedUser, isReduce, absAmount, newBalance };
     });
+
+    const labelQuota = quotaType === 'PACKAGE' ? 'Paket Asesmen' : 'Single Test';
+    const message = result.isReduce
+      ? `Pengurangan ${result.absAmount} kuota ${labelQuota} berhasil disimpan. Saldo akhir: ${result.newBalance} kuota.`
+      : `Top-up ${result.absAmount} kuota ${labelQuota} berhasil dicatat. Saldo akhir: ${result.newBalance} kuota.`;
 
     return NextResponse.json({
       success: true,
-      message: `Top-up ${nAmount} kuota ${quotaType === 'PACKAGE' ? 'Paket Asesmen' : 'Single Test'} berhasil dicatat.`,
-      client: result,
+      message,
+      client: result.updatedUser,
     });
   } catch (error: any) {
-    console.error('Error topup client quota:', error);
-    return NextResponse.json({ error: error.message || 'Gagal memproses top-up kuota.' }, { status: 500 });
+    console.error('Error managing client quota:', error);
+    return NextResponse.json({ error: error.message || 'Gagal memproses mutasi kuota.' }, { status: 500 });
   }
 }
 
