@@ -105,6 +105,7 @@ export default function ClientSchedulePage() {
   // Form State matching Image 5
   const [sessionName, setSessionName] = useState('');
   const [selectedJobId, setSelectedJobId] = useState<string>(''); // "" = Tanpa Psikogram Jabatan (Pilih Alat Tes Mandiri)
+  const [useCustomTools, setUseCustomTools] = useState(false);
   const [selectedCustomTools, setSelectedCustomTools] = useState<string[]>([]);
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
   const [prefix, setPrefix] = useState('');
@@ -196,6 +197,11 @@ export default function ClientSchedulePage() {
       return;
     }
 
+    if (!isMandiri && useCustomTools && selectedCustomTools.length === 0) {
+      setFormError('Anda mengaktifkan kustomisasi alat tes manual. Silakan centang minimal 1 alat tes.');
+      return;
+    }
+
     if (!prefix.trim()) {
       setFormError('Prefix username wajib diisi.');
       return;
@@ -220,7 +226,7 @@ export default function ClientSchedulePage() {
           sessionName,
           mode,
           jobPositionId: !isMandiri ? Number(selectedJobId) : null,
-          selectedTools: selectedCustomTools,
+          selectedTools: (useCustomTools || isMandiri) ? selectedCustomTools : [],
           sessionDate,
           prefix: prefix.trim().toLowerCase(),
           count: n,
@@ -236,6 +242,7 @@ export default function ClientSchedulePage() {
         setPrefix('');
         setCount('');
         setSelectedJobId('');
+        setUseCustomTools(false);
         setSelectedCustomTools([]);
         setDisableMedia(false);
         fetchData();
@@ -408,9 +415,24 @@ export default function ClientSchedulePage() {
 
               {/* 2. Psikogram Jabatan (Opsional jika tes mandiri) */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-800">
-                  Psikogram Jabatan <span className="text-slate-400 font-normal">(Opsional jika tes mandiri)</span>
-                </label>
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-slate-800">
+                    Psikogram Jabatan <span className="text-slate-400 font-normal">(Opsional jika tes mandiri)</span>
+                  </label>
+                  {selectedJobId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedJobId('');
+                        setUseCustomTools(false);
+                        setSelectedCustomTools([]);
+                      }}
+                      className="text-xs text-rose-500 hover:text-rose-700 font-semibold underline cursor-pointer"
+                    >
+                      Batal pilih psikogram
+                    </button>
+                  )}
+                </div>
                 <select
                   value={selectedJobId}
                   onChange={e => {
@@ -418,17 +440,12 @@ export default function ClientSchedulePage() {
                     setSelectedJobId(val);
                     if (val) {
                       const found = bankPsikogram.find(j => String(j.id) === val);
-                      if (found) {
-                        if (!sessionName.trim() || bankPsikogram.some(j => j.name === sessionName.trim())) {
-                          setSessionName(found.name);
-                        }
-                        if (Array.isArray(found.sequence) && found.sequence.length > 0) {
-                          setSelectedCustomTools(found.sequence);
-                        }
+                      if (found && (!sessionName.trim() || bankPsikogram.some(j => j.name === sessionName.trim()))) {
+                        setSessionName(found.name);
                       }
-                    } else {
-                      setSelectedCustomTools([]);
                     }
+                    setUseCustomTools(false);
+                    setSelectedCustomTools([]);
                     if (formError) setFormError('');
                   }}
                   className="h-10 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 font-medium focus:ring-1 focus:ring-teal-500 focus:outline-none"
@@ -455,158 +472,175 @@ export default function ClientSchedulePage() {
                 )}
               </div>
 
-              {/* 3. Pilih Alat Tes yang Diujikan * (Matching Image 5 layout) */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-800">
-                    Pilih Alat Tes yang Diujikan {!selectedJobId && <span className="text-rose-500">*</span>}
-                  </label>
-                  <span className="text-xs text-slate-400">
-                    {!selectedJobId ? 'Pilih minimal 1 alat tes' : 'Opsional: Otomatis mengikuti formasi jabatan'}
-                  </span>
-                </div>
-
-                {/* Checkbox Grid 3 Kolom Matching Image 5 */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {/* Row 1, Col 1: WPT */}
-                  <div
-                    onClick={() => toggleTool('WPT')}
-                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
-                      selectedCustomTools.includes('WPT')
-                        ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
-                        : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        checked={selectedCustomTools.includes('WPT')}
-                        readOnly
-                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
-                      />
-                      <span className="text-xs">WPT</span>
-                    </div>
-                  </div>
-
-                  {/* Row 1, Col 2: IST with Pilih ▾ */}
-                  <div
-                    onClick={toggleIstGroup}
-                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
-                      isIstChecked
-                        ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
-                        : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        checked={isIstChecked}
-                        readOnly
-                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
-                      />
-                      <span className="text-xs">IST</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveSubtestModal('IST');
+              {/* 3. Pilihan Alat Tes */}
+              <div className="pt-2 border-t border-slate-100 flex flex-col gap-2">
+                {selectedJobId ? (
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={useCustomTools}
+                      onChange={e => {
+                        setUseCustomTools(e.target.checked);
+                        if (!e.target.checked) setSelectedCustomTools([]);
                       }}
-                      className="text-[11px] text-slate-500 hover:text-teal-700 font-medium px-1.5 py-0.5 rounded hover:bg-slate-200/50 flex items-center gap-0.5"
-                    >
-                      <span>{selectedIstCount > 0 ? `${selectedIstCount} Subtes` : 'Pilih'}</span>
-                      <span className="text-[9px]">▾</span>
-                    </button>
+                      className="w-4 h-4 rounded accent-teal-600 cursor-pointer"
+                    />
+                    <span className="text-xs font-semibold text-slate-700">Pilih alat tes manual (kustomisasi template)</span>
+                  </label>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800">
+                      Pilih Alat Tes yang Diujikan <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-xs text-slate-400">Pilih minimal 1 alat tes</span>
                   </div>
+                )}
 
-                  {/* Row 1, Col 3: PAPI KOSTICK */}
-                  <div
-                    onClick={() => toggleTool('PAPI KOSTICK')}
-                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
-                      selectedCustomTools.includes('PAPI KOSTICK')
-                        ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
-                        : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        checked={selectedCustomTools.includes('PAPI KOSTICK')}
-                        readOnly
-                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
-                      />
-                      <span className="text-xs">PAPI KOSTICK</span>
+                {(useCustomTools || !selectedJobId) && (
+                  <>
+                    {/* Checkbox Grid 3 Kolom Matching Image 5 */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {/* Row 1, Col 1: WPT */}
+                      <div
+                        onClick={() => toggleTool('WPT')}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
+                          selectedCustomTools.includes('WPT')
+                            ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
+                            : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedCustomTools.includes('WPT')}
+                            readOnly
+                            className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
+                          />
+                          <span className="text-xs">WPT</span>
+                        </div>
+                      </div>
+
+                      {/* Row 1, Col 2: IST with Pilih ▾ */}
+                      <div
+                        onClick={toggleIstGroup}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
+                          isIstChecked
+                            ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
+                            : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={isIstChecked}
+                            readOnly
+                            className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
+                          />
+                          <span className="text-xs">IST</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveSubtestModal('IST');
+                          }}
+                          className="text-[11px] text-slate-500 hover:text-teal-700 font-medium px-1.5 py-0.5 rounded hover:bg-slate-200/50 flex items-center gap-0.5"
+                        >
+                          <span>{selectedIstCount > 0 ? `${selectedIstCount} Subtes` : 'Pilih'}</span>
+                          <span className="text-[9px]">▾</span>
+                        </button>
+                      </div>
+
+                      {/* Row 1, Col 3: PAPI KOSTICK */}
+                      <div
+                        onClick={() => toggleTool('PAPI KOSTICK')}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
+                          selectedCustomTools.includes('PAPI KOSTICK')
+                            ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
+                            : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedCustomTools.includes('PAPI KOSTICK')}
+                            readOnly
+                            className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
+                          />
+                          <span className="text-xs">PAPI KOSTICK</span>
+                        </div>
+                      </div>
+
+                      {/* Row 2, Col 1: DISC */}
+                      <div
+                        onClick={() => toggleTool('DISC')}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
+                          selectedCustomTools.includes('DISC')
+                            ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
+                            : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedCustomTools.includes('DISC')}
+                            readOnly
+                            className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
+                          />
+                          <span className="text-xs">DISC</span>
+                        </div>
+                      </div>
+
+                      {/* Row 2, Col 2: MSDT */}
+                      <div
+                        onClick={() => toggleTool('MSDT')}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
+                          selectedCustomTools.includes('MSDT')
+                            ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
+                            : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedCustomTools.includes('MSDT')}
+                            readOnly
+                            className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
+                          />
+                          <span className="text-xs">MSDT</span>
+                        </div>
+                      </div>
+
+                      {/* Row 2, Col 3: Kraepelin */}
+                      <div
+                        onClick={() => toggleTool('Kraepelin')}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
+                          selectedCustomTools.includes('Kraepelin')
+                            ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
+                            : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedCustomTools.includes('Kraepelin')}
+                            readOnly
+                            className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
+                          />
+                          <span className="text-xs">Kraepelin</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Row 2, Col 1: DISC */}
-                  <div
-                    onClick={() => toggleTool('DISC')}
-                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
-                      selectedCustomTools.includes('DISC')
-                        ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
-                        : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        checked={selectedCustomTools.includes('DISC')}
-                        readOnly
-                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
-                      />
-                      <span className="text-xs">DISC</span>
-                    </div>
-                  </div>
-
-                  {/* Row 2, Col 2: MSDT */}
-                  <div
-                    onClick={() => toggleTool('MSDT')}
-                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
-                      selectedCustomTools.includes('MSDT')
-                        ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
-                        : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        checked={selectedCustomTools.includes('MSDT')}
-                        readOnly
-                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
-                      />
-                      <span className="text-xs">MSDT</span>
-                    </div>
-                  </div>
-
-                  {/* Row 2, Col 3: Kraepelin */}
-                  <div
-                    onClick={() => toggleTool('Kraepelin')}
-                    className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer select-none transition-all ${
-                      selectedCustomTools.includes('Kraepelin')
-                        ? 'bg-teal-50/60 border-teal-400 text-teal-950 font-bold shadow-2xs'
-                        : 'bg-slate-50/50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <input
-                        type="checkbox"
-                        checked={selectedCustomTools.includes('Kraepelin')}
-                        readOnly
-                        className="w-4 h-4 rounded accent-teal-600 cursor-pointer pointer-events-none"
-                      />
-                      <span className="text-xs">Kraepelin</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Validation message if no tools selected matching Image 5 */}
-                {!selectedJobId && selectedCustomTools.length === 0 && (
-                  <div className="text-xs text-rose-600 font-medium flex items-center gap-1.5 mt-2">
-                    <span>⚠️</span>
-                    <span>Belum ada alat tes yang dipilih. Silakan centang minimal 1 alat tes.</span>
-                  </div>
+                    {/* Validation message if no tools selected matching Image 5 */}
+                    {selectedCustomTools.length === 0 && (
+                      <div className="text-xs text-rose-600 font-medium flex items-center gap-1.5 mt-2">
+                        <span>⚠️</span>
+                        <span>Belum ada alat tes yang dipilih. Silakan centang minimal 1 alat tes.</span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -698,7 +732,7 @@ export default function ClientSchedulePage() {
               </div>
 
               {/* Alert kecil di atas tombol jika ada syarat belum lengkap */}
-              {!selectedJobId && selectedCustomTools.length === 0 && (
+              {((!selectedJobId && selectedCustomTools.length === 0) || (Boolean(selectedJobId) && useCustomTools && selectedCustomTools.length === 0)) && (
                 <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
                   <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                   <span>Pilih minimal 1 modul alat tes pada bagian "Pilih Alat Tes yang Diujikan" di atas.</span>
