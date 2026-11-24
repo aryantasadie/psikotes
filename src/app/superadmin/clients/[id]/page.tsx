@@ -31,7 +31,9 @@ import {
   Search,
   Eye,
   Users,
-  Sliders
+  Sliders,
+  Clock,
+  Package
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -108,9 +110,18 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
   const [grayAreas, setGrayAreas] = useState<Record<string, { targetScore: number }>>({});
   const [savingJob, setSavingJob] = useState(false);
 
-  // Tab 3: Quota & Profile State
+  // Tab 3: Quota & Profile State (Dual-Wallet B2B Ticketing)
   const [totalQuota, setTotalQuota] = useState<string>('100');
   const [savingQuota, setSavingQuota] = useState(false);
+  const [clientLedger, setClientLedger] = useState<any[]>([]);
+  const [topUpForm, setTopUpForm] = useState({
+    quotaType: 'PACKAGE' as 'PACKAGE' | 'SINGLE',
+    amount: '50',
+    referenceDoc: '',
+    expiredAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    notes: '',
+  });
+  const [submittingTopUp, setSubmittingTopUp] = useState(false);
 
   // Tab 4: Batches History
   const [batches, setBatches] = useState<any[]>([]);
@@ -139,7 +150,10 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       ];
       const validPositions = rawPositions.filter(p => (p.grayAreas && p.grayAreas.length > 0) || p.psychographPresetId);
       setClientJobPositions(validPositions);
-      setAssignedJobIds(Array.isArray(data.positions?.assignedIds) ? data.positions.assignedIds : []);
+      const clientCustomIds = (data.positions?.clientCustom || []).map((p: any) => p.id);
+      const serverAssignedIds = Array.isArray(data.positions?.assignedIds) ? data.positions.assignedIds : [];
+      const mergedAssignedIds = Array.from(new Set([...serverAssignedIds, ...clientCustomIds]));
+      setAssignedJobIds(mergedAssignedIds);
 
       // Presets
       if (data.presets) {
@@ -152,8 +166,25 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         }
       }
 
-      // Quota
+      // Quota & Ledger
       setTotalQuota(String(data.client.totalQuota || 100));
+      if (data.client.quotaExpiredAt) {
+        setTopUpForm(prev => ({
+          ...prev,
+          expiredAt: new Date(data.client.quotaExpiredAt).toISOString().split('T')[0]
+        }));
+      }
+
+      // Fetch Ledger Audit Trail
+      try {
+        const ledgerRes = await fetch(`/api/superadmin/clients/${clientId}/ledger`);
+        if (ledgerRes.ok) {
+          const lData = await ledgerRes.json();
+          setClientLedger(lData.ledgers || []);
+        }
+      } catch (err) {
+        console.error('Error fetching ledger:', err);
+      }
 
       // Batches
       setBatches(data.batches || []);
@@ -433,7 +464,82 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
     return '—';
   };
 
-  // ─── TAB 3: QUOTA & PROFILE HANDLERS ───────────────────────────────────────
+  // ─── TAB 3: DUAL-WALLET & TOP-UP HANDLERS (SPESIFIKASI B2B TICKETING) ──────
+  const handleExecuteTopUp = async () => {
+    if (!topUpForm.referenceDoc.trim()) {
+      alert('Nomor PO / Dokumen Referensi Kontrak administratif wajib diisi.');
+      return;
+    }
+    const n = parseInt(topUpForm.amount, 10);
+    if (isNaN(n) || n <= 0) {
+      alert('Jumlah kuota top-up harus berupa angka positif (> 0).');
+      return;
+    }
+
+    setSubmittingTopUp(true);
+    setFlashMsg(null);
+    try {
+      const res = await fetch(`/api/superadmin/clients/${clientId}/topup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quotaType: topUpForm.quotaType,
+          amount: n,
+          referenceDoc: topUpForm.referenceDoc.trim(),
+          expiredAt: topUpForm.expiredAt,
+          notes: topUpForm.notes.trim(),
+        })
+      });
+
+      const d = await res.json();
+      if (res.ok) {
+        setFlashMsg({ text: d.message || 'Top-up kuota berhasil disimpan ke Buku Besar!', type: 'success' });
+        setTopUpForm(prev => ({ ...prev, referenceDoc: '', notes: '' }));
+        await fetchClientData();
+      } else {
+        setFlashMsg({ text: d.error || 'Gagal memproses top-up kuota.', type: 'error' });
+      }
+    } catch {
+      setFlashMsg({ text: 'Terjadi kesalahan jaringan.', type: 'error' });
+    } finally {
+      setSubmittingTopUp(false);
+    }
+  };
+
+  const getExpirationBadge = (expiredAt?: string | null) => {
+    if (!expiredAt) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+          <Clock className="w-3 h-3 text-slate-400" /> Tanpa Batas Kedaluwarsa
+        </span>
+      );
+    }
+    const exp = new Date(expiredAt);
+    const now = new Date();
+    const diffDays = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const formatted = exp.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    if (diffDays < 0) {
+      return (
+        <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-xs py-0.5 gap-1 font-bold">
+          🔴 Kedaluwarsa ({formatted})
+        </Badge>
+      );
+    }
+    if (diffDays <= 14) {
+      return (
+        <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-xs py-0.5 gap-1 font-bold">
+          🟡 Menipis ({diffDays} hari lagi - {formatted})
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200 text-xs py-0.5 gap-1 font-bold">
+        🟢 Aktif s/d {formatted}
+      </Badge>
+    );
+  };
+
   const handleSaveQuotaAndProfile = async () => {
     const qNum = parseInt(totalQuota, 10);
     if (isNaN(qNum) || qNum < 0) {
@@ -636,9 +742,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         >
           <Sliders className="w-4 h-4" />
           <span>1. Baterai Tes Mitra</span>
-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${activeTab === 'battery' ? 'bg-white/20' : 'bg-slate-100'}`}>
-            {psychographPresets.length} Template
-          </span>
         </button>
 
         <button
@@ -652,9 +755,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         >
           <Target className="w-4 h-4" />
           <span>2. Bank Psikogram Jabatan</span>
-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${activeTab === 'psychograph' ? 'bg-white/20' : 'bg-slate-100'}`}>
-            {clientJobPositions.length} Formasi
-          </span>
         </button>
 
         <button
@@ -681,9 +781,6 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
         >
           <History className="w-4 h-4" />
           <span>4. Riwayat Sesi Asesmen</span>
-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${activeTab === 'history' ? 'bg-white/20' : 'bg-slate-100'}`}>
-            {batches.length} Sesi
-          </span>
         </button>
       </div>
 
@@ -695,7 +792,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                Bank Template Baterai Tes & Profil Kompetensi ({filteredPresets.length} Template)
+                Bank Template Baterai Tes & Profil Kompetensi
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Daftar template profil kompetensi dan alokasi rangkaian instrumen alat tes psikologi untuk mitra ini.
@@ -1029,7 +1126,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">
-                    Bank Standar Jabatan Mitra ({filteredJobPositions.length} Formasi)
+                    Bank Standar Jabatan Mitra
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Daftar formasi posisi jabatan yang dialokasikan untuk mitra ini, lengkap dengan target skor minimum Gray Area per aspek psikologis.
@@ -1525,96 +1622,283 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
       )}
 
       {/* ══════════════════════════════════════════════════════════════════════════
-          TAB 3: ALOKASI KUOTA KANDIDAT & PROFIL KLIEN
+          TAB 3: ALOKASI KUOTA DUAL-WALLET & BUKU MUTASI (SPESIFIKASI TICKETING)
           ══════════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'quota' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
-            <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-              <Coins className="w-5 h-5 text-amber-600" />
-              <h3 className="text-sm font-bold text-slate-900 uppercase">
-                Alokasi Saldo Kuota Kandidat Mitra
-              </h3>
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Card 1: Saldo Dual-Wallet & Status Masa Aktif */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col justify-between gap-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-5 h-5 text-amber-600" />
+                    <h3 className="text-sm font-bold text-slate-900 uppercase">
+                      Dompet Kuota Mitra
+                    </h3>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-500">
+                  Sistem menganut skema <strong>Deduct on Start</strong> (1 Kuota = 1 Peserta Tuntas Mulai Ujian). Kuota tidak terpotong saat penjadwalan awal.
+                </p>
+
+                <div className="grid grid-cols-2 gap-3 my-1">
+                  {/* Wallet 1: Paket Asesmen */}
+                  <div className="p-4 bg-teal-50/60 border border-teal-200 rounded-xl flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-teal-800 uppercase flex items-center gap-1">
+                        <Package className="w-3.5 h-3.5 text-teal-600" />
+                        <span>Paket Asesmen</span>
+                      </span>
+                      <Badge className="bg-teal-600 text-white text-[10px] px-1.5 py-0">Premium</Badge>
+                    </div>
+                    <strong className="text-2xl font-black text-teal-950 mt-1">
+                      {client.quotaPackage !== undefined ? client.quotaPackage : client.remainingQuota}
+                      <span className="text-xs font-normal text-teal-700 ml-1">Sesi</span>
+                    </strong>
+                    <span className="text-[10px] text-teal-700 leading-tight">
+                      Baterai Tes + Lembar Psikogram Jabatan
+                    </span>
+                    <div className="pt-2 border-t border-teal-200/60 mt-1 flex items-center justify-between text-[11px] text-teal-800">
+                      <span className="text-teal-700">Kedaluwarsa:</span>
+                      <span className="font-semibold">
+                        {client.quotaExpiredAt
+                          ? new Date(client.quotaExpiredAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                          : 'Tanpa Batas'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Wallet 2: Single Test */}
+                  <div className="p-4 bg-indigo-50/60 border border-indigo-200 rounded-xl flex flex-col gap-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-indigo-800 uppercase flex items-center gap-1">
+                        <Target className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Single Test</span>
+                      </span>
+                      <Badge variant="outline" className="border-indigo-300 text-indigo-800 text-[10px] px-1.5 py-0">Ekonomis</Badge>
+                    </div>
+                    <strong className="text-2xl font-black text-indigo-950 mt-1">
+                      {client.quotaSingle || 0}
+                      <span className="text-xs font-normal text-indigo-700 ml-1">Tes</span>
+                    </strong>
+                    <span className="text-[10px] text-indigo-700 leading-tight">
+                      1 Alat Tes Spesifik (Tanpa Psikogram)
+                    </span>
+                    <div className="pt-2 border-t border-indigo-200/60 mt-1 flex items-center justify-between text-[11px] text-indigo-800">
+                      <span className="text-indigo-700">Kedaluwarsa:</span>
+                      <span className="font-semibold">
+                        {client.quotaExpiredAt
+                          ? new Date(client.quotaExpiredAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                          : 'Tanpa Batas'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Info Kontak & PIC */}
+              <div className="border-t border-slate-100 pt-3 flex flex-col gap-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Akun Login Portal:</span>
+                  <code className="text-teal-700 font-bold">@{client.username}</code>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Kontak PIC:</span>
+                  <strong className="text-slate-900">{client.picName || '-'} ({client.phone || '-'})</strong>
+                </div>
+              </div>
             </div>
 
-            <p className="text-xs text-slate-500">
-              Sistem menghitung 1 Kuota = 1 Peserta Tuntas Mulai Ujian (Anti-Ghosting). Kuota tidak akan terpotong untuk kandidat yang mangkir / belum membuka sesi.
-            </p>
-
-            <div className="grid grid-cols-3 gap-3 my-2">
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center">
-                <span className="text-[11px] text-slate-500 block">Total Kuota</span>
-                <strong className="text-lg font-bold text-slate-900">{client.totalQuota}</strong>
+            {/* Card 2: Form Top-Up Resmi (PO / Kontrak & Rollover) */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
+              <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+                <Coins className="w-5 h-5 text-teal-600" />
+                <h3 className="text-sm font-bold text-slate-900 uppercase">
+                  Top-Up Kuota Resmi (Buku Kas Non-Finansial)
+                </h3>
               </div>
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
-                <span className="text-[11px] text-emerald-700 block">Terpakai</span>
-                <strong className="text-lg font-bold text-emerald-900">{client.usedQuota}</strong>
-              </div>
-              <div className="p-3 bg-teal-50 border border-teal-200 rounded-xl text-center">
-                <span className="text-[11px] text-teal-700 block">Sisa Kuota</span>
-                <strong className="text-lg font-bold text-teal-900">{client.remainingQuota}</strong>
-              </div>
-            </div>
 
-            <div className="flex items-center gap-3 pt-2">
-              <label className="text-xs font-bold text-slate-700 shrink-0">Ubah Total Kuota:</label>
-              <Input
-                type="number"
-                min="0"
-                value={totalQuota}
-                onChange={(e) => setTotalQuota(e.target.value)}
-                className="w-32 h-10 text-xs font-bold text-teal-900 bg-white"
-              />
-              <span className="text-xs text-slate-500">Kandidat</span>
-            </div>
+              <div className="flex flex-col gap-3 text-xs">
+                {/* Pilihan Dompet */}
+                <div className="flex flex-col gap-1">
+                  <label className="font-bold text-slate-700">Pilih Dompet Kuota *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTopUpForm(prev => ({ ...prev, quotaType: 'PACKAGE' }))}
+                      className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                        topUpForm.quotaType === 'PACKAGE'
+                          ? 'border-teal-500 bg-teal-50 text-teal-950 font-bold ring-1 ring-teal-500'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 font-bold">
+                        <Package className="w-3.5 h-3.5 text-teal-600" />
+                        <span>Paket Asesmen</span>
+                      </span>
+                    </button>
 
-            <div className="flex justify-end pt-3 border-t border-slate-100">
-              <Button
-                type="button"
-                disabled={savingQuota}
-                onClick={handleSaveQuotaAndProfile}
-                className="bg-teal-600 hover:bg-teal-700 text-white font-bold gap-2 text-xs"
-              >
-                {savingQuota && <Loader2 className="w-4 h-4 animate-spin" />}
-                <span>{savingQuota ? 'Menyimpan...' : 'Perbarui Saldo Kuota'}</span>
-              </Button>
+                    <button
+                      type="button"
+                      onClick={() => setTopUpForm(prev => ({ ...prev, quotaType: 'SINGLE' }))}
+                      className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                        topUpForm.quotaType === 'SINGLE'
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-950 font-bold ring-1 ring-indigo-500'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 font-bold">
+                        <Target className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Single Test</span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Jumlah & PO */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="font-bold text-slate-700">Jumlah Kuota *</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={topUpForm.amount}
+                      onChange={(e) => setTopUpForm(prev => ({ ...prev, amount: e.target.value }))}
+                      placeholder="50"
+                      className="h-9 text-xs font-bold"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="font-bold text-slate-700">Tanggal Kedaluwarsa *</label>
+                    <Input
+                      type="date"
+                      value={topUpForm.expiredAt}
+                      onChange={(e) => setTopUpForm(prev => ({ ...prev, expiredAt: e.target.value }))}
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Nomor Dokumen PO / SPK */}
+                <div className="flex flex-col gap-1">
+                  <label className="font-bold text-slate-700">No. PO / Referensi Kontrak Administratif *</label>
+                  <Input
+                    type="text"
+                    value={topUpForm.referenceDoc}
+                    onChange={(e) => setTopUpForm(prev => ({ ...prev, referenceDoc: e.target.value }))}
+                    placeholder="Contoh: PO-HRP-2026-089 atau KONTRAK-SPK-09"
+                    className="h-9 text-xs"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-2 border-t border-slate-100">
+                  <Button
+                    type="button"
+                    disabled={submittingTopUp}
+                    onClick={handleExecuteTopUp}
+                    className="bg-teal-600 hover:bg-teal-700 text-white font-bold gap-2 text-xs"
+                  >
+                    {submittingTopUp && <Loader2 className="w-4 h-4 animate-spin" />}
+                    <span>{submittingTopUp ? 'Memproses Top-Up...' : 'Simpan & Top-Up Kuota'}</span>
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
-            <div className="flex items-center gap-2.5 border-b border-slate-100 pb-3">
-              <Building2 className="w-5 h-5 text-teal-600" />
-              <h3 className="text-sm font-bold text-slate-900 uppercase">
-                Informasi Perusahaan & Kontak PIC
-              </h3>
-            </div>
-
-            <div className="flex flex-col gap-3 text-xs">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
-                <span className="text-slate-500">Nama Perusahaan</span>
-                <strong className="text-slate-900">{client.name}</strong>
-              </div>
-
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
-                <span className="text-slate-500">Username Login Portal</span>
-                <code className="text-teal-700 font-bold">@{client.username}</code>
-              </div>
-
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
-                <span className="text-slate-500">Nama PIC</span>
-                <strong className="text-slate-900">{client.picName || 'Belum Diset'}</strong>
-              </div>
-
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
-                <span className="text-slate-500">Nomor WhatsApp</span>
-                <strong className="text-slate-900">{client.phone || '-'}</strong>
-              </div>
-
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
-                <span className="text-slate-500">Email Korespondensi</span>
-                <strong className="text-slate-900">{client.email || `${client.username}@klien.id`}</strong>
+          {/* Tabel Buku Besar Mutasi Kuota (Ledger Audit Trail) */}
+          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+            <div className="p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <History className="w-4 h-4 text-slate-600" />
+                  <span>Buku Besar Mutasi Kuota</span>
+                </h3>
               </div>
             </div>
+
+            {clientLedger.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 text-xs">
+                Belum ada catatan mutasi kuota di buku besar untuk mitra ini.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50 text-[11px]">
+                    <TableHead className="w-12 text-center font-bold">No</TableHead>
+                    <TableHead className="font-bold">Waktu</TableHead>
+                    <TableHead className="font-bold">Aktivitas</TableHead>
+                    <TableHead className="font-bold">Dompet</TableHead>
+                    <TableHead className="font-bold text-right">Mutasi</TableHead>
+                    <TableHead className="font-bold text-right">Saldo Akhir</TableHead>
+                    <TableHead className="font-bold">No. PO / Sesi Terkait</TableHead>
+                    <TableHead className="font-bold">Catatan</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="text-xs">
+                  {clientLedger.map((item: any, idx: number) => (
+                    <TableRow key={item.id} className="hover:bg-slate-50/60">
+                      <TableCell className="text-center text-slate-400 text-[11px] font-mono">
+                        {idx + 1}
+                      </TableCell>
+                      <TableCell className="text-[11px] text-slate-500 whitespace-nowrap">
+                        {new Date(item.createdAt).toLocaleDateString('id-ID', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] font-bold ${
+                            item.transactionType === 'TOPUP'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : item.transactionType === 'USAGE'
+                              ? 'bg-blue-50 text-blue-800 border-blue-200'
+                              : item.transactionType === 'CONVERT'
+                              ? 'bg-purple-50 text-purple-800 border-purple-200'
+                              : 'bg-rose-50 text-rose-800 border-rose-200'
+                          }`}
+                        >
+                          {item.transactionType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-semibold text-slate-700 text-[11px]">
+                        {item.quotaType === 'PACKAGE' ? 'Paket Asesmen' : 'Single Test'}
+                      </TableCell>
+                      <TableCell className="text-right font-black">
+                        <span className={item.amount > 0 ? 'text-emerald-700' : 'text-slate-800'}>
+                          {item.amount > 0 ? `+${item.amount}` : item.amount}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-slate-900">
+                        {item.balanceAfter}
+                      </TableCell>
+                      <TableCell className="text-[11px] text-slate-700">
+                        {item.referenceDoc ? (
+                          <strong className="text-slate-900 font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                            {item.referenceDoc}
+                          </strong>
+                        ) : item.test?.title ? (
+                          <span className="text-teal-800 font-medium">{item.test.title}</span>
+                        ) : (
+                          <span className="text-slate-400">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-[11px] text-slate-500 max-w-[200px] truncate">
+                        {item.notes || '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </div>
         </div>
       )}
@@ -1627,7 +1911,7 @@ export default function ClientDetailPage({ params }: { params: Promise<{ id: str
           <div className="p-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
             <div>
               <h3 className="text-sm font-bold text-slate-900">
-                Riwayat Sesi Ujian & Asesmen ({batches.length} Batch)
+                Riwayat Sesi Ujian & Asesmen
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 Seluruh batch ujian yang pernah dijalankan untuk mitra {client.name}

@@ -20,7 +20,7 @@ export default function BatchParticipantsReportPage() {
 
   useEffect(() => {
     if (status === 'authenticated') {
-      if (!['superadmin', 'psikolog', 'tester'].includes(userRole)) {
+      if (!['superadmin', 'psikolog', 'tester', 'client'].includes(userRole)) {
         router.replace('/');
       }
     }

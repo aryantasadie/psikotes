@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     const userRole = (session?.user as any)?.role;
-    if (!session || !['superadmin', 'tester', 'psikolog'].includes(userRole)) {
+    if (!session || !['superadmin', 'tester', 'psikolog', 'client'].includes(userRole)) {
       return NextResponse.json({ error: 'Unauthorized: Akses ditolak' }, { status: 401 });
     }
 

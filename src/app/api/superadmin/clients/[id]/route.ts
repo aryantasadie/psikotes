@@ -31,6 +31,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
           license: true,
           testQuotas: true,
           usedQuotas: true,
+          quotaPackage: true,
+          quotaSingle: true,
+          quotaExpiredAt: true,
           logoUrl: true,
           createdAt: true,
         }
@@ -271,6 +274,9 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         totalQuota,
         usedQuota,
         remainingQuota: Math.max(0, totalQuota - usedQuota),
+        quotaPackage: client.quotaPackage ?? (client.quotaSingle ? 0 : Math.max(0, totalQuota - usedQuota)),
+        quotaSingle: client.quotaSingle ?? 0,
+        quotaExpiredAt: client.quotaExpiredAt,
         totalBatches: formattedBatches.length,
         totalCandidates,
         completedCandidates

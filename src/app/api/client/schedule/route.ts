@@ -24,6 +24,9 @@ export async function GET() {
         license: true,
         testQuotas: true,
         usedQuotas: true,
+        quotaPackage: true,
+        quotaSingle: true,
+        quotaExpiredAt: true,
       }
     });
 
@@ -155,12 +158,19 @@ export async function GET() {
       })
     );
 
+    const quotaPackage = client.quotaPackage ?? (client.quotaSingle ? 0 : remainingQuota);
+    const quotaSingle = client.quotaSingle ?? 0;
+    const quotaExpiredAt = client.quotaExpiredAt;
+
     return NextResponse.json({
       batteryTest,
       bankPsikogram: enrichedBankPsikogram,
       totalQuota,
       usedQuota,
       remainingQuota,
+      quotaPackage,
+      quotaSingle,
+      quotaExpiredAt,
       batches: formattedBatches
     });
   } catch (error: any) {
@@ -187,6 +197,9 @@ export async function POST(req: Request) {
         license: true,
         testQuotas: true,
         usedQuotas: true,
+        quotaPackage: true,
+        quotaSingle: true,
+        quotaExpiredAt: true,
       }
     });
 
@@ -227,6 +240,19 @@ export async function POST(req: Request) {
     }
 
     const remainingQuota = Math.max(0, totalQuota - usedQuota);
+    let currentPackage = client.quotaPackage ?? 0;
+    let currentSingle = client.quotaSingle ?? 0;
+    if (currentPackage === 0 && currentSingle === 0 && remainingQuota > 0) {
+      currentPackage = remainingQuota;
+    }
+
+    // Cek kedaluwarsa kuota
+    const now = new Date();
+    if (client.quotaExpiredAt && new Date(client.quotaExpiredAt) < now) {
+      return NextResponse.json({
+        error: 'Masa aktif kuota akun Anda telah kedaluwarsa. Silakan hubungi Superadmin HR Publik untuk perpanjangan masa aktif paket.'
+      }, { status: 400 });
+    }
 
     const body = await req.json();
     let { 
@@ -237,7 +263,8 @@ export async function POST(req: Request) {
       sessionDate, 
       prefix, 
       count,
-      disableMedia
+      disableMedia,
+      autoConvert
     } = body;
 
     const n = parseInt(count, 10);
@@ -245,10 +272,69 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Prefix dan jumlah peserta harus valid (1 - 200).' }, { status: 400 });
     }
 
-    if (remainingQuota < n) {
-      return NextResponse.json({
-        error: `Sisa kuota akun Anda tersisa ${remainingQuota} kandidat. Permintaan Anda: ${n} kandidat. Silakan hubungi Superadmin HR Publik untuk penambahan kuota.`
-      }, { status: 400 });
+    if (mode === 'CUSTOM_TEST') {
+      // Mode Tes Mandiri / Bebas: Menggunakan Kuota Single Test
+      if (currentSingle < n) {
+        const neededSingle = n - currentSingle;
+        const neededPackage = Math.ceil(neededSingle / 3);
+        const canConvert = currentPackage >= neededPackage;
+
+        if (autoConvert && canConvert) {
+          // Jalur Otomatis Konversi saat Penjadwalan Sesi (Bab 3.2 Spesifikasi)
+          await prisma.$transaction(async (tx) => {
+            const newPkg = currentPackage - neededPackage;
+            const newSgl = currentSingle + (neededPackage * 3);
+            await tx.quotaLedger.create({
+              data: {
+                clientId: client.id,
+                quotaType: 'PACKAGE',
+                transactionType: 'CONVERT',
+                amount: -neededPackage,
+                balanceAfter: newPkg,
+                notes: `Auto-convert saat penjadwalan sesi: Tukar ${neededPackage} Paket menjadi ${neededPackage * 3} Single.`,
+              }
+            });
+            await tx.quotaLedger.create({
+              data: {
+                clientId: client.id,
+                quotaType: 'SINGLE',
+                transactionType: 'CONVERT',
+                amount: neededPackage * 3,
+                balanceAfter: newSgl,
+                notes: `Hasil auto-convert untuk mencukupi jadwal sesi ${n} peserta.`,
+              }
+            });
+            await tx.user.update({
+              where: { id: client.id },
+              data: {
+                quotaPackage: newPkg,
+                quotaSingle: newSgl,
+              }
+            });
+            currentPackage = newPkg;
+            currentSingle = newSgl;
+          });
+        } else {
+          return NextResponse.json({
+            code: canConvert ? 'CAN_CONVERT_QUOTA' : 'INSUFFICIENT_QUOTA',
+            error: canConvert
+              ? `Kuota Single Test Anda tersisa ${currentSingle}. Dibutuhkan ${n} kuota. Anda dapat menukar ${neededPackage} Kuota Paket Asesmen menjadi ${neededPackage * 3} Kuota Single Test.`
+              : `Kuota Single Test (${currentSingle}) dan Paket Asesmen (${currentPackage}) tidak mencukupi untuk membuat sesi ${n} peserta.`,
+            neededSingle,
+            neededPackage,
+            availableSingle: currentSingle,
+            availablePackage: currentPackage,
+            canConvert
+          }, { status: 400 });
+        }
+      }
+    } else {
+      // Mode Asesmen Jabatan: Menggunakan Kuota Paket Asesmen
+      if (currentPackage < n && remainingQuota < n) {
+        return NextResponse.json({
+          error: `Sisa Kuota Paket Asesmen Anda tersisa ${currentPackage} kandidat. Permintaan Anda: ${n} kandidat. Silakan hubungi Superadmin HR Publik untuk penambahan kuota.`
+        }, { status: 400 });
+      }
     }
 
     let finalSequence: string[] = [];

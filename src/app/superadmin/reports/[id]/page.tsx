@@ -387,11 +387,11 @@ export default function ReportDetailPage() {
     }
   }, [selectedTest]);
 
-  // Role check: Only superadmin, psikolog, and tester
+  // Role check: superadmin, psikolog, tester, client
   useEffect(() => {
     if (session?.user) {
       const userRole = (session.user as any)?.role;
-      if (!['superadmin', 'psikolog', 'tester'].includes(userRole)) {
+      if (!['superadmin', 'psikolog', 'tester', 'client'].includes(userRole)) {
         router.replace('/');
       }
     }

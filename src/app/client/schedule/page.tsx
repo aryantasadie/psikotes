@@ -43,6 +43,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 
@@ -99,6 +100,20 @@ export default function ClientSchedulePage() {
   const [totalQuota, setTotalQuota] = useState<number>(0);
   const [usedQuota, setUsedQuota] = useState<number>(0);
   const [remainingQuota, setRemainingQuota] = useState<number>(0);
+  const [quotaPackage, setQuotaPackage] = useState<number>(0);
+  const [quotaSingle, setQuotaSingle] = useState<number>(0);
+  const [quotaExpiredAt, setQuotaExpiredAt] = useState<string | null>(null);
+
+  // Auto-convert Dialog State (Bab 3.2 Jalur Otomatis Spesifikasi)
+  const [convertPrompt, setConvertPrompt] = useState<{
+    isOpen: boolean;
+    message: string;
+    neededSingle: number;
+    neededPackage: number;
+    availableSingle: number;
+    availablePackage: number;
+  } | null>(null);
+
   const [batches, setBatches] = useState<ClientBatch[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -135,6 +150,9 @@ export default function ClientSchedulePage() {
         setTotalQuota(d.totalQuota || 0);
         setUsedQuota(d.usedQuota || 0);
         setRemainingQuota(d.remainingQuota || 0);
+        setQuotaPackage(d.quotaPackage ?? (d.remainingQuota || 0));
+        setQuotaSingle(d.quotaSingle ?? 0);
+        setQuotaExpiredAt(d.quotaExpiredAt || null);
         setBatches(d.batches || []);
       }
     } catch (e) {
@@ -177,9 +195,9 @@ export default function ClientSchedulePage() {
     setSelectedCustomTools(prev => prev.filter(t => !ids.includes(t)));
   };
 
-  // Submit Handler
-  const handleGenerate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Submit Handler (Mendukung Jalur Otomatis Konversi Kuota - Bab 3.2 Spesifikasi)
+  const handleGenerate = async (e?: React.FormEvent, forceAutoConvert = false) => {
+    if (e) e.preventDefault();
     setFormError('');
     setFormSuccess('');
 
@@ -212,9 +230,16 @@ export default function ClientSchedulePage() {
       return;
     }
 
-    if (remainingQuota < n) {
-      setFormError(`Jumlah akun yang ingin dibuat (${n} akun) melebihi sisa token yang tersedia (${remainingQuota} token). Silakan kurangi jumlah akun atau hubungi Superadmin untuk penambahan kuota.`);
-      return;
+    if (mode === 'CUSTOM_TEST') {
+      if (quotaSingle < n && (quotaSingle + (quotaPackage * 3)) < n) {
+        setFormError(`Sisa saldo Single Test (${quotaSingle}) dan Paket Asesmen (${quotaPackage}) tidak mencukupi untuk membuat sesi ${n} peserta.`);
+        return;
+      }
+    } else {
+      if (quotaPackage < n && remainingQuota < n) {
+        setFormError(`Sisa Kuota Paket Asesmen Anda tersisa ${quotaPackage} kandidat. Permintaan Anda: ${n} kandidat. Silakan hubungi Superadmin untuk penambahan kuota.`);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -231,11 +256,13 @@ export default function ClientSchedulePage() {
           prefix: prefix.trim().toLowerCase(),
           count: n,
           disableMedia,
+          autoConvert: forceAutoConvert,
         }),
       });
 
       const data = await res.json();
       if (res.ok) {
+        setConvertPrompt(null);
         setGeneratedAccounts(data.accounts || []);
         setFormSuccess(data.message || 'Sesi ujian dan akun peserta berhasil dibuat!');
         setSessionName('');
@@ -247,7 +274,19 @@ export default function ClientSchedulePage() {
         setDisableMedia(false);
         fetchData();
       } else {
-        setFormError(data.error || 'Terjadi kesalahan saat memproses sesi.');
+        if (data.code === 'CAN_CONVERT_QUOTA') {
+          // Tampilkan dialog interaktif Jalur Otomatis Penjadwalan (Bab 3.2 Spesifikasi)
+          setConvertPrompt({
+            isOpen: true,
+            message: data.error,
+            neededSingle: data.neededSingle,
+            neededPackage: data.neededPackage,
+            availableSingle: data.availableSingle,
+            availablePackage: data.availablePackage,
+          });
+        } else {
+          setFormError(data.error || 'Terjadi kesalahan saat memproses sesi.');
+        }
       }
     } catch {
       setFormError('Gagal menghubungkan ke server.');
@@ -305,7 +344,7 @@ export default function ClientSchedulePage() {
     <div className="flex flex-col gap-6">
       {/* ── 3 INFO CARDS: Sisa Kuota, Formasi Terdaftar, Battery Test ── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Card 1: Saldo Kuota Kandidat */}
+        {/* Card 1: Saldo Kuota Kandidat (Dual-Wallet B2B) */}
         <Card className="border-teal-200 bg-teal-50/40">
           <CardContent className="p-4 flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -314,14 +353,21 @@ export default function ClientSchedulePage() {
                 <span>Sisa Kuota Kandidat</span>
               </span>
               <Badge variant="outline" className="text-[10px] bg-teal-100 text-teal-800 border-teal-300 font-bold">
-                Aktif
+                {quotaExpiredAt ? `s/d ${new Date(quotaExpiredAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Aktif'}
               </Badge>
             </div>
-            <h3 className="text-2xl font-black text-teal-950 mt-1">
-              {remainingQuota} <span className="text-xs font-normal text-teal-700">/ {totalQuota} Kuota</span>
-            </h3>
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              <div className="bg-white/80 p-2 rounded-lg border border-teal-100">
+                <span className="text-[10px] font-bold text-teal-800 uppercase block">Paket Asesmen</span>
+                <span className="text-xl font-black text-teal-950">{quotaPackage} <span className="text-xs font-normal text-teal-700">Sesi</span></span>
+              </div>
+              <div className="bg-white/80 p-2 rounded-lg border border-teal-100">
+                <span className="text-[10px] font-bold text-teal-800 uppercase block">Single Test</span>
+                <span className="text-xl font-black text-teal-950">{quotaSingle} <span className="text-xs font-normal text-teal-700">Tes</span></span>
+              </div>
+            </div>
             <span className="text-[10px] text-teal-700">
-              {usedQuota} kuota telah terpakai. 1 Kuota = 1 Peserta Tuntas (Anti-Ghosting).
+              1 Paket = 1 Sesi Jabatan (Bisa ditukar jadi 3 Single Test). Anti-Ghosting.
             </span>
           </CardContent>
         </Card>
@@ -693,15 +739,28 @@ export default function ClientSchedulePage() {
                     }}
                     required
                     className={`h-10 text-xs transition-colors ${
-                      parseInt(count, 10) > remainingQuota ? 'border-rose-500 focus-visible:ring-rose-500 bg-rose-50/20' : ''
+                      parseInt(count, 10) > (selectedJobId ? quotaPackage : quotaSingle) ? 'border-amber-500 focus-visible:ring-amber-500 bg-amber-50/20' : ''
                     }`}
                   />
-                  {parseInt(count, 10) > remainingQuota && (
-                    <span className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-0.5 animate-in fade-in duration-200">
-                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>Jumlah akun ({parseInt(count, 10)}) melebihi token tersisa ({remainingQuota} token).</span>
-                    </span>
-                  )}
+                  {(() => {
+                    const countNum = parseInt(count, 10);
+                    if (isNaN(countNum) || countNum <= 0) return null;
+                    const isMandiri = !selectedJobId;
+                    const activeQuota = isMandiri ? quotaSingle : quotaPackage;
+                    if (countNum > activeQuota) {
+                      return (
+                        <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md flex items-center gap-1 mt-0.5 animate-in fade-in duration-200">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                          <span>
+                            {isMandiri
+                              ? `Jumlah akun (${countNum}) melebihi Single Test (${quotaSingle}). Kuota paket akan ditawarkan untuk ditukar otomatis saat submit.`
+                              : `Jumlah akun (${countNum}) melebihi kuota Paket Asesmen (${quotaPackage} sesi).`}
+                          </span>
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
 
@@ -1072,6 +1131,75 @@ export default function ClientSchedulePage() {
               </TableBody>
             </Table>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog Konfirmasi Auto-Convert Kuota (Bab 3.2 Spesifikasi) ── */}
+      <Dialog open={Boolean(convertPrompt?.isOpen)} onOpenChange={(open) => !open && setConvertPrompt(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700">
+                <Coins className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-slate-900">
+                  Tukar Kuota & Lanjutkan Penjadwalan?
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  Kuota Single Test tidak mencukupi untuk jumlah peserta yang diminta.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3 py-2 text-xs">
+            <div className="p-3 bg-teal-50/60 border border-teal-200 rounded-xl text-teal-950 flex flex-col gap-2">
+              <p className="font-semibold text-xs leading-relaxed">
+                {convertPrompt?.message}
+              </p>
+              <div className="border-t border-teal-200/80 pt-2 flex flex-col gap-1 text-[11px] text-teal-900">
+                <div className="flex justify-between">
+                  <span>Sisa Saldo Single Test Saat Ini:</span>
+                  <strong>{convertPrompt?.availableSingle} Tes</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span>Sisa Saldo Paket Asesmen:</span>
+                  <strong>{convertPrompt?.availablePackage} Sesi</strong>
+                </div>
+                <div className="flex justify-between text-emerald-800 font-bold border-t border-teal-200/60 pt-1">
+                  <span>Akan Ditukar:</span>
+                  <span>{convertPrompt?.neededPackage} Paket → {Number(convertPrompt?.neededPackage || 0) * 3} Single Test</span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-slate-500 text-[11px]">
+              Dengan melanjutkan, sistem akan langsung mencatat transaksi pertukaran di Buku Besar Kuota dan menerbitkan akun ujian peserta.
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setConvertPrompt(null)}
+              disabled={submitting}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => handleGenerate(undefined, true)}
+              disabled={submitting}
+              className="bg-teal-600 hover:bg-teal-700 text-white font-bold gap-2 cursor-pointer"
+            >
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>{submitting ? 'Memproses...' : 'Tukar & Buat Jadwal'}</span>
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

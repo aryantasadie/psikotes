@@ -456,7 +456,30 @@ export default function PsychographBuilder() {
         body: JSON.stringify({ name: name.trim(), mapping, sequence }) 
       });
       if (res.ok) {
-        if (fromClient) {
+        const savedPreset = await res.json();
+        if (fromClient && savedPreset?.id) {
+          try {
+            // Otomatis masukkan preset yang baru dibuat ke assignedPresetIds klien mitra ini
+            const clientRes = await fetch(`/api/superadmin/clients/${fromClient}`);
+            if (clientRes.ok) {
+              const clientData = await clientRes.json();
+              const currentPresets: number[] = Array.isArray(clientData.presets?.assignedIds) ? clientData.presets.assignedIds : [];
+              if (!currentPresets.includes(savedPreset.id)) {
+                await fetch('/api/superadmin/clients', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    id: Number(fromClient),
+                    name: clientData.client.name,
+                    username: clientData.client.username,
+                    assignedPresetIds: [...currentPresets, savedPreset.id]
+                  })
+                });
+              }
+            }
+          } catch (errAutoAssign) {
+            console.error('Auto assign preset error:', errAutoAssign);
+          }
           router.push(`/superadmin/clients/${fromClient}?tab=battery`);
         } else {
           router.push('/superadmin/psychograph');

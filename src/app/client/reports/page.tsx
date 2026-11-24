@@ -1,27 +1,28 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { 
-  FileSpreadsheet, 
+  Calendar, 
+  Users, 
   Search, 
-  Download, 
-  CheckCircle2, 
-  Clock, 
+  Eye, 
   Loader2, 
-  Calendar,
   Layers,
-  Award,
-  FileText
+  CheckCircle2,
+  FileText,
+  X
 } from 'lucide-react';
+import { isParticipantCompleted, parseSequence } from '@/lib/testCompletion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription 
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
 import {
   Table,
@@ -32,288 +33,502 @@ import {
   TableCell,
 } from '@/components/ui/table';
 
-interface CandidateResult {
+interface BatchSessionGroup {
   id: number;
-  name: string;
-  username: string;
-  status: string;
-  startTime?: string | null;
-  endTime?: string | null;
-  scores: Record<string, any>;
-  recommendation?: string;
-}
-
-interface BatchReport {
-  batchId: number;
-  batchTitle: string;
+  title: string;
   startDate?: string | null;
   jobPositionName: string;
-  totalCandidates: number;
-  completedCandidates: number;
-  candidates: CandidateResult[];
+  clientName: string;
+  assignedTesters: string[];
+  assignedPsikologs: string[];
+  psikograms: string[];
+  batteryTestStr: string;
+  sequence: string[];
+  totalParticipants: number;
+  completedParticipants: number;
+  completedReports: number;
 }
 
 export default function ClientReportsPage() {
-  const [reports, setReports] = useState<BatchReport[]>([]);
+  const [participants, setParticipants] = useState<any[]>([]);
+  const [assignedTests, setAssignedTests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedBatchId, setSelectedBatchId] = useState<string>('all');
+  const [searchMode, setSearchMode] = useState<'batch' | 'participant'>('batch');
+  const [participantResults, setParticipantResults] = useState<any[]>([]);
+  const [searchingParticipants, setSearchingParticipants] = useState(false);
 
+  // Debounced server search for participants across batches
   useEffect(() => {
-    fetch('/api/client/reports')
+    if (searchMode !== 'participant') return;
+
+    const trimmed = search.trim();
+    if (trimmed.length < 2) {
+      setParticipantResults([]);
+      setSearchingParticipants(false);
+      return;
+    }
+
+    setSearchingParticipants(true);
+    const timer = setTimeout(() => {
+      fetch(`/api/superadmin/reports/search-participant?q=${encodeURIComponent(trimmed)}`)
+        .then(res => res.json())
+        .then(data => {
+          setParticipantResults(data.participants || []);
+          setSearchingParticipants(false);
+        })
+        .catch(err => {
+          console.error('Search participant error:', err);
+          setSearchingParticipants(false);
+        });
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [search, searchMode]);
+
+  const fetchReportsData = () => {
+    setLoading(true);
+    fetch('/api/superadmin/reports')
       .then(res => res.json())
-      .then(d => {
-        setReports(Array.isArray(d) ? d : []);
+      .then(data => {
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          setParticipants(data.participants || []);
+          setAssignedTests(data.assignedTests || []);
+        } else {
+          setParticipants(Array.isArray(data) ? data : []);
+          setAssignedTests([]);
+        }
         setLoading(false);
       })
       .catch(err => {
         console.error(err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchReportsData();
   }, []);
 
-  // Filter candidates based on selected batch and search
-  const filteredBatches = reports.filter(b => 
-    selectedBatchId === 'all' || String(b.batchId) === selectedBatchId
-  );
+  // Group participants by Batch Session
+  const batchesMap = new Map<number, BatchSessionGroup>();
 
-  const allFilteredCandidates: Array<CandidateResult & { batchTitle: string }> = [];
-  filteredBatches.forEach(b => {
-    b.candidates.forEach(c => {
-      const q = search.toLowerCase();
-      if ((c.name || '').toLowerCase().includes(q) || (c.username || '').toLowerCase().includes(q)) {
-        allFilteredCandidates.push({
-          ...c,
-          batchTitle: b.batchTitle
-        });
-      }
+  assignedTests.forEach(test => {
+    const testId = test.id;
+    const title = test.title || 'Sesi Tanpa Judul';
+    const startDate = test.startDate;
+    const clientName = test.client?.name || 'Perusahaan';
+    const jobPositionName = test.jobPosition?.name || title.split('-')[0]?.trim() || 'General';
+
+    const testToolsArr = parseSequence(test.sequence);
+    const batteryTestStr = testToolsArr.length > 0 ? testToolsArr.join(' + ') : 'Standar';
+
+    const initialPsikograms: string[] = [];
+    if (test.jobPosition?.name) {
+      initialPsikograms.push(test.jobPosition.name);
+    }
+
+    batchesMap.set(testId, {
+      id: testId,
+      title,
+      startDate,
+      jobPositionName,
+      clientName,
+      assignedTesters: test.assignedTesters || [],
+      assignedPsikologs: test.assignedPsikologs || [],
+      psikograms: initialPsikograms,
+      batteryTestStr,
+      sequence: testToolsArr,
+      totalParticipants: 0,
+      completedParticipants: 0,
+      completedReports: 0
     });
   });
 
-  const handleExportExcel = () => {
-    if (allFilteredCandidates.length === 0) {
-      alert('Tidak ada data kandidat untuk diekspor.');
-      return;
+  participants.forEach(p => {
+    const testId = p.testId || p.test?.id || 0;
+    
+    let b = batchesMap.get(testId);
+    if (!b) {
+      const testObj = p.test || {};
+      const title = testObj.title || 'Sesi Tanpa Judul';
+      const startDate = p.startTime || testObj.startDate;
+      const clientName = testObj.client?.name || 'Perusahaan';
+      const jobPositionName = p.jobPosition?.name || testObj.jobPosition?.name || title.split('-')[0]?.trim() || 'General';
+
+      const testToolsArr = parseSequence(testObj.sequence);
+      const batteryTestStr = testToolsArr.length > 0 ? testToolsArr.join(' + ') : 'Standar';
+
+      const initialPsikograms: string[] = [];
+      if (p.jobPosition?.name) initialPsikograms.push(p.jobPosition.name);
+      else if (testObj.jobPosition?.name) initialPsikograms.push(testObj.jobPosition.name);
+
+      b = {
+        id: testId,
+        title,
+        startDate,
+        jobPositionName,
+        clientName,
+        assignedTesters: testObj.assignedTesters || [],
+        assignedPsikologs: testObj.assignedPsikologs || [],
+        psikograms: initialPsikograms,
+        batteryTestStr,
+        sequence: testToolsArr,
+        totalParticipants: 0,
+        completedParticipants: 0,
+        completedReports: 0
+      };
+      batchesMap.set(testId, b);
     }
 
-    let header = 'No\tNama Kandidat\tUsername\tSesi Ujian\tStatus\tHasil WPT\tHasil Kraepelin\tRekomendasi\n';
-    let rows = allFilteredCandidates.map((c, i) => {
-      const wpt = c.scores['WPT'] ? `Skor: ${c.scores['WPT'].score} (IQ: ${c.scores['WPT'].iq})` : '-';
-      const kraepelin = c.scores['Kraepelin'] ? `Kecepatan: ${c.scores['Kraepelin'].kecepatan}, Ketelitian: ${c.scores['Kraepelin'].ketelitian}` : '-';
-      const rec = c.recommendation || '-';
-      return `${i + 1}\t${c.name}\t${c.username}\t${c.batchTitle}\t${c.status === 'completed' ? 'Selesai' : 'Belum'}\t${wpt}\t${kraepelin}\t${rec}`;
-    }).join('\n');
-
-    navigator.clipboard.writeText(header + rows);
-    alert('Berhasil menyalin seluruh rekap nilai kandidat ke clipboard (format Excel)! Silakan paste langsung di Microsoft Excel atau Google Sheets.');
-  };
-
-  const renderScoresSummary = (scores: Record<string, any>) => {
-    const keys = Object.keys(scores);
-    if (keys.length === 0) {
-      return <span className="text-xs text-slate-400 italic">Belum ada skor</span>;
+    if (p.jobPosition?.name && !b.psikograms.includes(p.jobPosition.name)) {
+      b.psikograms.push(p.jobPosition.name);
     }
 
-    return (
-      <div className="flex flex-col gap-1">
-        {scores['Kraepelin'] && (
-          <div className="text-xs">
-            <span className="font-bold text-slate-800">Kraepelin: </span>
-            <span className="text-slate-600">
-              Panker {scores['Kraepelin'].kecepatan} · Tianker {scores['Kraepelin'].ketelitian}
-            </span>
-          </div>
-        )}
-        {scores['WPT'] && (
-          <div className="text-xs">
-            <span className="font-bold text-slate-800">WPT: </span>
-            <span className="text-slate-600">
-              Skor {scores['WPT'].score} (IQ {scores['WPT'].iq})
-            </span>
-          </div>
-        )}
-        {scores['DISC'] && (
-          <div className="text-xs">
-            <span className="font-bold text-slate-800">DISC: </span>
-            <span className="text-slate-600">Tipe {scores['DISC'].profile}</span>
-          </div>
-        )}
-      </div>
-    );
-  };
+    b.totalParticipants += 1;
+    if (isParticipantCompleted(p, b.sequence || [])) {
+      b.completedParticipants += 1;
+    }
+    if (p.psychoResults && ['REVIEWED', 'RELEASED'].includes(p.psychoResults.status)) {
+      b.completedReports += 1;
+    }
+  });
+
+  const batchesList = Array.from(batchesMap.values());
+
+  const filteredBatches = batchesList.filter(b => {
+    const s = search.toLowerCase();
+    const titleMatch = (b.title || '').toLowerCase().includes(s);
+    const jobMatch = (b.jobPositionName || '').toLowerCase().includes(s);
+    const psikogramMatch = (b.psikograms || []).some(psi => psi.toLowerCase().includes(s));
+    return titleMatch || jobMatch || psikogramMatch;
+  });
 
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-bold tracking-tight text-slate-900">
-            Rekap & Hasil Asesmen Kandidat
-          </h2>
-          <p className="text-sm text-slate-500">
-            Tinjau ringkasan nilai ujian kandidat dan unduh rekap nilai kelulusan secara mandiri.
-          </p>
-        </div>
-
-        <Button
-          onClick={handleExportExcel}
-          variant="outline"
-          className="gap-2 self-start sm:self-auto font-bold text-xs"
-        >
-          <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-          <span>Salin Rekap Tabel Excel</span>
-        </Button>
+      <div className="flex flex-col gap-1">
+        <h2 className="text-xl font-bold tracking-tight text-slate-900">
+          Hasil & Laporan Asesmen
+        </h2>
+        <p className="text-sm text-slate-500">
+          Tinjau progres pengerjaan ujian kandidat, kelengkapan sesi, dan unduh laporan psikogram
+        </p>
       </div>
 
-      {/* Main Table Card */}
-      <Card>
+      {/* Main Batch Table Card */}
+      <Card className="border border-slate-200 shadow-xs bg-white overflow-hidden">
         <CardHeader className="border-b border-slate-100 pb-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex flex-col gap-0.5">
               <CardTitle className="text-base font-bold text-slate-900">
-                Daftar Kandidat & Skor Ujian
+                {searchMode === 'batch' ? 'Daftar Proyek / Batch Sesi Asesmen' : 'Pencarian Kandidat Lintas Proyek'}
               </CardTitle>
               <CardDescription className="text-xs text-slate-500">
-                Data nilai resmi dan ringkasan performa per alat tes
+                {searchMode === 'batch' 
+                  ? 'Seluruh proyek asesmen aktif, jumlah kandidat, dan riwayat status kelulusan'
+                  : 'Cari kandidat spesifik berdasarkan nama atau username untuk langsung membuka laporan'}
               </CardDescription>
             </div>
 
-            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-              {/* Batch Filter Dropdown */}
-              <select
-                value={selectedBatchId}
-                onChange={e => setSelectedBatchId(e.target.value)}
-                className="h-9 w-full sm:w-56 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs shadow-sm font-semibold text-slate-700 focus:outline-none focus:border-teal-500"
-              >
-                <option value="all">Semua Sesi / Batch</option>
-                {reports.map(b => (
-                  <option key={b.batchId} value={b.batchId}>
-                    {b.batchTitle}
-                  </option>
-                ))}
-              </select>
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Tombol Switch Mode: Cari Batch (Proyek) vs Cari Peserta (Orang) */}
+              <div className="inline-flex p-1 bg-slate-100 rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchMode('batch');
+                    setSearch('');
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                    searchMode === 'batch'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5 text-teal-600" />
+                  <span>Cari Batch</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchMode('participant');
+                    setSearch('');
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                    searchMode === 'participant'
+                      ? 'bg-teal-600 text-white shadow-xs'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>Cari Peserta</span>
+                </button>
+              </div>
 
-              {/* Search Box */}
-              <div className="relative w-full sm:w-64">
+              {/* Input Pencarian dengan tombol bersihkan (X) */}
+              <div className="relative w-full sm:w-72">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  type="text"
-                  placeholder="Cari nama atau username…"
+                <Input 
+                  type="text" 
+                  placeholder={searchMode === 'batch' ? 'Cari batch atau jabatan…' : 'Ketik nama / username kandidat…'} 
                   value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="pl-9 h-9 text-xs"
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 pr-8 h-9 text-xs"
                 />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                    title="Bersihkan pencarian"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50">
-                <TableHead className="w-12 text-xs font-bold uppercase text-slate-500">No</TableHead>
-                <TableHead className="text-xs font-bold uppercase text-slate-500">Nama Kandidat & Akun</TableHead>
-                <TableHead className="text-xs font-bold uppercase text-slate-500">Sesi Ujian</TableHead>
-                <TableHead className="text-xs font-bold uppercase text-slate-500">Status Pengerjaan</TableHead>
-                <TableHead className="text-xs font-bold uppercase text-slate-500">Ringkasan Skor Tes</TableHead>
-                <TableHead className="text-xs font-bold uppercase text-slate-500 text-center">Rekomendasi</TableHead>
-                <TableHead className="text-xs font-bold uppercase text-slate-500 text-right">Laporan</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-10 text-slate-400 text-sm">
-                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600" />
-                    Memuat data hasil asesmen...
-                  </TableCell>
+          {searchMode === 'participant' ? (
+            <Table containerClassName="max-h-[calc(100vh-295px)] min-h-[380px] overflow-auto">
+              <TableHeader className="sticky top-0 z-20 bg-slate-50 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                <TableRow className="bg-slate-50 border-b border-slate-200">
+                  <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-xs uppercase text-slate-500 py-3.5">Nama & Akun Kandidat</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-xs uppercase text-slate-500 py-3.5">Asal Batch Ujian</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-xs uppercase text-slate-500 py-3.5">Posisi / Jabatan</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-xs uppercase text-slate-500 py-3.5">Status Tes</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-xs uppercase text-slate-500 py-3.5">Status Evaluasi</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-xs uppercase text-slate-500 py-3.5 text-right">Aksi</TableHead>
                 </TableRow>
-              ) : allFilteredCandidates.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-10 text-slate-400 text-sm">
-                    Belum ada data kandidat yang sesuai.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                allFilteredCandidates.map((c, idx) => (
-                  <TableRow key={c.id} className="hover:bg-slate-50/70 transition-colors">
-                    <TableCell className="text-xs text-slate-400 font-medium">{idx + 1}</TableCell>
-                    
-                    {/* Nama & Username */}
-                    <TableCell>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-sm font-bold text-slate-900">{c.name}</span>
-                        <code className="text-xs text-slate-500 font-mono">{c.username}</code>
-                      </div>
-                    </TableCell>
-
-                    {/* Sesi */}
-                    <TableCell className="text-xs text-slate-600 max-w-xs truncate">
-                      {c.batchTitle}
-                    </TableCell>
-
-                    {/* Status */}
-                    <TableCell>
-                      {c.status === 'completed' ? (
-                        <Badge variant="success" className="text-xs gap-1 font-semibold">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Selesai</span>
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-xs gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>Belum Selesai</span>
-                        </Badge>
-                      )}
-                    </TableCell>
-
-                    {/* Ringkasan Skor (Tanpa Kunci Jawaban) */}
-                    <TableCell>
-                      {renderScoresSummary(c.scores)}
-                    </TableCell>
-
-                    {/* Rekomendasi */}
-                    <TableCell className="text-center">
-                      {c.recommendation && !['Belum Mulai', 'Sedang Mengerjakan'].includes(c.recommendation) ? (
-                        <Badge 
-                          variant={
-                            c.recommendation.toLowerCase().includes('disarankan') && !c.recommendation.toLowerCase().includes('tidak')
-                              ? 'success'
-                              : c.recommendation.toLowerCase().includes('tidak')
-                              ? 'destructive'
-                              : 'warning'
-                          } 
-                          className="text-xs font-bold"
-                        >
-                          {c.recommendation}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-slate-400 italic">{c.recommendation || 'Belum Mulai'}</span>
-                      )}
-                    </TableCell>
-
-                    {/* Aksi Cetak PDF */}
-                    <TableCell className="text-right">
-                      {c.status === 'completed' ? (
-                        <a
-                          href={`/report-pdf/${c.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-200 transition-colors"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-teal-600" />
-                          <span>PDF</span>
-                        </a>
-                      ) : (
-                        <span className="text-xs text-slate-400 italic">-</span>
-                      )}
+              </TableHeader>
+              <TableBody>
+                {searchingParticipants ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12 text-slate-400 text-xs">
+                      <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600" />
+                      Mencari kandidat di seluruh batch…
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : search.trim().length < 2 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12 text-slate-400 text-xs">
+                      <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                      <p className="font-semibold text-slate-600">Mode Pencarian Kandidat Lintas Proyek</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Ketik minimal 2 huruf nama lengkap atau username kandidat pada kolom pencarian.</p>
+                    </TableCell>
+                  </TableRow>
+                ) : participantResults.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12 text-slate-400 text-xs">
+                      Tidak ada kandidat yang cocok dengan kata kunci &quot;{search}&quot;.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  participantResults.map((p) => {
+                    const isCompleted = p.status === 'completed';
+                    const isReviewed = p.psychoResults?.status === 'RELEASED' || p.psychoResults?.status === 'REVIEWED';
+                    const batchTitle = p.test?.title || 'Sesi Tanpa Judul';
+                    const positionName = p.jobPosition?.name || p.test?.jobPosition?.name || 'Standar';
+
+                    return (
+                      <TableRow key={p.id} className="hover:bg-slate-50/70 transition-colors">
+                        <TableCell>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-sm font-bold text-slate-900">{p.user?.name || 'Kandidat'}</span>
+                            <span className="text-xs font-mono text-slate-500">ID: {p.user?.username || '-'}</span>
+                          </div>
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-xs font-bold text-slate-900">{batchTitle}</span>
+                            {p.test?.startDate && (
+                              <span className="text-[11px] text-slate-400">
+                                {new Date(p.test.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-xs font-semibold text-slate-700">
+                          {positionName}
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge 
+                            variant={isCompleted ? "success" : (p.status === 'in_progress' ? "warning" : "secondary")}
+                            className="text-xs font-semibold gap-1 whitespace-nowrap"
+                          >
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>{isCompleted ? 'Selesai Tes' : (p.status === 'in_progress' ? 'Sedang Tes' : 'Belum Mulai')}</span>
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell>
+                          <Badge 
+                            variant={isReviewed ? "success" : (isCompleted ? "warning" : "secondary")}
+                            className="text-xs font-semibold gap-1 whitespace-nowrap"
+                          >
+                            <FileText className="w-3 h-3" />
+                            <span>{isReviewed ? 'Laporan Rilis' : (isCompleted ? 'Menunggu Review' : 'Belum Ada')}</span>
+                          </Badge>
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <div className="inline-flex items-center gap-1.5 justify-end">
+                            <Button asChild size="sm" className="h-8 px-3 text-xs gap-1 bg-teal-600 hover:bg-teal-700">
+                              <Link href={`/client/reports/${p.id}`}>
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>Lihat Laporan</span>
+                              </Link>
+                            </Button>
+                            <Button asChild variant="outline" size="sm" className="h-8 px-2.5 text-xs gap-1 text-slate-700">
+                              <Link href={`/client/reports/batch/${p.testId}`}>
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>Buka Batch</span>
+                              </Link>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          ) : (
+            <Table containerClassName="max-h-[calc(100vh-295px)] min-h-[380px] overflow-auto">
+              <TableHeader className="sticky top-0 z-20 bg-slate-50 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+                <TableRow className="bg-slate-50 border-b border-slate-200">
+                  <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-xs uppercase text-slate-500 py-3.5">Nama Batch & Tanggal</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-xs uppercase text-slate-500 py-3.5">Psikogram</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-xs uppercase text-slate-500 py-3.5">Battery Test</TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-xs uppercase text-slate-500 py-3.5 text-center whitespace-nowrap">
+                    <div className="flex flex-col items-center">
+                      <span>Progres Kandidat</span>
+                      <span className="text-[10px] text-slate-400 font-normal lowercase tracking-normal">Total • Tes • Laporan</span>
+                    </div>
+                  </TableHead>
+                  <TableHead className="sticky top-0 z-20 bg-slate-50 font-bold text-xs uppercase text-slate-500 py-3.5 text-right">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10 text-slate-400 text-sm">
+                      <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600" />
+                      Memuat daftar batch laporan asesmen…
+                    </TableCell>
+                  </TableRow>
+                ) : filteredBatches.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10 text-slate-400 text-sm">
+                      Belum ada batch ujian atau asesmen yang terdaftar untuk akun Anda.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredBatches.map((b) => (
+                    <TableRow key={b.id} className="hover:bg-slate-50/70 transition-colors">
+                      {/* Nama Batch & Tanggal */}
+                      <TableCell className="py-3">
+                        <div className="flex flex-col gap-0.5 max-w-[240px]">
+                          <span className="text-xs font-bold text-slate-900 leading-snug">{b.title}</span>
+                          <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                            <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span>
+                              {b.startDate ? new Date(b.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Tanpa Tanggal'}
+                            </span>
+                          </div>
+                        </div>
+                      </TableCell>
+
+                      {/* Psikogram */}
+                      <TableCell className="py-3">
+                        <div className="flex flex-wrap gap-1 max-w-[180px]">
+                          {b.psikograms && b.psikograms.length > 0 ? (
+                            b.psikograms.map((psi, i) => (
+                              <Badge key={i} variant="outline" className="text-[11px] font-semibold bg-purple-50 text-purple-700 border-purple-200 py-0.5 px-2">
+                                {psi}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-[11px] text-slate-400 italic">Standar Umum</span>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      {/* Battery Test */}
+                      <TableCell className="py-3">
+                        <div className="flex flex-wrap items-center gap-1 min-w-[220px] leading-relaxed">
+                          {b.sequence && b.sequence.length > 0 ? (
+                            b.sequence.map((testName, i) => (
+                              <span key={i} className="inline-flex items-center gap-1">
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 text-[10.5px] font-semibold border border-slate-200/90 whitespace-nowrap">
+                                  {testName}
+                                </span>
+                                {i < b.sequence.length - 1 && (
+                                  <span className="text-slate-400 text-[10px] font-bold">+</span>
+                                )}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-600 break-words whitespace-normal font-mono">{b.batteryTestStr}</span>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      {/* Progres Kandidat */}
+                      <TableCell className="text-center py-3 whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5 p-1 bg-slate-50/80 rounded-lg border border-slate-200/60 shadow-2xs">
+                          <span 
+                            className="text-xs font-bold text-slate-800 font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200"
+                            title={`Total Kandidat: ${b.totalParticipants}`}
+                          >
+                            {b.totalParticipants}
+                          </span>
+                          <span 
+                            className={`inline-flex items-center justify-center text-xs font-bold font-mono px-2 py-0.5 rounded min-w-[28px] ${
+                              b.completedParticipants > 0 
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                                : 'bg-slate-100 text-slate-400 border border-slate-200'
+                            }`}
+                            title={`Kandidat Selesai Tes: ${b.completedParticipants}`}
+                          >
+                            {b.completedParticipants}
+                          </span>
+                          <span 
+                            className={`inline-flex items-center justify-center text-xs font-bold font-mono px-2 py-0.5 rounded min-w-[28px] ${
+                              b.completedReports > 0 
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                                : 'bg-slate-100 text-slate-400 border border-slate-200'
+                            }`}
+                            title={`Laporan Selesai Dibuat: ${b.completedReports}`}
+                          >
+                            {b.completedReports}
+                          </span>
+                        </div>
+                      </TableCell>
+
+                      {/* Aksi */}
+                      <TableCell className="text-right py-3">
+                        <div className="inline-flex items-center gap-1.5 justify-end">
+                          <Button asChild size="sm" className="h-7 px-2.5 text-xs gap-1 bg-teal-600 hover:bg-teal-700">
+                            <Link href={`/client/reports/batch/${b.id}`}>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Lihat Akun</span>
+                            </Link>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -23,6 +23,9 @@ export async function GET() {
         phone: true,
         testQuotas: true,
         usedQuotas: true,
+        quotaPackage: true,
+        quotaSingle: true,
+        quotaExpiredAt: true,
         logoUrl: true,
       }
     });
@@ -102,16 +105,33 @@ export async function GET() {
     if (client.testQuotas) {
       try {
         quotas = JSON.parse(client.testQuotas);
-        totalQuotaCount = Object.values(quotas).reduce((a, b) => a + Number(b || 0), 0);
-      } catch {}
+        if (typeof quotas === 'object' && quotas !== null) {
+          totalQuotaCount = quotas.total !== undefined ? Number(quotas.total) : Object.values(quotas).reduce((a, b) => a + Number(b || 0), 0);
+        } else {
+          totalQuotaCount = Number(quotas) || 0;
+        }
+      } catch {
+        totalQuotaCount = Number(client.testQuotas) || 0;
+      }
     }
     if (client.usedQuotas) {
       try {
         used = JSON.parse(client.usedQuotas);
-        totalUsedCount = Object.values(used).reduce((a, b) => a + Number(b || 0), 0);
-      } catch {}
+        if (typeof used === 'object' && used !== null) {
+          totalUsedCount = used.total !== undefined ? Number(used.total) : Object.values(used).reduce((a, b) => a + Number(b || 0), 0);
+        } else {
+          totalUsedCount = Number(used) || 0;
+        }
+      } catch {
+        totalUsedCount = Number(client.usedQuotas) || 0;
+      }
     }
     const remainingQuota = Math.max(0, totalQuotaCount - totalUsedCount);
+    let quotaPackage = client.quotaPackage ?? 0;
+    let quotaSingle = client.quotaSingle ?? 0;
+    if (quotaPackage === 0 && quotaSingle === 0 && remainingQuota > 0) {
+      quotaPackage = remainingQuota;
+    }
 
     // Sort batches: terdekat / mendatang lebih dulu (seperti Superadmin)
     const sortedBatches = [...batchesSummary].sort((a, b) => {
@@ -133,6 +153,11 @@ export async function GET() {
         totalQuota: totalQuotaCount,
         usedQuota: totalUsedCount,
         remainingQuota,
+        wallet: {
+          quotaPackage,
+          quotaSingle,
+          quotaExpiredAt: client.quotaExpiredAt,
+        }
       },
       stats: {
         totalProjects,
@@ -144,6 +169,9 @@ export async function GET() {
         completedReports,
         pendingReports,
         quota: remainingQuota,
+        quotaPackage,
+        quotaSingle,
+        quotaExpiredAt: client.quotaExpiredAt,
       },
       batches: sortedBatches,
     });

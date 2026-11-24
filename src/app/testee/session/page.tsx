@@ -80,11 +80,24 @@ export default function TesteeSession() {
 
         if (hasCustomDbName) {
           const finalName = data.userName;
-          const finalAge = sessionStorage.getItem('testee_age') || localStorage.getItem('testee_age') || '22';
+          const finalDob = data.dob || sessionStorage.getItem('testee_dob') || localStorage.getItem('testee_dob') || '';
+          let finalAge = sessionStorage.getItem('testee_age') || localStorage.getItem('testee_age') || '22';
+          if (finalDob) {
+            const birthDate = new Date(finalDob);
+            const today = new Date();
+            let calcAge = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+              calcAge--;
+            }
+            if (!isNaN(calcAge) && calcAge > 0) finalAge = String(calcAge);
+          }
           sessionStorage.setItem('testee_name', finalName);
           sessionStorage.setItem('testee_age', finalAge);
+          if (finalDob) sessionStorage.setItem('testee_dob', finalDob);
           localStorage.setItem('testee_name', finalName);
           localStorage.setItem('testee_age', finalAge);
+          if (finalDob) localStorage.setItem('testee_dob', finalDob);
           setOnboardingStage(3); // Sudah isi nama asli di DB -> langsung lanjut ke ruang jeda atau ujian
         } else {
           // Belum isi nama asli -> bersihkan sisa data lama & WAJIB input form nama

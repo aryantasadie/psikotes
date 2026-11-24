@@ -185,8 +185,16 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { name: true, username: true }
+    select: { name: true, username: true, license: true }
   });
+
+  let savedDob: string | null = null;
+  if (user?.license) {
+    try {
+      const parsedLic = JSON.parse(user.license);
+      if (parsedLic?.dob) savedDob = parsedLic.dob;
+    } catch {}
+  }
 
   const rawName = (user?.name || '').trim();
   const username = (user?.username || '').trim();
@@ -199,6 +207,7 @@ export async function GET() {
     participantId: participant.id,
     userName: rawName,
     username: username,
+    dob: savedDob,
     isDefaultName,
     sequence,
     completedTests,
@@ -228,9 +237,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Nama wajib diisi' }, { status: 400 });
     }
 
+    const existingUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { license: true }
+    });
+
+    let licenseObj: any = {};
+    try {
+      licenseObj = JSON.parse(existingUser?.license || '{}');
+    } catch {
+      licenseObj = {};
+    }
+    if (dob) {
+      licenseObj.dob = String(dob).trim();
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { name: sanitizedName }
+      data: { 
+        name: sanitizedName,
+        license: JSON.stringify(licenseObj)
+      }
     });
 
     // Update real-time stream feed session store if participant exists & mark started (deduct B2B quota anti-ghosting)

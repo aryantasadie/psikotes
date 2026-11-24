@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Bell,
   Loader2,
+  Coins,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ const CLIENT_SECTIONS = [
     label: 'PUSAT KENDALI',
     items: [
       { label: 'Dashboard', path: '/client', icon: LayoutDashboard, exact: true },
+      { label: 'Log Kuota & Transaksi', path: '/client/quota', icon: Coins },
     ],
   },
   {
@@ -41,20 +43,22 @@ const CLIENT_SECTIONS = [
   {
     label: 'HASIL & EVALUASI',
     items: [
-      { label: 'Hasil & Laporan', path: '/client/reports',      icon: FileText },
-      { label: 'Monitoring Tes',  path: '/client/proctor',      icon: Radio, badge: 'Live', live: true },
-      { label: 'Log Pengawasan',  path: '/client/proctor-logs', icon: ShieldCheck },
+      { label: 'Hasil & Laporan', path: '/client/reports',     icon: FileText },
+      { label: 'Monitoring Tes',  path: '/client/live-stream', icon: Radio, badge: 'Live', live: true },
+      { label: 'Log Pengawasan',  path: '/client/proctor',     icon: ShieldCheck },
     ],
   },
 ];
 
 const CLIENT_PAGE_META: Record<string, { title: string; crumb: string }> = {
   '/client':               { title: 'Dashboard Utama', crumb: 'Dashboard' },
+  '/client/quota':         { title: 'Log Kuota & Transaksi Mitra', crumb: 'Log Kuota & Transaksi' },
   '/client/schedule':      { title: 'Penjadwalan & Sesi Ujian', crumb: 'Penjadwalan & Sesi' },
   '/client/job-positions': { title: 'Daftar Standar Psikogram Jabatan', crumb: 'Psikogram Jabatan' },
   '/client/psychograph':   { title: 'Kompetensi & Alat Tes', crumb: 'Kompetensi & Alat Tes' },
   '/client/reports':       { title: 'Hasil & Laporan Asesmen', crumb: 'Hasil & Laporan' },
-  '/client/proctor':       { title: 'Monitoring Peserta Tes', crumb: 'Monitoring Tes' },
+  '/client/live-stream':   { title: 'Monitoring Ujian Real-Time', crumb: 'Live Stream' },
+  '/client/proctor':       { title: 'Pusat Pengawasan Ujian', crumb: 'Proctoring' },
   '/client/proctor-logs':  { title: 'Log Pengawasan Ujian', crumb: 'Log Pengawasan' },
 };
 

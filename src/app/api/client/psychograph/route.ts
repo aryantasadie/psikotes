@@ -29,15 +29,41 @@ export async function GET() {
       } catch {}
     }
 
-    // Jika klien tidak memiliki preset kompetensi yang dialokasikan/dicentang oleh superadmin, kembalikan array kosong
-    if (assignedPresetIds.length === 0) {
-      return NextResponse.json([]);
+    // Tentukan filter preset: gunakan assignedPresetIds jika ada, atau fallback ke preset jabatan klien / preset standar
+    let whereCondition: any = {};
+    if (assignedPresetIds.length > 0) {
+      whereCondition = { id: { in: assignedPresetIds } };
+    } else {
+      let clientAssignedJobIds: number[] = [];
+      if (clientUser?.license) {
+        try {
+          const parsed = JSON.parse(clientUser.license);
+          if (Array.isArray(parsed.assignedJobPositionIds)) {
+            clientAssignedJobIds = parsed.assignedJobPositionIds.map(Number).filter((id: number) => !isNaN(id) && id > 0);
+          }
+        } catch {}
+      }
+
+      const clientJobs = await prisma.jobPosition.findMany({
+        where: {
+          OR: [
+            { clientId },
+            ...(clientAssignedJobIds.length > 0 ? [{ id: { in: clientAssignedJobIds } }] : [])
+          ]
+        },
+        select: { psychographPresetId: true }
+      });
+
+      const linkedPresetIds = clientJobs.map(j => j.psychographPresetId).filter((id): id is number => typeof id === 'number' && id > 0);
+      if (linkedPresetIds.length > 0) {
+        whereCondition = { id: { in: linkedPresetIds } };
+      } else {
+        whereCondition = {}; // Tampilkan seluruh preset acuan HR Publik agar menu tidak kosong
+      }
     }
 
     const presets = await prisma.psychographPreset.findMany({
-      where: {
-        id: { in: assignedPresetIds }
-      },
+      where: whereCondition,
       include: {
         jobPositions: {
           select: { id: true, name: true }

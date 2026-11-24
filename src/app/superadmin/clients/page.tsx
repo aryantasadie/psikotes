@@ -41,64 +41,15 @@ import {
   ArrowDown,
   X,
   Target,
-  ArrowLeft
+  ArrowLeft,
+  History
 } from 'lucide-react';
-import { ASPECT_DESCRIPTIONS } from '@/app/superadmin/job-positions/builder/page';
-
-const SCORE_LABELS = [
-  { value: 1, label: 'KS', full: 'Kurang Sekali' },
-  { value: 2, label: 'K',  full: 'Kurang'        },
-  { value: 3, label: 'C',  full: 'Cukup'         },
-  { value: 4, label: 'B',  full: 'Baik'          },
-  { value: 5, label: 'BS', full: 'Baik Sekali'   },
-];
-
-const AVAILABLE_TEST_BATTERY = [
-  'WPT',
-  'CFIT 1', 'CFIT 2', 'CFIT 3', 'CFIT 4',
-  'TIKI 1', 'TIKI 2', 'TIKI 3', 'TIKI 4', 'TIKI 6',
-  'IST 2', 'IST 3', 'IST 6', 'IST 7',
-  'DISC', 'MSDT', 'PAPI KOSTICK', 'Kraepelin', 'Wartegg', 'Tes Grafis'
-];
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription 
-} from '@/components/ui/card';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
-
-// Modul Instrumen Ujian HR Publik
-const ALL_TEST_INSTRUMENTS = [
-  { id: 'WPT', name: 'WPT', desc: 'Tes Inteligensi Cepat (12 Menit)' },
-  { id: 'CFIT', name: 'CFIT', desc: 'Tes Inteligensi Non-Verbal' },
-  { id: 'TIKI', name: 'TIKI', desc: 'Tes Inteligensi Kolektif' },
-  { id: 'IST', name: 'IST', desc: 'Struktur Inteligensi & Daya Analisa' },
-  { id: 'DISC', name: 'DISC', desc: 'Gaya Kepribadian & Pola Kerja' },
-  { id: 'PAPI KOSTICK', name: 'PAPI KOSTICK', desc: 'Dinamika Sikap & Motivasi' },
-  { id: 'MSDT', name: 'MSDT', desc: 'Gaya Kepemimpinan Manajerial' },
-  { id: 'Kraepelin', name: 'Kraepelin', desc: 'Ketahanan, Kecepatan & Ketelitian' },
-  { id: 'Wartegg', name: 'Wartegg', desc: 'Eksplorasi Kepribadian Proyektif' },
-];
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 interface AvailableJobPosition {
   id: number;
@@ -134,6 +85,9 @@ interface ClientCompany {
   assignedJobPositionIds?: number[];
   totalQuota?: number;
   usedQuota?: number;
+  quotaPackage?: number;
+  quotaSingle?: number;
+  quotaExpiredAt?: string | null;
   logoUrl?: string | null;
   totalBatches?: number;
   totalCandidates?: number;
@@ -157,36 +111,6 @@ export default function ClientsManagementPage() {
   // Modal State Profil Klien (Tambah / Edit Profil)
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingClient, setEditingClient] = useState<ClientCompany | null>(null);
-
-  // Modal State: Konfigurasi Mitra (Battery Test Kunci, Bank Psikogram, Kuota)
-  const [configClient, setConfigClient] = useState<ClientCompany | null>(null);
-  const [configTab, setConfigTab] = useState<'battery' | 'psychograph' | 'profile'>('battery');
-  const [configAssignedJobs, setConfigAssignedJobs] = useState<number[]>([9]);
-  const [configQuota, setConfigQuota] = useState<string>('100');
-  const [savingConfig, setSavingConfig] = useState<boolean>(false);
-  const [configMsg, setConfigMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-
-  // State Builder Baterai Tes Mitra (Tampilan Test Builder Superadmin)
-  const [batteryTestId, setBatteryTestId] = useState<number | null>(null);
-  const [batteryTitle, setBatteryTitle] = useState<string>('');
-  const [batterySequence, setBatterySequence] = useState<string[]>(['WPT', 'Kraepelin', 'DISC', 'PAPI KOSTICK']);
-  const [savingBattery, setSavingBattery] = useState<boolean>(false);
-
-  // State Builder Psikogram Jabatan & Gray Area Mitra (Tampilan Job Position Builder Superadmin)
-  const [clientJobPositions, setClientJobPositions] = useState<any[]>([]);
-  const [psychographPresets, setPsychographPresets] = useState<any[]>([]);
-  const [jobViewMode, setJobViewMode] = useState<'list' | 'builder'>('list');
-  const [editingJobId, setEditingJobId] = useState<number | null>(null);
-  const [jobName, setJobName] = useState<string>('');
-  const [jobDesc, setJobDesc] = useState<string>('');
-  const [jobPresetId, setJobPresetId] = useState<string>('');
-  const [activeCategories, setActiveCategories] = useState<any[]>([]);
-  const [flatAspects, setFlatAspects] = useState<string[]>([]);
-  const [grayAreas, setGrayAreas] = useState<Record<string, { targetScore: number }>>({});
-  const [savingJob, setSavingJob] = useState<boolean>(false);
-
-  // Modal State: Detail Riwayat Batch Klien
-  const [viewBatchesClient, setViewBatchesClient] = useState<ClientCompany | null>(null);
 
   // Dialog State: Keamanan Relasi Data & Konfirmasi Hapus
   const [blockedData, setBlockedData] = useState<{
@@ -221,6 +145,40 @@ export default function ClientsManagementPage() {
   const [formError, setFormError] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [showClientPassword, setShowClientPassword] = useState<boolean>(false);
+
+  // Modal State: Top-Up Kuota Dual-Wallet (Spesifikasi Teknis Ticketing)
+  const [topUpModal, setTopUpModal] = useState<{
+    isOpen: boolean;
+    client: ClientCompany | null;
+    quotaType: 'PACKAGE' | 'SINGLE';
+    amount: string;
+    referenceDoc: string;
+    expiredAt: string;
+    notes: string;
+    isSubmitting: boolean;
+  }>({
+    isOpen: false,
+    client: null,
+    quotaType: 'PACKAGE',
+    amount: '50',
+    referenceDoc: '',
+    expiredAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    notes: '',
+    isSubmitting: false,
+  });
+
+  // Modal State: Buku Besar Mutasi Kuota (Audit Trail)
+  const [ledgerModal, setLedgerModal] = useState<{
+    isOpen: boolean;
+    client: ClientCompany | null;
+    loading: boolean;
+    ledgers: any[];
+  }>({
+    isOpen: false,
+    client: null,
+    loading: false,
+    ledgers: [],
+  });
 
   useEffect(() => {
     fetchClients();
@@ -333,323 +291,6 @@ export default function ClientsManagementPage() {
   };
 
   // ════════════════════════════════════════════════════════════════════════════
-  // MODAL: KONFIGURASI SAAS MITRA (BATTERY TEST FIX, BANK PSIKOGRAM, KUOTA)
-  // MENGGUNAKAN SISTEM, BUILDER & DATABASE YANG SAMA DENGAN SUPERADMIN
-  // ════════════════════════════════════════════════════════════════════════════
-  const fetchClientJobPositions = async (cId: number) => {
-    try {
-      const res = await fetch(`/api/superadmin/job-positions?clientId=${cId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setClientJobPositions(Array.isArray(data) ? data : []);
-      }
-    } catch (e) {
-      console.error('Failed to fetch client job positions:', e);
-    }
-  };
-
-  const fetchPresetsList = async () => {
-    try {
-      const res = await fetch('/api/superadmin/psychograph');
-      if (res.ok) {
-        const data = await res.json();
-        setPsychographPresets(Array.isArray(data) ? data : []);
-      }
-    } catch (e) {
-      console.error('Failed to fetch presets:', e);
-    }
-  };
-
-  const handleOpenConfigModal = async (client: ClientCompany) => {
-    setConfigClient(client);
-    setConfigTab('battery');
-    setConfigMsg(null);
-    setJobViewMode('list');
-    setEditingJobId(null);
-    setConfigQuota(String(client.totalQuota || 100));
-    setConfigAssignedJobs(client.assignedJobPositionIds && client.assignedJobPositionIds.length > 0 ? client.assignedJobPositionIds : [9]);
-
-    // 1. Fetch Baterai Tes resmi klien dari tabel Test (clientId = client.id)
-    try {
-      const resTests = await fetch(`/api/superadmin/tests?clientId=${client.id}`);
-      if (resTests.ok) {
-        const testsData = await resTests.json();
-        const clientTest = Array.isArray(testsData) ? testsData.find((t: any) => t.clientId === client.id) : null;
-        if (clientTest) {
-          setBatteryTestId(clientTest.id);
-          setBatteryTitle(clientTest.title || `Baterai Tes Resmi - ${client.name}`);
-          try {
-            const parsedSeq = JSON.parse(clientTest.sequence || '[]');
-            setBatterySequence(Array.isArray(parsedSeq) && parsedSeq.length > 0 ? parsedSeq : (client.batteryTest || ['WPT', 'Kraepelin', 'DISC', 'PAPI KOSTICK']));
-          } catch {
-            setBatterySequence(client.batteryTest || ['WPT', 'Kraepelin', 'DISC', 'PAPI KOSTICK']);
-          }
-        } else {
-          setBatteryTestId(null);
-          setBatteryTitle(`Baterai Tes Resmi - ${client.name}`);
-          setBatterySequence(client.batteryTest || ['WPT', 'Kraepelin', 'DISC', 'PAPI KOSTICK']);
-        }
-      }
-    } catch {
-      setBatteryTestId(null);
-      setBatteryTitle(`Baterai Tes Resmi - ${client.name}`);
-      setBatterySequence(client.batteryTest || ['WPT', 'Kraepelin', 'DISC', 'PAPI KOSTICK']);
-    }
-
-    // 2. Fetch Job Positions klien & Preset Psikogram
-    fetchClientJobPositions(client.id);
-    fetchPresetsList();
-  };
-
-  // Parser aspek saat template psikogram berubah di Builder Jabatan
-  useEffect(() => {
-    if (!jobPresetId || psychographPresets.length === 0) {
-      setActiveCategories([]);
-      setFlatAspects([]);
-      return;
-    }
-    const preset = psychographPresets.find(p => String(p.id) === String(jobPresetId));
-    if (!preset?.mapping) return;
-    try {
-      const mapping = JSON.parse(preset.mapping);
-      const cats: any[] = [];
-      const flat: string[] = [];
-
-      mapping.forEach((cat: any) => {
-        const active = (cat.aspects || [])
-          .filter((a: any) => a.checked)
-          .map((a: any) => ({ name: a.name, description: a.description || '' }));
-
-        if (active.length > 0) {
-          cats.push({ category: cat.category, aspects: active });
-          active.forEach((a: any) => flat.push(a.name));
-        }
-      });
-
-      setActiveCategories(cats);
-      setFlatAspects(flat);
-      setGrayAreas(prev => {
-        const updated = { ...prev };
-        flat.forEach(a => {
-          if (!updated[a]) updated[a] = { targetScore: 3 };
-        });
-        return updated;
-      });
-    } catch {}
-  }, [jobPresetId, psychographPresets]);
-
-  // Handler Baterai Tes (Sama seperti TestBuilder Superadmin)
-  const handleAddTestToSequence = (testName: string) => {
-    setBatterySequence(prev => [...prev, testName]);
-  };
-
-  const handleRemoveTestFromSequence = (index: number) => {
-    setBatterySequence(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleMoveTestSequence = (index: number, direction: 'up' | 'down') => {
-    const targetIdx = direction === 'up' ? index - 1 : index + 1;
-    if (targetIdx < 0 || targetIdx >= batterySequence.length) return;
-    const newSeq = [...batterySequence];
-    const item = newSeq[index];
-    newSeq.splice(index, 1);
-    newSeq.splice(targetIdx, 0, item);
-    setBatterySequence(newSeq);
-  };
-
-  const handleApplyBatteryPreset = (preset: 'staff' | 'operator' | 'manager') => {
-    if (preset === 'operator') {
-      setBatterySequence(['WPT', 'Kraepelin', 'DISC']);
-    } else if (preset === 'staff') {
-      setBatterySequence(['WPT', 'Kraepelin', 'DISC', 'PAPI KOSTICK']);
-    } else if (preset === 'manager') {
-      setBatterySequence(['WPT', 'IST 2', 'IST 3', 'Kraepelin', 'DISC', 'PAPI KOSTICK', 'MSDT']);
-    }
-  };
-
-  const handleSaveBatteryTest = async () => {
-    if (!configClient) return;
-    if (batterySequence.length === 0) {
-      alert('Pilih minimal satu modul tes untuk rangkaian Baterai Tes mitra ini.');
-      return;
-    }
-    setSavingBattery(true);
-    setConfigMsg(null);
-    try {
-      // 1. Simpan langsung ke database Test (dengan clientId mitra)
-      const url = batteryTestId ? `/api/superadmin/tests/${batteryTestId}` : '/api/superadmin/tests';
-      const method = batteryTestId ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: batteryTitle.trim() || `Baterai Tes Resmi - ${configClient.name}`,
-          sequence: batterySequence,
-          clientId: configClient.id
-        })
-      });
-
-      if (res.ok) {
-        const savedTest = await res.json();
-        setBatteryTestId(savedTest.id);
-
-        // 2. Sinkronkan ke license user mitra
-        await fetch('/api/superadmin/clients', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: configClient.id,
-            name: configClient.name,
-            username: configClient.username,
-            batteryTest: batterySequence,
-            assignedJobPositionIds: configAssignedJobs,
-            totalQuota: parseInt(configQuota, 10) || 100
-          })
-        });
-
-        setConfigMsg({ text: 'Baterai Tes resmi mitra berhasil disimpan ke database!', type: 'success' });
-        fetchClients();
-      } else {
-        const errData = await res.json();
-        setConfigMsg({ text: errData.error || 'Gagal menyimpan Baterai Tes', type: 'error' });
-      }
-    } catch {
-      setConfigMsg({ text: 'Terjadi kesalahan koneksi server.', type: 'error' });
-    } finally {
-      setSavingBattery(false);
-    }
-  };
-
-  // Handler Psikogram Jabatan Mitra (Sama seperti JobPositionBuilder Superadmin)
-  const toggleConfigJob = (jobId: number) => {
-    setConfigAssignedJobs(prev =>
-      prev.includes(jobId) ? prev.filter(id => id !== jobId) : [...prev, jobId]
-    );
-  };
-
-  const handleStartCreateJob = () => {
-    setEditingJobId(null);
-    setJobName('');
-    setJobDesc('');
-    setJobPresetId(psychographPresets[0]?.id ? String(psychographPresets[0].id) : '');
-    setGrayAreas({});
-    setJobViewMode('builder');
-  };
-
-  const handleStartEditJob = (pos: any) => {
-    setEditingJobId(pos.id);
-    setJobName(pos.name);
-    setJobDesc(pos.description || '');
-    setJobPresetId(pos.psychographPresetId ? String(pos.psychographPresetId) : '');
-    const map: Record<string, { targetScore: number }> = {};
-    (pos.grayAreas || []).forEach((ga: any) => {
-      map[ga.parameter] = { targetScore: ga.targetScore };
-    });
-    setGrayAreas(map);
-    setJobViewMode('builder');
-  };
-
-  const handleSaveJobPosition = async () => {
-    if (!configClient) return;
-    if (!jobName.trim()) {
-      alert('Nama Standar Jabatan harus diisi.');
-      return;
-    }
-    if (!jobPresetId) {
-      alert('Template Psikogram harus dipilih.');
-      return;
-    }
-
-    setSavingJob(true);
-    setConfigMsg(null);
-    try {
-      const url = editingJobId ? `/api/superadmin/job-positions/${editingJobId}` : '/api/superadmin/job-positions';
-      const method = editingJobId ? 'PUT' : 'POST';
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: jobName.trim(),
-          description: jobDesc.trim(),
-          psychographPresetId: parseInt(jobPresetId),
-          clientId: configClient.id,
-          grayAreas: flatAspects.map(a => ({
-            parameter: a,
-            targetScore: grayAreas[a]?.targetScore || 3
-          }))
-        })
-      });
-
-      if (res.ok) {
-        const savedPos = await res.json();
-        if (!editingJobId && savedPos.id) {
-          setConfigAssignedJobs(prev => [...prev, savedPos.id]);
-        }
-        await fetchClientJobPositions(configClient.id);
-        fetchClients();
-        setJobViewMode('list');
-        setConfigMsg({ text: 'Standar Psikogram Jabatan mitra berhasil disimpan ke database!', type: 'success' });
-      } else {
-        const errData = await res.json();
-        setConfigMsg({ text: errData.error || 'Gagal menyimpan Standar Jabatan', type: 'error' });
-      }
-    } catch {
-      setConfigMsg({ text: 'Terjadi kesalahan koneksi server.', type: 'error' });
-    } finally {
-      setSavingJob(false);
-    }
-  };
-
-  const getAspectDescription = (aspectName: string, directDesc?: string) => {
-    if (directDesc && directDesc.trim()) return directDesc.trim();
-    if (ASPECT_DESCRIPTIONS[aspectName]) return ASPECT_DESCRIPTIONS[aspectName];
-    const norm = aspectName.trim().toLowerCase();
-    for (const [k, v] of Object.entries(ASPECT_DESCRIPTIONS)) {
-      if (k.toLowerCase() === norm) return v;
-    }
-    return '—';
-  };
-
-  const handleSaveProfileAndQuota = async () => {
-    if (!configClient) return;
-    const qNum = parseInt(configQuota, 10);
-    if (isNaN(qNum) || qNum < 0) {
-      alert('Kuota kandidat harus berupa angka valid (>= 0).');
-      return;
-    }
-
-    setSavingConfig(true);
-    setConfigMsg(null);
-    try {
-      const res = await fetch('/api/superadmin/clients', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: configClient.id,
-          name: configClient.name,
-          username: configClient.username,
-          serviceScheme: configClient.serviceScheme || 'SKEMA_2_SAAS',
-          batteryTest: batterySequence,
-          assignedJobPositionIds: configAssignedJobs,
-          totalQuota: qNum
-        }),
-      });
-
-      if (res.ok) {
-        setConfigMsg({ text: 'Alokasi kuota & profil mitra berhasil diperbarui!', type: 'success' });
-        fetchClients();
-      } else {
-        const data = await res.json();
-        setConfigMsg({ text: data.error || 'Gagal menyimpan kuota mitra.', type: 'error' });
-      }
-    } catch {
-      setConfigMsg({ text: 'Terjadi kesalahan jaringan.', type: 'error' });
-    } finally {
-      setSavingConfig(false);
-    }
-  };
-
-  // ════════════════════════════════════════════════════════════════════════════
   // DELETE & STATUS HANDLING
   // ════════════════════════════════════════════════════════════════════════════
   const handleInitiateDeleteClient = (client: ClientCompany) => {
@@ -753,6 +394,118 @@ export default function ClientsManagementPage() {
         <span>Hybrid (1 & 2)</span>
       </Badge>
     );
+  };
+
+  const getExpirationBadge = (expiredAt?: string | null) => {
+    if (!expiredAt) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+          <Clock className="w-2.5 h-2.5 text-slate-400" /> Tanpa Batas
+        </span>
+      );
+    }
+    const exp = new Date(expiredAt);
+    const now = new Date();
+    const diffDays = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const formatted = exp.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    if (diffDays < 0) {
+      return (
+        <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-[10px] py-0 gap-1 font-bold">
+          🔴 Kedaluwarsa ({formatted})
+        </Badge>
+      );
+    }
+    if (diffDays <= 14) {
+      return (
+        <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px] py-0 gap-1 font-bold">
+          🟡 Menipis ({diffDays} hari lagi)
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[10px] py-0 gap-1 font-bold">
+        🟢 Aktif s/d {formatted}
+      </Badge>
+    );
+  };
+
+  const handleOpenTopUp = (client: ClientCompany) => {
+    const defaultExp = client.quotaExpiredAt && new Date(client.quotaExpiredAt) > new Date()
+      ? new Date(client.quotaExpiredAt).toISOString().split('T')[0]
+      : new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    setTopUpModal({
+      isOpen: true,
+      client,
+      quotaType: 'PACKAGE',
+      amount: '50',
+      referenceDoc: '',
+      expiredAt: defaultExp,
+      notes: '',
+      isSubmitting: false,
+    });
+  };
+
+  const handleSubmitTopUp = async () => {
+    if (!topUpModal.client) return;
+    if (!topUpModal.referenceDoc.trim()) {
+      alert('Nomor PO / Dokumen Referensi Kontrak administratif wajib diisi.');
+      return;
+    }
+    const n = parseInt(topUpModal.amount, 10);
+    if (isNaN(n) || n <= 0) {
+      alert('Jumlah kuota harus lebih dari 0.');
+      return;
+    }
+
+    setTopUpModal(prev => ({ ...prev, isSubmitting: true }));
+    try {
+      const res = await fetch(`/api/superadmin/clients/${topUpModal.client.id}/topup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quotaType: topUpModal.quotaType,
+          amount: n,
+          referenceDoc: topUpModal.referenceDoc.trim(),
+          expiredAt: topUpModal.expiredAt,
+          notes: topUpModal.notes?.trim() || '',
+        })
+      });
+
+      const d = await res.json();
+      if (res.ok) {
+        alert(d.message || 'Top-up kuota berhasil disimpan.');
+        setTopUpModal(prev => ({ ...prev, isOpen: false }));
+        fetchClients();
+      } else {
+        alert(d.error || 'Gagal memproses top-up kuota.');
+      }
+    } catch {
+      alert('Terjadi kesalahan koneksi.');
+    } finally {
+      setTopUpModal(prev => ({ ...prev, isSubmitting: false }));
+    }
+  };
+
+  const handleOpenLedger = async (client: ClientCompany) => {
+    setLedgerModal({
+      isOpen: true,
+      client,
+      loading: true,
+      ledgers: [],
+    });
+    try {
+      const res = await fetch(`/api/superadmin/clients/${client.id}/ledger`);
+      if (res.ok) {
+        const d = await res.json();
+        setLedgerModal(prev => ({ ...prev, loading: false, ledgers: d.ledgers || [] }));
+      } else {
+        setLedgerModal(prev => ({ ...prev, loading: false }));
+      }
+    } catch {
+      setLedgerModal(prev => ({ ...prev, loading: false }));
+    }
   };
 
   const filteredClients = useMemo(() => {
@@ -1008,15 +761,48 @@ export default function ClientsManagementPage() {
                         </div>
                       </TableCell>
 
-                      {/* Saldo Kuota */}
+                      {/* Saldo Kuota (Dual-Wallet Ticketing) */}
                       <TableCell>
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-slate-900">
-                            {remaining} <span className="text-[11px] text-slate-500 font-normal">/ {client.totalQuota || 0} Kandidat</span>
-                          </span>
-                          <span className="text-[10px] text-emerald-700 font-semibold">
-                            {client.usedQuota || 0} Sesi Terpakai
-                          </span>
+                        <div className="flex flex-col gap-1 min-w-[170px]">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-600 font-medium">Paket:</span>
+                            <span className="font-bold text-teal-900 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+                              {client.quotaPackage !== undefined ? client.quotaPackage : remaining} <span className="text-[10px] text-teal-700 font-normal">Sesi</span>
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-600 font-medium">Single:</span>
+                            <span className="font-bold text-indigo-900 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                              {client.quotaSingle || 0} <span className="text-[10px] text-indigo-700 font-normal">Tes</span>
+                            </span>
+                          </div>
+                          <div className="mt-0.5">
+                            {getExpirationBadge(client.quotaExpiredAt)}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenTopUp(client)}
+                              className="h-6 px-2 text-[10px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border-amber-300 gap-1 cursor-pointer"
+                              title="Top-Up Saldo Kuota Resmi (PO/Kontrak)"
+                            >
+                              <Coins className="w-2.5 h-2.5 text-amber-600" />
+                              <span>Top-Up</span>
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleOpenLedger(client)}
+                              className="h-6 px-1.5 text-[10px] font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 gap-1 cursor-pointer"
+                              title="Buka Buku Besar Mutasi Kuota"
+                            >
+                              <History className="w-2.5 h-2.5 text-slate-500" />
+                              <span>Buku Kas</span>
+                            </Button>
+                          </div>
                         </div>
                       </TableCell>
 
@@ -1411,6 +1197,268 @@ export default function ClientsManagementPage() {
             >
               {confirmDeleteData?.isDeleting && <Loader2 className="w-4 h-4 animate-spin" />}
               <span>{confirmDeleteData?.isDeleting ? 'Menghapus...' : 'Ya, Hapus Klien'}</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal Top-Up Saldo Kuota (Dual-Wallet B2B Ticketing) ── */}
+      <Dialog open={topUpModal.isOpen} onOpenChange={(open) => !open && setTopUpModal(prev => ({ ...prev, isOpen: false }))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
+                <Coins className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-slate-900">
+                  Top-Up Kuota Asesmen Mitra
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  {topUpModal.client?.name} (@{topUpModal.client?.username})
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 py-2 text-xs">
+            {/* Pilihan Dompet Kuota */}
+            <div className="flex flex-col gap-1.5">
+              <label className="font-bold text-slate-700">Tipe Dompet Kuota *</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTopUpModal(prev => ({ ...prev, quotaType: 'PACKAGE' }))}
+                  className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                    topUpModal.quotaType === 'PACKAGE'
+                      ? 'border-teal-500 bg-teal-50/70 text-teal-950 font-bold ring-1 ring-teal-500'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="font-bold text-xs flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-teal-600" />
+                    <span>Paket Asesmen</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-normal">
+                    Baterai Tes Lengkap + Lembar Psikogram
+                  </span>
+                  <span className="text-[10px] text-teal-800 font-semibold mt-1">
+                    Saldo: {topUpModal.client?.quotaPackage ?? 0} Sesi
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTopUpModal(prev => ({ ...prev, quotaType: 'SINGLE' }))}
+                  className={`p-3 rounded-xl border text-left flex flex-col gap-1 transition-all cursor-pointer ${
+                    topUpModal.quotaType === 'SINGLE'
+                      ? 'border-indigo-500 bg-indigo-50/70 text-indigo-950 font-bold ring-1 ring-indigo-500'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="font-bold text-xs flex items-center gap-1.5">
+                    <Target className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Single Test</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-normal">
+                    1 Alat Tes Mandiri (Tanpa Psikogram)
+                  </span>
+                  <span className="text-[10px] text-indigo-800 font-semibold mt-1">
+                    Saldo: {topUpModal.client?.quotaSingle ?? 0} Tes
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Jumlah Kuota */}
+            <div className="flex flex-col gap-1.5">
+              <label className="font-bold text-slate-700">Jumlah Kuota Tambahan (+N) *</label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  min="1"
+                  value={topUpModal.amount}
+                  onChange={(e) => setTopUpModal(prev => ({ ...prev, amount: e.target.value }))}
+                  placeholder="Contoh: 50"
+                  className="h-9 text-xs font-bold"
+                />
+              </div>
+            </div>
+
+            {/* No. PO / Referensi Kontrak */}
+            <div className="flex flex-col gap-1.5">
+              <label className="font-bold text-slate-700">Nomor PO / Referensi Kontrak Administratif *</label>
+              <Input
+                type="text"
+                value={topUpModal.referenceDoc}
+                onChange={(e) => setTopUpModal(prev => ({ ...prev, referenceDoc: e.target.value }))}
+                placeholder="Contoh: PO-HRP-2026-089 atau SPK/B2B/12"
+                className="h-9 text-xs"
+              />
+              <span className="text-[10px] text-slate-400">
+                Sistem tidak mencatat nomor rekening bank / nominal rupiah (Kebijakan Non-Keuangan).
+              </span>
+            </div>
+
+            {/* Tanggal Kedaluwarsa */}
+            <div className="flex flex-col gap-1.5">
+              <label className="font-bold text-slate-700">Masa Berlaku Kuota Baru *</label>
+              <Input
+                type="date"
+                value={topUpModal.expiredAt}
+                onChange={(e) => setTopUpModal(prev => ({ ...prev, expiredAt: e.target.value }))}
+                className="h-9 text-xs"
+              />
+              <span className="text-[10px] text-teal-700 font-medium">
+                Sisa kuota lama yang belum kedaluwarsa akan di-rollover dan diakumulasikan otomatis.
+              </span>
+            </div>
+
+            {/* Catatan Operasional */}
+            <div className="flex flex-col gap-1.5">
+              <label className="font-bold text-slate-700">Catatan Operasional (Opsional)</label>
+              <Input
+                type="text"
+                value={topUpModal.notes}
+                onChange={(e) => setTopUpModal(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Contoh: Pengadaan asesmen rekrutmen batch Q3"
+                className="h-9 text-xs"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setTopUpModal(prev => ({ ...prev, isOpen: false }))}
+              disabled={topUpModal.isSubmitting}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSubmitTopUp}
+              disabled={topUpModal.isSubmitting}
+              className="bg-teal-600 hover:bg-teal-700 text-white font-bold gap-2"
+            >
+              {topUpModal.isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>{topUpModal.isSubmitting ? 'Menyimpan...' : 'Simpan & Top-Up Kuota'}</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Modal Buku Besar Mutasi Kuota (Ledger Audit Trail) ── */}
+      <Dialog open={ledgerModal.isOpen} onOpenChange={(open) => !open && setLedgerModal(prev => ({ ...prev, isOpen: false }))}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-6">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
+                <History className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-slate-900">
+                  Buku Besar Mutasi Kuota (Audit Trail)
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  {ledgerModal.client?.name} (@{ledgerModal.client?.username})
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto mt-4 border border-slate-200 rounded-xl">
+            {ledgerModal.loading ? (
+              <div className="py-12 text-center text-slate-400 text-xs">
+                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-teal-600" />
+                Memuat riwayat mutasi buku besar...
+              </div>
+            ) : ledgerModal.ledgers.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 text-xs">
+                Belum ada catatan mutasi kuota untuk mitra ini.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50 text-[11px]">
+                    <TableHead className="font-bold">Waktu</TableHead>
+                    <TableHead className="font-bold">Aktivitas</TableHead>
+                    <TableHead className="font-bold">Dompet</TableHead>
+                    <TableHead className="font-bold text-right">Mutasi</TableHead>
+                    <TableHead className="font-bold text-right">Saldo Akhir</TableHead>
+                    <TableHead className="font-bold">Dokumen / Sesi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="text-xs">
+                  {ledgerModal.ledgers.map((item: any) => (
+                    <TableRow key={item.id} className="hover:bg-slate-50/50">
+                      <TableCell className="text-[11px] text-slate-500 whitespace-nowrap">
+                        {new Date(item.createdAt).toLocaleDateString('id-ID', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] font-bold ${
+                            item.transactionType === 'TOPUP'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : item.transactionType === 'USAGE'
+                              ? 'bg-blue-50 text-blue-800 border-blue-200'
+                              : item.transactionType === 'CONVERT'
+                              ? 'bg-purple-50 text-purple-800 border-purple-200'
+                              : 'bg-rose-50 text-rose-800 border-rose-200'
+                          }`}
+                        >
+                          {item.transactionType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-semibold text-slate-700 text-[11px]">
+                        {item.quotaType === 'PACKAGE' ? 'Paket Asesmen' : 'Single Test'}
+                      </TableCell>
+                      <TableCell className="text-right font-black">
+                        <span className={item.amount > 0 ? 'text-emerald-700' : 'text-slate-800'}>
+                          {item.amount > 0 ? `+${item.amount}` : item.amount}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-slate-900">
+                        {item.balanceAfter}
+                      </TableCell>
+                      <TableCell className="text-[11px] text-slate-600 max-w-[180px]">
+                        <div className="flex flex-col">
+                          {item.referenceDoc && (
+                            <span className="font-bold text-slate-900">{item.referenceDoc}</span>
+                          )}
+                          {item.test?.title && (
+                            <span className="truncate text-teal-800 font-medium">{item.test.title}</span>
+                          )}
+                          {item.notes && !item.referenceDoc && (
+                            <span className="truncate text-slate-500">{item.notes}</span>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+
+          <DialogFooter className="pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setLedgerModal(prev => ({ ...prev, isOpen: false }))}
+            >
+              Tutup
             </Button>
           </DialogFooter>
         </DialogContent>

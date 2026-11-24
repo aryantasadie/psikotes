@@ -28,10 +28,16 @@ model User {
   isPermanentLocked Boolean @default(false)
   createdAt       DateTime @default(now())
 
+  // Dual-Wallet Kuota B2B (Ticketing System)
+  quotaPackage       Int       @default(0)
+  quotaSingle        Int       @default(0)
+  quotaExpiredAt     DateTime?
+
   participants TestParticipant[]
   psychographReviews TestResultPsychograph[]
   clientTests Test[] @relation("ClientTests")
   clientJobPositions JobPosition[] @relation("ClientJobPositions")
+  quotaLedgers QuotaLedger[]
 }
 
 model JobPosition {
@@ -81,6 +87,7 @@ model Test {
   client           User?        @relation("ClientTests", fields: [clientId], references: [id])
   participants     TestParticipant[]
   questions        Question[]
+  quotaLedgers     QuotaLedger[]
 }
 
 model TestParticipant {
@@ -202,6 +209,27 @@ model AccountActivityLog {
   @@index([createdAt])
   @@index([username])
   @@index([status])
+}
+
+// Model Baru: Buku Besar Mutasi Kuota (Non-Financial Audit Trail)
+model QuotaLedger {
+  id              Int      @id @default(autoincrement())
+  clientId        Int
+  quotaType       String   // "PACKAGE" | "SINGLE"
+  transactionType String   // "TOPUP", "USAGE", "CONVERT", "EXPIRED", "ADJUSTMENT"
+  amount          Int      // +100, -1, -5
+  balanceAfter    Int
+  referenceDoc    String?  // No PO / No Kontrak (wajib untuk TOPUP)
+  testId          Int?     // Relasi ke sesi Test terkait
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  client          User     @relation(fields: [clientId], references: [id])
+  test            Test?    @relation(fields: [testId], references: [id])
+
+  @@index([clientId])
+  @@index([createdAt])
+  @@index([testId])
 }
 
 
