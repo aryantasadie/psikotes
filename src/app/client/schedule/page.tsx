@@ -785,41 +785,27 @@ export default function ClientSchedulePage() {
                       }
 
                       if (totalSingleNeeded > quotaSingle) {
-                        const neededPackage = Math.ceil((totalSingleNeeded - quotaSingle) / 3);
-                        const canConvert = quotaPackage >= neededPackage;
-
+                        const canConvert = quotaPackage > 0;
                         return (
-                          <div className="p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs flex flex-col gap-2 mt-1 animate-in fade-in duration-200">
-                            <div className="flex items-center gap-1.5 font-bold text-rose-800 text-[11px]">
-                              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                              <span>Kuota Kurang: Pembuatan Akun Diblokir</span>
-                            </div>
-                            <p className="text-[11px] leading-relaxed text-rose-800">
-                              Dibutuhkan: <b>{totalSingleNeeded} Single Test</b> ({numTools} alat tes × {countNum} peserta).
-                              <br />
-                              Saldo Single Test Anda: <b>{quotaSingle} Tes</b> (Kurang {totalSingleNeeded - quotaSingle} tes).
-                            </p>
-                            <div className="pt-2 border-t border-rose-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                              <span className="text-[10px] text-rose-700">
-                                {canConvert
-                                  ? `Anda dapat menukar ${neededPackage} Kuota Paket menjadi ${neededPackage * 3} Single Test di menu Kuota.`
-                                  : quotaPackage > 0
-                                  ? `Anda memiliki ${quotaPackage} Paket Asesmen, namun belum mencukupi untuk total kebutuhan.`
-                                  : 'Saldo Kuota Paket Asesmen Anda juga habis.'}
+                          <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs flex flex-col gap-1 mt-1 animate-in fade-in duration-200">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-rose-800 text-[11px] flex items-center gap-1.5">
+                                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                                <span>Kuota Single Kurang ({quotaSingle}/{totalSingleNeeded} Tes)</span>
                               </span>
                               {canConvert && (
                                 <Link
                                   href="/client/quota"
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-teal-600 hover:bg-teal-700 text-white font-bold text-[10px] shadow-2xs shrink-0"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-teal-600 hover:bg-teal-700 text-white font-bold text-[10px] shrink-0"
                                 >
-                                  <span>Konversi Kuota Sekarang</span>
+                                  <span>Konversi Kuota</span>
                                   <span className="text-[9px]">→</span>
                                 </Link>
                               )}
                             </div>
-                            <span className="text-[10px] text-slate-500 italic">
-                              💡 Silakan lakukan konversi kuota terlebih dahulu di menu Kuota atau hubungi admin untuk isi ulang kuota.
-                            </span>
+                            <p className="text-[10px] text-rose-700 leading-tight">
+                              Silakan lakukan konversi kuota atau hubungi admin untuk isi ulang. Pembuatan akun diblokir.
+                            </p>
                           </div>
                         );
                       }
@@ -841,17 +827,14 @@ export default function ClientSchedulePage() {
                     if (isNaN(countNum) || countNum <= 0) return null;
                     if (countNum > quotaPackage) {
                       return (
-                        <div className="p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs flex flex-col gap-1.5 mt-1 animate-in fade-in duration-200">
-                          <div className="flex items-center gap-1.5 font-bold text-rose-800 text-[11px]">
-                            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                            <span>Kuota Kurang: Pembuatan Akun Diblokir</span>
-                          </div>
-                          <p className="text-[11px] leading-relaxed text-rose-800">
-                            Jumlah peserta yang diminta ({countNum} peserta) melebihi sisa Kuota Paket Asesmen Anda ({quotaPackage} sesi).
-                          </p>
-                          <span className="text-[10px] text-slate-500 italic">
-                            💡 Silakan hubungi admin untuk melakukan pengisian ulang (top-up) kuota.
+                        <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-xs flex flex-col gap-1 mt-1 animate-in fade-in duration-200">
+                          <span className="font-bold text-rose-800 text-[11px] flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                            <span>Kuota Paket Kurang ({quotaPackage}/{countNum} Sesi)</span>
                           </span>
+                          <p className="text-[10px] text-rose-700 leading-tight">
+                            Silakan hubungi admin untuk isi ulang kuota. Pembuatan akun diblokir.
+                          </p>
                         </div>
                       );
                     }
@@ -899,41 +882,18 @@ export default function ClientSchedulePage() {
                 const countNum = parseInt(count, 10);
                 if (isNaN(countNum) || countNum <= 0) return null;
                 const isMandiri = !selectedJobId;
-                if (isMandiri) {
-                  const totalNeeded = selectedCustomTools.length * countNum;
-                  if (selectedCustomTools.length > 0 && totalNeeded > quotaSingle) {
-                    return (
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-semibold">
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                          <span>
-                            Pembuatan akun diblokir: Kuota Single Test kurang ({quotaSingle}/{totalNeeded}). Silakan konversi kuota atau hubungi admin untuk isi ulang.
-                          </span>
-                        </div>
-                        {quotaPackage > 0 && (
-                          <Link
-                            href="/client/quota"
-                            className="px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shrink-0 whitespace-nowrap shadow-xs"
-                          >
-                            Konversi Kuota
-                          </Link>
-                        )}
-                      </div>
-                    );
-                  }
-                } else {
-                  if (countNum > quotaPackage) {
-                    return (
-                      <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-semibold">
-                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                        <span>
-                          Pembuatan akun diblokir: Kuota Paket Asesmen tidak mencukupi ({quotaPackage}/{countNum}). Silakan hubungi admin untuk isi ulang kuota.
-                        </span>
-                      </div>
-                    );
-                  }
-                }
-                return null;
+                const isBlocked = isMandiri
+                  ? (selectedCustomTools.length > 0 && selectedCustomTools.length * countNum > quotaSingle)
+                  : (countNum > quotaPackage);
+
+                if (!isBlocked) return null;
+
+                return (
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Pembuatan akun diblokir karena kuota tidak mencukupi. Silakan konversi kuota atau hubungi admin.</span>
+                  </div>
+                );
               })()}
 
               {/* Submit Button */}
