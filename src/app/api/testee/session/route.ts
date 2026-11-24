@@ -198,10 +198,11 @@ export async function GET() {
 
   const rawName = (user?.name || '').trim();
   const username = (user?.username || '').trim();
+  const lowerName = rawName.toLowerCase();
   const isDefaultName = !rawName || 
-    rawName.toLowerCase().startsWith('peserta ') || 
-    rawName.toLowerCase() === 'peserta' ||
-    rawName.toLowerCase() === username.toLowerCase();
+    lowerName.startsWith('peserta') || 
+    lowerName.startsWith('kandidat') || 
+    lowerName === username.toLowerCase();
 
   return NextResponse.json({ 
     participantId: participant.id,

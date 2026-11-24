@@ -419,14 +419,14 @@ export async function POST(req: Request) {
 
       const plainPassword = generateSecurePassword(8);
       const hashedPassword = await bcrypt.hash(plainPassword, 10);
-      const candidateName = `Kandidat ${padNum} (${client.name})`;
+      const candidateName = `Peserta ${padNum} (${cleanPrefix})`;
 
       const newUser = await prisma.user.create({
         data: {
           name: candidateName,
           username,
           password: hashedPassword,
-          role: 'user',
+          role: 'testee',
           status: 'active',
         }
       });
@@ -435,6 +435,7 @@ export async function POST(req: Request) {
         data: {
           userId: newUser.id,
           testId: newTest.id,
+          jobPositionId: finalJobPositionId,
           status: 'pending',
           plainPassword,
         }

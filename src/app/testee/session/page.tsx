@@ -76,7 +76,13 @@ export default function TesteeSession() {
         
         // Cek apakah nama di database masih bawaan/default atau sudah diisi nama asli peserta
         const isDefault = data.isDefaultName ?? true;
-        const hasCustomDbName = !isDefault && data.userName && !data.userName.toLowerCase().startsWith('peserta');
+        const lowerName = (data.userName || '').toLowerCase().trim();
+        const usernameLower = (data.username || '').toLowerCase().trim();
+        const isGeneric = !lowerName || 
+          lowerName.startsWith('peserta') || 
+          lowerName.startsWith('kandidat') || 
+          lowerName === usernameLower;
+        const hasCustomDbName = !isDefault && !isGeneric;
 
         if (hasCustomDbName) {
           const finalName = data.userName;
