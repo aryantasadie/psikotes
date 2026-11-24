@@ -283,66 +283,22 @@ export async function POST(req: Request) {
       const totalSingleNeeded = numTools * n;
 
       if (currentSingle < totalSingleNeeded) {
-        const neededSingle = totalSingleNeeded - currentSingle;
-        const neededPackage = Math.ceil(neededSingle / 3);
-        const canConvert = currentPackage >= neededPackage;
-
-        if (autoConvert && canConvert) {
-          // Jalur Otomatis Konversi saat Penjadwalan Sesi (Bab 3.2 Spesifikasi)
-          await prisma.$transaction(async (tx) => {
-            const newPkg = currentPackage - neededPackage;
-            const newSgl = currentSingle + (neededPackage * 3);
-            await tx.quotaLedger.create({
-              data: {
-                clientId: client.id,
-                quotaType: 'PACKAGE',
-                transactionType: 'CONVERT',
-                amount: -neededPackage,
-                balanceAfter: newPkg,
-                notes: `Auto-convert saat penjadwalan sesi: Tukar ${neededPackage} Paket menjadi ${neededPackage * 3} Single (${numTools} alat tes × ${n} peserta = ${totalSingleNeeded} kuota).`,
-              }
-            });
-            await tx.quotaLedger.create({
-              data: {
-                clientId: client.id,
-                quotaType: 'SINGLE',
-                transactionType: 'CONVERT',
-                amount: neededPackage * 3,
-                balanceAfter: newSgl,
-                notes: `Hasil auto-convert untuk mencukupi jadwal sesi ${n} peserta dengan ${numTools} alat tes (Kebutuhan: ${totalSingleNeeded} kuota).`,
-              }
-            });
-            await tx.user.update({
-              where: { id: client.id },
-              data: {
-                quotaPackage: newPkg,
-                quotaSingle: newSgl,
-              }
-            });
-            currentPackage = newPkg;
-            currentSingle = newSgl;
-          });
-        } else {
-          return NextResponse.json({
-            code: canConvert ? 'CAN_CONVERT_QUOTA' : 'INSUFFICIENT_QUOTA',
-            error: canConvert
-              ? `Kuota Single Test Anda tersisa ${currentSingle}. Dibutuhkan ${totalSingleNeeded} kuota (${numTools} alat tes × ${n} peserta). Anda dapat menukar ${neededPackage} Kuota Paket Asesmen menjadi ${neededPackage * 3} Kuota Single Test.`
-              : `Kuota Single Test (${currentSingle}) dan Paket Asesmen (${currentPackage}) tidak mencukupi untuk membuat sesi ${n} peserta dengan ${numTools} alat tes (Total dibutuhkan: ${totalSingleNeeded} kuota Single Test).`,
-            neededSingle,
-            neededPackage,
-            totalSingleNeeded,
-            numTools,
-            availableSingle: currentSingle,
-            availablePackage: currentPackage,
-            canConvert
-          }, { status: 400 });
-        }
+        return NextResponse.json({
+          code: 'INSUFFICIENT_QUOTA',
+          error: `Kuota Single Test Anda tidak mencukupi (Dibutuhkan: ${totalSingleNeeded} Single Test, Tersedia: ${currentSingle}). Silakan lakukan konversi kuota di menu Kuota atau hubungi admin untuk isi ulang kuota.`,
+          totalSingleNeeded,
+          numTools,
+          availableSingle: currentSingle,
+          availablePackage: currentPackage,
+        }, { status: 400 });
       }
     } else {
       // Mode Asesmen Jabatan: Menggunakan Kuota Paket Asesmen
-      if (currentPackage < n && remainingQuota < n) {
+      if (currentPackage < n) {
         return NextResponse.json({
-          error: `Sisa Kuota Paket Asesmen Anda tersisa ${currentPackage} kandidat. Permintaan Anda: ${n} kandidat. Silakan hubungi Superadmin HR Publik untuk penambahan kuota.`
+          code: 'INSUFFICIENT_QUOTA',
+          error: `Sisa Kuota Paket Asesmen Anda (${currentPackage} sesi) tidak mencukupi untuk membuat sesi ${n} peserta. Silakan hubungi admin untuk isi ulang kuota.`,
+          availablePackage: currentPackage,
         }, { status: 400 });
       }
     }
