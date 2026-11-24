@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
+import { deductToolQuotaOnStart } from '@/lib/b2bQuota';
 
 export async function GET(request: Request) {
   try {
@@ -53,6 +54,11 @@ export async function GET(request: Request) {
 
       if (sequence.length > 0 && !isAllowed) {
         return NextResponse.json({ success: false, error: 'Alat tes ini tidak terdaftar dalam jadwal ujian Anda' }, { status: 403 });
+      }
+
+      // Potong kuota Single Test secara proporsional jika mode Single Test saat soal pertama kali diminta
+      if (participant && testType) {
+        await deductToolQuotaOnStart(participant.id, testType);
       }
     }
 

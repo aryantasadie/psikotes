@@ -110,6 +110,8 @@ export default function ClientSchedulePage() {
     message: string;
     neededSingle: number;
     neededPackage: number;
+    totalSingleNeeded?: number;
+    numTools?: number;
     availableSingle: number;
     availablePackage: number;
   } | null>(null);
@@ -231,8 +233,12 @@ export default function ClientSchedulePage() {
     }
 
     if (mode === 'CUSTOM_TEST') {
-      if (quotaSingle < n && (quotaSingle + (quotaPackage * 3)) < n) {
-        setFormError(`Sisa saldo Single Test (${quotaSingle}) dan Paket Asesmen (${quotaPackage}) tidak mencukupi untuk membuat sesi ${n} peserta.`);
+      const numTools = selectedCustomTools.length;
+      const totalSingleNeeded = numTools * n;
+      const totalAvailable = quotaSingle + (quotaPackage * 3);
+
+      if (quotaSingle < totalSingleNeeded && totalAvailable < totalSingleNeeded) {
+        setFormError(`Sisa saldo Single Test (${quotaSingle}) dan Paket Asesmen (${quotaPackage}) tidak mencukupi untuk membuat sesi ${n} peserta dengan ${numTools} alat tes. Total yang dibutuhkan: ${totalSingleNeeded} kuota Single Test (${numTools} alat tes × ${n} peserta).`);
         return;
       }
     } else {
@@ -281,6 +287,8 @@ export default function ClientSchedulePage() {
             message: data.error,
             neededSingle: data.neededSingle,
             neededPackage: data.neededPackage,
+            totalSingleNeeded: data.totalSingleNeeded,
+            numTools: data.numTools,
             availableSingle: data.availableSingle,
             availablePackage: data.availablePackage,
           });
@@ -739,24 +747,101 @@ export default function ClientSchedulePage() {
                     }}
                     required
                     className={`h-10 text-xs transition-colors ${
-                      parseInt(count, 10) > (selectedJobId ? quotaPackage : quotaSingle) ? 'border-amber-500 focus-visible:ring-amber-500 bg-amber-50/20' : ''
+                      (() => {
+                        const countNum = parseInt(count, 10);
+                        if (isNaN(countNum) || countNum <= 0) return '';
+                        if (!selectedJobId) {
+                          const totalNeeded = selectedCustomTools.length * countNum;
+                          const maxAvail = quotaSingle + (quotaPackage * 3);
+                          return totalNeeded > maxAvail ? 'border-rose-500 focus-visible:ring-rose-500 bg-rose-50/20' : '';
+                        }
+                        return countNum > quotaPackage ? 'border-rose-500 focus-visible:ring-rose-500 bg-rose-50/20' : '';
+                      })()
                     }`}
                   />
                   {(() => {
                     const countNum = parseInt(count, 10);
-                    if (isNaN(countNum) || countNum <= 0) return null;
                     const isMandiri = !selectedJobId;
-                    const activeQuota = isMandiri ? quotaSingle : quotaPackage;
-                    if (countNum > activeQuota) {
-                      return (
-                        <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md flex items-center gap-1 mt-0.5 animate-in fade-in duration-200">
-                          <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-                          <span>
-                            {isMandiri
-                              ? `Jumlah akun (${countNum}) melebihi Single Test (${quotaSingle}). Kuota paket akan ditawarkan untuk ditukar otomatis saat submit.`
-                              : `Jumlah akun (${countNum}) melebihi kuota Paket Asesmen (${quotaPackage} sesi).`}
+
+                    if (isMandiri) {
+                      const numTools = selectedCustomTools.length;
+                      const hasCount = !isNaN(countNum) && countNum > 0;
+                      const totalSingleNeeded = numTools * (hasCount ? countNum : 0);
+                      const maxSingleAvailable = quotaSingle + (quotaPackage * 3);
+
+                      if (numTools === 0) {
+                        return (
+                          <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md flex items-center gap-1 mt-0.5">
+                            <AlertCircle className="w-3 h-3 shrink-0 text-amber-600" />
+                            <span>Pilih minimal 1 modul alat tes di atas untuk menghitung kuota.</span>
                           </span>
-                        </span>
+                        );
+                      }
+
+                      if (!hasCount) {
+                        return (
+                          <span className="text-[11px] text-slate-500 mt-0.5">
+                            Perhitungan: {numTools} alat tes × jumlah peserta = total Single Test.
+                          </span>
+                        );
+                      }
+
+                      if (totalSingleNeeded > maxSingleAvailable) {
+                        return (
+                          <div className="p-2 rounded-md bg-rose-50 border border-rose-300 text-rose-900 text-xs flex flex-col gap-1 mt-0.5 animate-in fade-in duration-200">
+                            <div className="flex items-center gap-1.5 font-bold text-rose-800 text-[11px]">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                              <span>Saldo Kuota Tidak Mencukupi (Jadwal Diblokir)</span>
+                            </div>
+                            <p className="text-[10px] leading-tight text-rose-700">
+                              Dibutuhkan: <b>{totalSingleNeeded} Single Test</b> ({numTools} alat tes × {countNum} peserta).
+                              <br />
+                              Saldo tersedia: <b>{quotaSingle} Single</b> + <b>{quotaPackage} Paket</b> (Maksimal setara: {maxSingleAvailable} Single Test).
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      if (totalSingleNeeded > quotaSingle) {
+                        const neededPackage = Math.ceil((totalSingleNeeded - quotaSingle) / 3);
+                        return (
+                          <div className="p-2 rounded-md bg-amber-50 border border-amber-300 text-amber-900 text-xs flex flex-col gap-1 mt-0.5 animate-in fade-in duration-200">
+                            <div className="flex items-center gap-1.5 font-bold text-amber-800 text-[11px]">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                              <span>Perlu Auto-Konversi Kuota</span>
+                            </div>
+                            <p className="text-[10px] leading-tight text-amber-700">
+                              Dibutuhkan: <b>{totalSingleNeeded} Single Test</b> ({numTools} alat tes × {countNum} peserta).
+                              <br />
+                              Saldo Single: {quotaSingle}. Sistem akan menukar <b>{neededPackage} Kuota Paket</b> menjadi {neededPackage * 3} Single Test saat submit.
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="p-1.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between mt-0.5">
+                          <span className="text-[11px] font-semibold text-emerald-800 flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Kebutuhan: {numTools} alat tes × {countNum} peserta = <b>{totalSingleNeeded} Single Test</b></span>
+                          </span>
+                          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
+                            Saldo Cukup
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    // Mode Paket Asesmen
+                    if (isNaN(countNum) || countNum <= 0) return null;
+                    if (countNum > quotaPackage) {
+                      return (
+                        <div className="p-2 rounded-md bg-rose-50 border border-rose-300 text-rose-900 text-xs flex items-center gap-1.5 mt-0.5 animate-in fade-in duration-200">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                          <span className="text-[11px] font-semibold">
+                            Jumlah akun ({countNum}) melebihi Kuota Paket Asesmen ({quotaPackage} sesi).
+                          </span>
+                        </div>
                       );
                     }
                     return null;
@@ -798,31 +883,77 @@ export default function ClientSchedulePage() {
                 </div>
               )}
 
-              {parseInt(count, 10) > remainingQuota && (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                  <span>Jumlah akun yang diminta ({parseInt(count, 10)}) melebihi sisa token ({remainingQuota} token).</span>
-                </div>
-              )}
+              {/* Alert Blokir jika kuota tidak mencukupi */}
+              {(() => {
+                const countNum = parseInt(count, 10);
+                if (isNaN(countNum) || countNum <= 0) return null;
+                const isMandiri = !selectedJobId;
+                if (isMandiri) {
+                  const totalNeeded = selectedCustomTools.length * countNum;
+                  const maxAvail = quotaSingle + (quotaPackage * 3);
+                  if (selectedCustomTools.length > 0 && totalNeeded > maxAvail) {
+                    return (
+                      <div className="flex items-center gap-2 p-2.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-800 text-xs font-bold">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>Pembuatan jadwal diblokir: Kebutuhan kuota ({totalNeeded} Single Test) melebihi total saldo kuota yang tersedia.</span>
+                      </div>
+                    );
+                  }
+                } else {
+                  if (countNum > quotaPackage) {
+                    return (
+                      <div className="flex items-center gap-2 p-2.5 rounded-lg bg-rose-50 border border-rose-300 text-rose-800 text-xs font-bold">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span>Pembuatan jadwal diblokir: Jumlah peserta ({countNum}) melebihi sisa Kuota Paket Asesmen ({quotaPackage}).</span>
+                      </div>
+                    );
+                  }
+                }
+                return null;
+              })()}
 
               {/* Submit Button */}
-              <Button
-                type="submit"
-                disabled={submitting}
-                className="w-full mt-2 gap-2 bg-teal-600 hover:bg-teal-700 text-white font-bold h-10 shadow-xs cursor-pointer"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Memproses Sesi & Akun...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    <span>Buat Sesi & Generate Akun</span>
-                  </>
-                )}
-              </Button>
+              {(() => {
+                const countNum = parseInt(count, 10);
+                const isMandiri = !selectedJobId;
+                const hasValidCount = !isNaN(countNum) && countNum > 0;
+                let isBlocked = false;
+
+                if (isMandiri) {
+                  const totalNeeded = selectedCustomTools.length * (hasValidCount ? countNum : 0);
+                  const maxAvail = quotaSingle + (quotaPackage * 3);
+                  if (selectedCustomTools.length === 0 || (hasValidCount && totalNeeded > maxAvail)) {
+                    isBlocked = true;
+                  }
+                } else {
+                  if (useCustomTools && selectedCustomTools.length === 0) {
+                    isBlocked = true;
+                  }
+                  if (hasValidCount && countNum > quotaPackage) {
+                    isBlocked = true;
+                  }
+                }
+
+                return (
+                  <Button
+                    type="submit"
+                    disabled={submitting || isBlocked}
+                    className="w-full mt-2 gap-2 bg-teal-600 hover:bg-teal-700 text-white font-bold h-10 shadow-xs cursor-pointer disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Memproses Sesi & Akun...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        <span>Buat Sesi & Generate Akun</span>
+                      </>
+                    )}
+                  </Button>
+                );
+              })()}
             </form>
           </CardContent>
         </Card>
@@ -1159,6 +1290,12 @@ export default function ClientSchedulePage() {
                 {convertPrompt?.message}
               </p>
               <div className="border-t border-teal-200/80 pt-2 flex flex-col gap-1 text-[11px] text-teal-900">
+                {convertPrompt?.totalSingleNeeded ? (
+                  <div className="flex justify-between">
+                    <span>Total Kebutuhan Kuota:</span>
+                    <strong>{convertPrompt.totalSingleNeeded} Single Test ({convertPrompt.numTools} alat tes × peserta)</strong>
+                  </div>
+                ) : null}
                 <div className="flex justify-between">
                   <span>Sisa Saldo Single Test Saat Ini:</span>
                   <strong>{convertPrompt?.availableSingle} Tes</strong>

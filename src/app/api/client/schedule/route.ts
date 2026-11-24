@@ -273,9 +273,17 @@ export async function POST(req: Request) {
     }
 
     if (mode === 'CUSTOM_TEST') {
-      // Mode Tes Mandiri / Bebas: Menggunakan Kuota Single Test
-      if (currentSingle < n) {
-        const neededSingle = n - currentSingle;
+      // Mode Tes Mandiri / Bebas: Menggunakan Kuota Single Test proporsional (1 kuota per 1 alat tes per peserta)
+      const numTools = Array.isArray(selectedTools) ? selectedTools.length : 0;
+      if (numTools === 0) {
+        return NextResponse.json({ error: 'Pilih minimal satu alat tes untuk mode tes mandiri.' }, { status: 400 });
+      }
+
+      // Hitung total kuota Single Test yang dibutuhkan = jumlah alat tes × jumlah peserta
+      const totalSingleNeeded = numTools * n;
+
+      if (currentSingle < totalSingleNeeded) {
+        const neededSingle = totalSingleNeeded - currentSingle;
         const neededPackage = Math.ceil(neededSingle / 3);
         const canConvert = currentPackage >= neededPackage;
 
@@ -291,7 +299,7 @@ export async function POST(req: Request) {
                 transactionType: 'CONVERT',
                 amount: -neededPackage,
                 balanceAfter: newPkg,
-                notes: `Auto-convert saat penjadwalan sesi: Tukar ${neededPackage} Paket menjadi ${neededPackage * 3} Single.`,
+                notes: `Auto-convert saat penjadwalan sesi: Tukar ${neededPackage} Paket menjadi ${neededPackage * 3} Single (${numTools} alat tes × ${n} peserta = ${totalSingleNeeded} kuota).`,
               }
             });
             await tx.quotaLedger.create({
@@ -301,7 +309,7 @@ export async function POST(req: Request) {
                 transactionType: 'CONVERT',
                 amount: neededPackage * 3,
                 balanceAfter: newSgl,
-                notes: `Hasil auto-convert untuk mencukupi jadwal sesi ${n} peserta.`,
+                notes: `Hasil auto-convert untuk mencukupi jadwal sesi ${n} peserta dengan ${numTools} alat tes (Kebutuhan: ${totalSingleNeeded} kuota).`,
               }
             });
             await tx.user.update({
@@ -318,10 +326,12 @@ export async function POST(req: Request) {
           return NextResponse.json({
             code: canConvert ? 'CAN_CONVERT_QUOTA' : 'INSUFFICIENT_QUOTA',
             error: canConvert
-              ? `Kuota Single Test Anda tersisa ${currentSingle}. Dibutuhkan ${n} kuota. Anda dapat menukar ${neededPackage} Kuota Paket Asesmen menjadi ${neededPackage * 3} Kuota Single Test.`
-              : `Kuota Single Test (${currentSingle}) dan Paket Asesmen (${currentPackage}) tidak mencukupi untuk membuat sesi ${n} peserta.`,
+              ? `Kuota Single Test Anda tersisa ${currentSingle}. Dibutuhkan ${totalSingleNeeded} kuota (${numTools} alat tes × ${n} peserta). Anda dapat menukar ${neededPackage} Kuota Paket Asesmen menjadi ${neededPackage * 3} Kuota Single Test.`
+              : `Kuota Single Test (${currentSingle}) dan Paket Asesmen (${currentPackage}) tidak mencukupi untuk membuat sesi ${n} peserta dengan ${numTools} alat tes (Total dibutuhkan: ${totalSingleNeeded} kuota Single Test).`,
             neededSingle,
             neededPackage,
+            totalSingleNeeded,
+            numTools,
             availableSingle: currentSingle,
             availablePackage: currentPackage,
             canConvert

@@ -1,4 +1,4 @@
-import { markParticipantStarted } from '@/lib/b2bQuota';
+import { markParticipantStarted, deductToolQuotaOnStart } from '@/lib/b2bQuota';
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -39,6 +39,11 @@ export async function POST(req: Request) {
 
     if (!participant.startTime || participant.status === 'pending') {
       await markParticipantStarted(participant.id);
+    }
+
+    // Fail-safe: pastikan pemotongan kuota Single Test proporsional tercatat untuk modul ini
+    if (testType) {
+      await deductToolQuotaOnStart(participant.id, testType);
     }
 
     if (testType === 'KRAEPELIN' || testType === 'KREAPELIN') {
