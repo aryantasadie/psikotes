@@ -71,6 +71,7 @@ interface BankPsikogramItem {
   name: string;
   description?: string | null;
   presetName: string;
+  sequence?: string[];
   grayAreasCount: number;
   grayAreas?: Array<{ id: number; parameter: string; targetScore: number }>;
 }
@@ -417,9 +418,16 @@ export default function ClientSchedulePage() {
                     setSelectedJobId(val);
                     if (val) {
                       const found = bankPsikogram.find(j => String(j.id) === val);
-                      if (found && (!sessionName.trim() || bankPsikogram.some(j => j.name === sessionName.trim()))) {
-                        setSessionName(found.name);
+                      if (found) {
+                        if (!sessionName.trim() || bankPsikogram.some(j => j.name === sessionName.trim())) {
+                          setSessionName(found.name);
+                        }
+                        if (Array.isArray(found.sequence) && found.sequence.length > 0) {
+                          setSelectedCustomTools(found.sequence);
+                        }
                       }
+                    } else {
+                      setSelectedCustomTools([]);
                     }
                     if (formError) setFormError('');
                   }}

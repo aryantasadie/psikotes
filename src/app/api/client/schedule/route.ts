@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import bcrypt from 'bcryptjs';
 import { authOptions } from '@/lib/authOptions';
 import { generateSecurePassword } from '@/lib/passwordGenerator';
+import { resolveJobPositionSequence, sortSequence } from '@/lib/testSequence';
 
 // GET: Fetch client's locked battery test, bank psikogram, quotas, and existing batches
 export async function GET() {
@@ -139,16 +140,24 @@ export async function GET() {
       }))
     }));
 
+    const enrichedBankPsikogram = await Promise.all(
+      bankPsikogram.map(async (j) => {
+        const seq = await resolveJobPositionSequence(j.id);
+        return {
+          id: j.id,
+          name: j.name,
+          description: j.description,
+          presetName: j.psychographPreset?.name || 'FIX HR Publik',
+          sequence: seq,
+          grayAreasCount: j.grayAreas?.length || 0,
+          grayAreas: j.grayAreas,
+        };
+      })
+    );
+
     return NextResponse.json({
       batteryTest,
-      bankPsikogram: bankPsikogram.map(j => ({
-        id: j.id,
-        name: j.name,
-        description: j.description,
-        presetName: j.psychographPreset?.name || 'FIX HR Publik',
-        grayAreasCount: j.grayAreas?.length || 0,
-        grayAreas: j.grayAreas
-      })),
+      bankPsikogram: enrichedBankPsikogram,
       totalQuota,
       usedQuota,
       remainingQuota,
@@ -252,7 +261,7 @@ export async function POST(req: Request) {
       if (!Array.isArray(selectedTools) || selectedTools.length === 0) {
         return NextResponse.json({ error: 'Pilih minimal satu alat tes untuk mode tes mandiri.' }, { status: 400 });
       }
-      finalSequence = selectedTools;
+      finalSequence = sortSequence(selectedTools);
       finalJobPositionId = null;
       finalPresetId = null;
       finalSpecName = 'Tes Bebas (Tanpa Psikogram)';
@@ -273,10 +282,16 @@ export async function POST(req: Request) {
 
       finalJobPositionId = jobPos.id;
       finalPresetId = jobPos.psychographPresetId;
-      finalSequence = (Array.isArray(selectedTools) && selectedTools.length > 0)
-        ? selectedTools
-        : batteryTest; // Jika tidak ada alat tes manual, gunakan Baterai Tes resmi mitra!
       finalSpecName = jobPos.name;
+
+      // Resolusi urutan baterai tes resmi sesuai formasi jabatan & acuan preset psikogramnya
+      const jobOfficialSequence = await resolveJobPositionSequence(jobPos.id);
+
+      if (Array.isArray(selectedTools) && selectedTools.length > 0) {
+        finalSequence = sortSequence(selectedTools);
+      } else {
+        finalSequence = jobOfficialSequence;
+      }
     }
 
     // Format Title
